@@ -237,8 +237,6 @@ void sti_s();
 //int vsprintf(char *buf, const char *fmt, va_list args);
 //int printf(const char *fmt, ...);
 
-void puts(const char *str);
-int  putchar( int _Character);
 extern void die();
 extern void clearscreen();
 extern void setcursor(uint32 pos);

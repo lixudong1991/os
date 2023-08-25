@@ -2,6 +2,7 @@
 #include "syscall.h"
 #include "interruptGate.h"
 #include "elf.h"
+#include "printf.h"
 #define STACKLIMIT_G1(a)   ((((uint32)(a))-1)>>12) //gdt 表项粒度为1的段界限
 
  BootParam bootparam;
@@ -275,6 +276,7 @@ void testfun()
 int _start(BootParam *argv)
 {
 	clearscreen();
+	printf("aaaaabbccccdddd%d %d\r\n",4444,555);
 	memcpy_s((char*)&bootparam,(char*)argv,sizeof(BootParam));
 	kernelData.gdtInfo.base = bootparam.gdt_base;
 	kernelData.gdtInfo.limit = bootparam.gdt_size;
@@ -335,9 +337,10 @@ int _start(BootParam *argv)
 	//callTss(kernelData.taskList.tcb_Last->tssSel);
 	//intcall();
 	//testfun();
+	uint32 count = 0;
 	while (1)
 	{
-		puts("kernel process.....................\r\n");
+		printf("kernel process.....................%s %d\r\n","count =", count++);
 		uint32 count = 0xfffff;
 		while (count--) {}
 	}

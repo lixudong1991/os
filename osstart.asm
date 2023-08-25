@@ -563,7 +563,7 @@ read_DriveParam:
 		pop dx
 		ret
 		
-kernelSectionCount      equ      40    
+kernelSectionCount      equ      44    
 kernelStartSection      equ      16
 kernelLoadAddr 			equ      0x3b00
 kernelVirAddr			equ      0xc0000000

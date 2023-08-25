@@ -36,8 +36,17 @@ setidtr:
          mov al,0x0b                        ;RTC寄存器B
          or al,0x80                         ;阻断NMI
          out 0x70,al
-         mov al,0x12                        ;设置寄存器B，禁止周期性中断，开放更
+         mov al,0x42                        ;设置寄存器B，周期性中断，开放更
          out 0x71,al                        ;新结束后中断，BCD码，24小时制
+
+		 mov al,0x0a
+		 or al,0x80
+		 out 0x70,al
+		 in al,0x71
+		 or al,0x0c							;设置中断时间为62.5ms  0x0d=125ms, 0x0e=250ms,0x0f=500ms,0x07=1.9ms
+		 out 0x71,al
+
+
 
          in al,0xa1                         ;读8259从片的IMR寄存器
          and al,0xfe                        ;清除bit 0(此位连接RTC)
