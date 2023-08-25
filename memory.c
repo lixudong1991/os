@@ -1,5 +1,6 @@
 #include "boot.h"
 #define ALLOC_ALIGN 4
+extern  BootParam bootparam;
 char* allocate_memory(TaskCtrBlock* task, uint32 size, uint32 prop)
 {
 	uint32 sizealign = size;

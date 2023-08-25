@@ -1,6 +1,6 @@
 
 global setgdtr,setldtr,settr,cs_data,ds_data,ss_data,fs_data,gs_data,setds,setgs,setfs,esp_data,cr3_data,flags_data,setBit,resetBit,testBit,allocatePhy4kPage,sysInLong,sysOutLong,callTss,setidtr,cli_s,sti_s,invlpg_s,intcall,resetcr3
-extern bootparam,allocateVirtual4kPage
+extern bootparam,allocateVirtual4kPage,freePhy4kPage
 setgdtr:
 	push ebx
 	mov ebx,[esp+8]
@@ -187,13 +187,22 @@ next4k:	bts dword [edx],eax
 		jmp next4k
 no4k:	xor eax,eax
 target4k:
-		xor edx,edx
-		mov ebx,0x1000
-		mul ebx
+		shl eax,12
 		pop ebx
 		pop edx	
 		ret
-	
+freePhy4kPage:
+		push edx
+		mov eax,[esp+8]
+		shr eax,12
+		mov edx,[bootparam+26]
+		btr dword [edx],eax
+		mov eax,1
+		jb  freePhy4kPageret
+		xor eax,eax
+freePhy4kPageret:
+		pop edx
+		ret
 ;allocateVirtual4kPage:
 ;		push ebp
 ;		mov ebp,esp

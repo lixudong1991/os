@@ -21,6 +21,7 @@ cat diskdata.txt >> main
 # i686-elf-gcc -T link.ld boot.o kernel.o -o kernel.bin -nostdlib -ffreestanding -lgcc
 i686-elf-readelf -l main
 
+nasm -f bin osstart.asm -o osstart.bin
 
 nasm -f elf32 syslib.asm -o syslib.o
 i686-elf-gcc  -c main.c -o main.o -ffreestanding

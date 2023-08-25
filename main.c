@@ -141,7 +141,7 @@ static void createInterruptGate(KernelData* kdata)
 		appendTableGateItem(&(kdata->idtInfo), &item);
 	}
 
-	setidtr(&(kernelData.idtInfo));
+	setidtr(&(kdata->idtInfo));
 	sti_s();
 }
 TaskCtrBlock* createNewTcb(TcbList* taskList)
@@ -264,6 +264,14 @@ void createTask(TcbList *taskList,uint32 taskStartSection, uint32 SectionCount)
 	setgdtr(&(kernelData.gdtInfo));
 	sti_s();
 }
+/*
+void testfun()
+{
+	char *addr = allocatePhy4kPage(16384);
+	addr += 2048;
+	freePhy4kPage(addr);
+}
+*/
 int _start(BootParam *argv)
 {
 	clearscreen();
@@ -326,6 +334,7 @@ int _start(BootParam *argv)
 	createTask(&(kernelData.taskList), 250, 4);
 	//callTss(kernelData.taskList.tcb_Last->tssSel);
 	//intcall();
+	//testfun();
 	while (1)
 	{
 		puts("kernel process.....................\r\n");

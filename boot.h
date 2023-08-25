@@ -246,7 +246,7 @@ extern uint32 getcursor();
 char* allocate_memory(TaskCtrBlock *task,uint32 size, uint32 prop);
 
 extern char* allocatePhy4kPage(uint32 startPhyPage);
-
+extern uint32 freePhy4kPage(uint32 page);
 #define PAGE_R	   0
 #define PAGE_RW	   2   
 
