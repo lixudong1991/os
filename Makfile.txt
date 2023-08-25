@@ -1,0 +1,5 @@
+nasm -f elf32 memcpy_s.asm -o memcpy_s.o
+gcc -c main.c  -o main.o -m32 -fno-stack-protector
+ld -m elf_i386 -s -o main osstart.o main.o
+readelf -h main
+ld -m elf_i386 -s -o main main.o puts.o mem.o boot.o disk.o harddisk.o Table.o string.o
