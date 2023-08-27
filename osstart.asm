@@ -563,11 +563,10 @@ read_DriveParam:
 		pop dx
 		ret
 		
-kernelSectionCount      equ      64    
-kernelStartSection      equ      16
-kernelLoadAddr 			equ      0x3b00
+kernelSectionCount      equ      64    ;用户程序1+用户程序2+kernel的总扇区数
+kernelStartSection      equ      16     ;内核加载起始扇区
+kernelLoadAddr 			equ      0x3b00 ;内核加载内存起始地址
 kernelVirAddr			equ      0xc0000000
-        
 stdos:  
 
 
