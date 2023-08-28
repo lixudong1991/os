@@ -463,11 +463,17 @@ printMemInfo0:
 		add dl,9
 		call showstr
 		
+		;add dl,12
+		;mov si,0600h+ meminfostr -  osstart
+		;mov ax,0600h+ meminfostr1 -  osstart	
+		;cmp dword [bx+16],1 
+		;cmovnz si,ax
+		push dx
+		mov ax,[bx+16]
+		mov dx,[bx+18]
+		call itohstr
+		pop dx
 		add dl,12
-		mov si,0600h+ meminfostr -  osstart
-		mov ax,0600h+ meminfostr1 -  osstart	
-		cmp dword [bx+16],1 
-		cmovnz si,ax
 		call showstr
 		mov si,0600h+ hexstrbuff -  osstart
 		sub dl,42
@@ -1439,13 +1445,14 @@ vir_base dd 0xffffffff
 vir_end  dd 0
 phy_cs	 dd 0x8
 phy_ds	 dd 0000000000010_000B
+gdtempty dw 0
 gdt_size dw 39
 gdt_base dd 0600h+gdt_table-osstart     ;GDT的物理地址 
 pageStatus    dd kernelVirAddr+0x10000
 idtTable      dd kernelVirAddr+0x30000
 kernelAllocateNextAddr dd kernelVirAddr+0x31000
 memInfoDataSize dw 0
-memInfoData times 600 db 0;每20个字节代表一段内存信息,20个字节如下
+memInfoData times 1200 db 0;每20个字节代表一段内存信息,20个字节如下
 							;Offset in Bytes		Name		Description
 							;		0	    BaseAddrLow		Low 32 Bits of Base Address
 							;		4	    BaseAddrHigh	High 32 Bits of Base Address
