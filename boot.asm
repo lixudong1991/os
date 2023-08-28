@@ -1,6 +1,6 @@
 
-global setgdtr,setldtr,settr,cs_data,ds_data,ss_data,fs_data,gs_data,setds,setgs,setfs,esp_data,cr3_data,flags_data,setBit,resetBit,testBit,allocatePhy4kPage,sysInLong,sysOutLong,callTss,setidtr,cli_s,sti_s,invlpg_s,intcall,resetcr3
-extern bootparam,allocateVirtual4kPage,freePhy4kPage
+global setgdtr,setldtr,settr,cs_data,ds_data,ss_data,fs_data,gs_data,setds,setgs,setfs,esp_data,cr3_data,flags_data,setBit,resetBit,testBit,allocatePhy4kPage,freePhy4kPage,sysInLong,sysOutLong,callTss,setidtr,cli_s,sti_s,invlpg_s,intcall,resetcr3
+extern bootparam
 setgdtr:
 	push ebx
 	mov ebx,[esp+8]
