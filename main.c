@@ -340,6 +340,13 @@ int _start(BootParam *argv)
 	//testfun();
 	printf("local APIC: 0x%x\r\n",check_apic());
 	printf("is support x2APIC: 0x%x\r\n",check_x2apic());
+
+	uint32 apicTimerTscDeadline = check_apic_timer_tscdeadline();
+	printf("apicTimerTscDeadlineMode: 0x%x",apicTimerTscDeadline);
+	if(apicTimerTscDeadline == 0)
+		printf(" the mode is determined by bit 17 of the e LVT Timer Register\r\n");
+	else
+		printf(" the mode is determined by bits 18:17 of the e LVT Timer Register\r\n");		
 	// uint32 count = 0;
 	// while (1)
 	// {
