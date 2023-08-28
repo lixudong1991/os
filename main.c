@@ -3,6 +3,7 @@
 #include "interruptGate.h"
 #include "elf.h"
 #include "printf.h"
+#include "apic.h"
 #define STACKLIMIT_G1(a)   ((((uint32)(a))-1)>>12) //gdt 表项粒度为1的段界限
 
  BootParam bootparam;
@@ -333,17 +334,19 @@ int _start(BootParam *argv)
 	buff[512] = 0;
 	puts("\r\n");
 	puts(buff);*/
-	createTask(&(kernelData.taskList),200,4);
-	createTask(&(kernelData.taskList), 250,4);
+	//createTask(&(kernelData.taskList),200,4);
+	//createTask(&(kernelData.taskList), 250,4);
 	//callTss(kernelData.taskList.tcb_Last->tssSel);
 	//testfun();
-	uint32 count = 0;
-	while (1)
-	{
-	//	printf("kernel process.....................%s %d\r\n","count =", count++);
-		uint32 count = 0xfffff;
-		while (count--) {}
-	}
+	printf("local APIC: 0x%x\r\n",check_apic());
+	printf("is support x2APIC: 0x%x\r\n",check_x2apic());
+	// uint32 count = 0;
+	// while (1)
+	// {
+	// //	printf("kernel process.....................%s %d\r\n","count =", count++);
+	// 	uint32 count = 0xfffff;
+	// 	while (count--) {}
+	// }
 	while (1)
 		die();	
 }

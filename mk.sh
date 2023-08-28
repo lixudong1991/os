@@ -11,10 +11,11 @@ i686-elf-gcc  -c table.c -o obj/table.o -ffreestanding
 i686-elf-gcc  -c memory.c -o obj/memory.o -ffreestanding
 i686-elf-gcc  -c elf.c -o obj/elf.o -ffreestanding
 i686-elf-gcc  -c printf.c -o obj/printf.o -ffreestanding
+i686-elf-gcc  -c apic.c -o obj/apic.o -ffreestanding
 
 #i686-elf-gcc -T link.ld -Ttext 0x9000 -o main obj/main.o obj/puts.o obj/mem.o obj/boot.o obj/disk.o obj/harddisk.o obj/table.o obj/string.o obj/syscall.o -nostdlib -ffreestanding -lgcc
 
-i686-elf-gcc -Ttext 0xc0036000 -o main obj/main.o obj/puts.o obj/mem.o obj/memory.o obj/elf.o obj/boot.o obj/disk.o obj/harddisk.o obj/table.o obj/string.o obj/syscall.o obj/interruptGate.o obj/printf.o -nostdlib -ffreestanding -lgcc
+i686-elf-gcc -Ttext 0xc0036000 -o main obj/main.o obj/puts.o obj/mem.o obj/memory.o obj/elf.o obj/boot.o obj/disk.o obj/harddisk.o obj/table.o obj/string.o obj/syscall.o obj/interruptGate.o obj/printf.o obj/apic.o -nostdlib -ffreestanding -lgcc
 cat diskdata.txt >> main
 # i686-elf-as boot.s -o boot.o
 # i686-elf-gcc kernel.c -o kernel.o -ffreestanding

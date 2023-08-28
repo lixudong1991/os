@@ -1,5 +1,5 @@
 
-global setgdtr,setldtr,settr,cs_data,ds_data,ss_data,fs_data,gs_data,setds,setgs,setfs,esp_data,cr3_data,flags_data,setBit,resetBit,testBit,allocatePhy4kPage,freePhy4kPage,sysInLong,sysOutLong,callTss,setidtr,cli_s,sti_s,invlpg_s,intcall,resetcr3
+global setgdtr,setldtr,settr,cs_data,ds_data,ss_data,fs_data,gs_data,cpuidcall,setds,setgs,setfs,esp_data,cr3_data,flags_data,setBit,resetBit,testBit,allocatePhy4kPage,freePhy4kPage,sysInLong,sysOutLong,callTss,setidtr,cli_s,sti_s,invlpg_s,intcall,resetcr3
 extern bootparam
 pageStatusOffset equ 28
 setgdtr:
@@ -423,6 +423,34 @@ sysOutLong:
 	pop edx
 	ret
 
+
+
+cpuidcall:
+	push ebp
+	mov ebp,esp
+	push ebx
+	push ecx
+	push edx
+	xor ebx,ebx
+	xor ecx,ecx
+	xor edx,edx
+	mov eax,[ebp+8]
+	cpuid
+	push ebx
+	mov ebx,[ebp+0xc]
+	mov [ebx],eax
+	pop ebx
+	mov eax,[ebp+0x10]
+	mov [eax],ebx
+	mov eax,[ebp+0x14]
+	mov [eax],ecx
+	mov eax,[ebp+0x18]
+	mov [eax],edx
+	pop edx
+	pop ecx
+	pop ebx
+	pop ebp
+	ret
 
 
 
