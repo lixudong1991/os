@@ -187,7 +187,7 @@ allocatePhy4kPage:
 		push edx
 		push ebx		
 		mov eax,[esp+0xc]
-		mov edx,[bootparam+26]
+		mov edx,[bootparam+28]
 next4k:	bts dword [edx],eax
 		jnb target4k	
 		inc eax
@@ -204,7 +204,7 @@ freePhy4kPage:
 		push edx
 		mov eax,[esp+8]
 		shr eax,12
-		mov edx,[bootparam+26]
+		mov edx,[bootparam+28]
 		btr dword [edx],eax
 		mov eax,1
 		jb  freePhy4kPageret

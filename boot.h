@@ -38,7 +38,7 @@ typedef struct DriveParametersPacket
 	uint16 SectorSize; // 扇区尺寸 (以字节为单位)
 }DriveParametersPacket;
 
-#define MEMINFOMAXSIZE 30
+#define MEMINFOMAXSIZE 60
 typedef struct BootParam
 {
 	uint32 entry;
@@ -46,6 +46,7 @@ typedef struct BootParam
 	uint32 vir_end;
 	uint32 phy_cs;
 	uint32 phy_ds;
+	uint16 gdtempty;
 	uint16 gdt_size;
 	uint32 gdt_base;
 	uint32 pageStatusAddr;

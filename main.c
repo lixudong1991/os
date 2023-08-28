@@ -156,12 +156,12 @@ TaskCtrBlock* createNewTcb(TcbList* taskList)
 	return newTcb;
 }
 
-void createTask(TcbList *taskList, char* elfdata)
+void createTask(TcbList *taskList,int taskStartSection,int SectionCount)
 {
 	cli_s();
 	TaskCtrBlock* newTask = createNewTcb(taskList);
-	//char* elfdata = allocate_memory(taskList->tcb_Frist,SectionCount*512, PAGE_RW);
-//	read_ata_sectors(elfdata, taskStartSection, SectionCount);
+	char* elfdata = allocate_memory(taskList->tcb_Frist,SectionCount*512, PAGE_RW);
+	read_ata_sectors(elfdata, taskStartSection, SectionCount);
 
 	ProgramaData prodata;
 	prodata.vir_end = 0;
@@ -314,36 +314,36 @@ int _start(BootParam *argv)
 	settr(tcbhead->tssSel);
 	createCallGate(&kernelData);
 	
-	char number[32];
-	puts("\r\nbus:");
-	puts(hexstr32(number, bootparam.bus));
-	puts("\r\nslot:");
-	puts(hexstr32(number, bootparam.slot));
-	puts("\r\nvendor:");
-	puts(hexstr32(number, bootparam.vendor));
-	puts("\r\ndevice:");
-	puts(hexstr32(number, bootparam.device));
-	puts("\r\nbar5:");
-	puts(hexstr32(number, bootparam.bar5));
-	puts("\r\nReadAddress:");
-	puts(hexstr32(number, bootparam.ReadAddress));
+	// char number[32];
+	// puts("\r\nbus:");
+	// puts(hexstr32(number, bootparam.bus));
+	// puts("\r\nslot:");
+	// puts(hexstr32(number, bootparam.slot));
+	// puts("\r\nvendor:");
+	// puts(hexstr32(number, bootparam.vendor));
+	// puts("\r\ndevice:");
+	// puts(hexstr32(number, bootparam.device));
+	// puts("\r\nbar5:");
+	// puts(hexstr32(number, bootparam.bar5));
+	// puts("\r\nReadAddress:");
+	// puts(hexstr32(number, bootparam.ReadAddress));
 	
 	//char* buff = allocateVirtual4kPage(1,(char**)&(bootparam.kernelAllocateNextAddr),   PAGE_RW);
 	/*read_ata_sectors(buff,150,1);
 	buff[512] = 0;
 	puts("\r\n");
 	puts(buff);*/
-	//createTask(&(kernelData.taskList),0x41000);
-	//createTask(&(kernelData.taskList), 0x42000);
+	createTask(&(kernelData.taskList),200,4);
+	createTask(&(kernelData.taskList), 250,4);
 	//callTss(kernelData.taskList.tcb_Last->tssSel);
 	//testfun();
-	/*uint32 count = 0;
+	uint32 count = 0;
 	while (1)
 	{
-		printf("kernel process.....................%s %d\r\n","count =", count++);
+	//	printf("kernel process.....................%s %d\r\n","count =", count++);
 		uint32 count = 0xfffff;
 		while (count--) {}
-	}*/
+	}
 	while (1)
 		die();	
 }
