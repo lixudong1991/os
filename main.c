@@ -338,15 +338,18 @@ int _start(BootParam *argv)
 	//createTask(&(kernelData.taskList), 250,4);
 	//callTss(kernelData.taskList.tcb_Last->tssSel);
 	//testfun();
+
+
+	printf("cpuinfo: 0x%x\r\n",cpuinfo());
 	printf("local APIC: 0x%x\r\n",check_apic());
 	printf("is support x2APIC: 0x%x\r\n",check_x2apic());
 
 	uint32 apicTimerTscDeadline = check_apic_timer_tscdeadline();
-	printf("apicTimerTscDeadlineMode: 0x%x",apicTimerTscDeadline);
+	printf("apicTimerTscDeadlineMode: 0x%x\r\n",apicTimerTscDeadline);
 	if(apicTimerTscDeadline == 0)
-		printf(" the mode is determined by bit 17 of the e LVT Timer Register\r\n");
+		printf("apicTimerTscDeadlineMode not support\r\n");
 	else
-		printf(" the mode is determined by bits 18:17 of the e LVT Timer Register\r\n");		
+		printf("apicTimerTscDeadlineMode support\r\n");		
 	// uint32 count = 0;
 	// while (1)
 	// {

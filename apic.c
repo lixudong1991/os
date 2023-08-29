@@ -1,6 +1,13 @@
 #include "apic.h"
 #include "boot.h"
 
+int cpuinfo()
+{
+   uint32_t eax=0,ebx=0,ecx=0,edx=0;
+   cpuidcall(1, &eax, &ebx,&ecx,&edx);
+   return eax;
+}
+
 int check_apic()
 {
    uint32_t eax=0,ebx=0,ecx=0,edx=0;
