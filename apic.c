@@ -28,3 +28,12 @@ int check_apic_timer_tscdeadline()
    return ecx & CPUID_APIC_TIMER_TSCDEADLINE;       
 
 }
+int enablingx2APIC()
+{
+   uint32 eax=0,edx=0;
+   if(check_x2apic() == CPUID_SUPPORT_ECX_x2APIC)
+   {
+
+   }
+   return FALSE;
+}
