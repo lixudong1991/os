@@ -339,9 +339,11 @@ int _start(BootParam *argv)
 	//callTss(kernelData.taskList.tcb_Last->tssSel);
 	//testfun();
 
+    uint32_t eax=0,ebx=0,ecx=0,edx=0;
+    cpuidcall(1, &eax, &ebx,&ecx,&edx);
+	printf("cpuid[1] EAX:0x%x EBX:0x%x ECX:0x%x EDX:0x%x\r\n",eax,ebx,ecx,edx);
 
-	printf("cpuinfo: 0x%x\r\n",cpuinfo());
-	printf("local APIC: 0x%x\r\n",check_apic());
+	printf("local APIC support: 0x%x\r\n",check_apic());
 	printf("is support x2APIC: 0x%x\r\n",check_x2apic());
 
 	uint32 apicTimerTscDeadline = check_apic_timer_tscdeadline();
@@ -350,6 +352,22 @@ int _start(BootParam *argv)
 		printf("apicTimerTscDeadlineMode not support\r\n");
 	else
 		printf("apicTimerTscDeadlineMode support\r\n");		
+	eax=0,edx=0;
+	rdmsrcall(IA32_APIC_BASE_MSR,&eax,edx);
+	printf("before enable x2apic msr: low 32:0x%x high 32:%x\r\n",eax,edx);
+	enablingx2APIC();
+	eax=edx=0;
+	rdmsrcall(IA32_APIC_BASE_MSR,&eax,edx);
+	printf("after enable x2apic msr: low 32:0x%x high 32:%x\r\n",eax,edx);
+	rdmsrcall(IA32_X2APIC_APICID,&eax,edx);
+    printf("Local x2APIC ID:.0x%x\r\n",eax);
+	rdmsrcall(IA32_X2APIC_VERSION,&eax,edx);
+	printf("Local x2APIC Version:0x%x\r\n",eax);
+	rdmsrcall(IA32_X2APIC_LDR,&eax,edx);
+	printf("Logical Destination:0x%x\r\n",eax);
+	eax =0x80;
+	edx =0;
+	wrmsr_fence(IA32_X2APIC_SELF_IPI,eax,edx);
 	// uint32 count = 0;
 	// while (1)
 	// {
@@ -357,6 +375,7 @@ int _start(BootParam *argv)
 	// 	uint32 count = 0xfffff;
 	// 	while (count--) {}
 	// }
+	printf("enter die\r\n");
 	while (1)
 		die();	
 }

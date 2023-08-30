@@ -219,6 +219,9 @@ void resetcr3();
 extern int cpuidcall(uint32 callnum,uint32 *eax,uint32 *ebx,uint32 *ecx,uint32 *edx);
 extern int rdmsrcall(uint32 msrid,uint32 *eax,uint32 *edx);
 extern int wrmsrcall(uint32 msrid,uint32 eax,uint32 edx);
+extern int rdmsr_fence(uint32 msrid,uint32 *eax,uint32 *edx);
+extern int wrmsr_fence(uint32 msrid,uint32 eax,uint32 edx);
+
 
 extern uint32_t sysInLong(unsigned short port);
 extern void sysOutLong(unsigned short port, uint32_t val);

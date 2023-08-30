@@ -1,5 +1,5 @@
 
-global setgdtr,setldtr,settr,cs_data,ds_data,ss_data,fs_data,gs_data,cpuidcall,rdmsrcall,wrmsrcall,setds,setgs,setfs,esp_data,cr3_data,flags_data,setBit,resetBit,testBit,allocatePhy4kPage,freePhy4kPage,sysInLong,sysOutLong,callTss,setidtr,cli_s,sti_s,invlpg_s,intcall,resetcr3
+global setgdtr,setldtr,settr,cs_data,ds_data,ss_data,fs_data,gs_data,cpuidcall,rdmsrcall,wrmsrcall,wrmsr_fence,rdmsr_fence,setds,setgs,setfs,esp_data,cr3_data,flags_data,setBit,resetBit,testBit,allocatePhy4kPage,freePhy4kPage,sysInLong,sysOutLong,callTss,setidtr,cli_s,sti_s,invlpg_s,intcall,resetcr3
 extern bootparam
 pageStatusOffset equ 28
 setgdtr:
@@ -482,6 +482,39 @@ wrmsrcall:
 	mov eax,[ebp+0xc]
 	mov edx,[ebp+0x10]
 	wrmsr
+    pop edx
+	pop ecx
+	pop ebp
+	ret
+
+wrmsr_fence:
+	push ebp
+	mov ebp,esp
+	push ecx
+	push edx
+	mov ecx,[ebp+8]
+	mov eax,[ebp+0xc]
+	mov edx,[ebp+0x10]
+	mfence
+	wrmsr
+    pop edx
+	pop ecx
+	pop ebp
+	ret
+rdmsr_fence:
+	push ebp
+	mov ebp,esp
+	push ecx
+	push edx
+	xor eax,eax
+	xor edx,edx
+	mov ecx,[ebp+8]
+	mfence
+	rdmsr
+	mov ecx,[ebp+0xc]
+	mov [ecx],eax
+	mov ecx,[ebp+0x10]
+	mov [edx],edx
     pop edx
 	pop ecx
 	pop ebp
