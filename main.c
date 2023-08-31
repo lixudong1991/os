@@ -1,4 +1,4 @@
-﻿#include "boot.h"
+#include "boot.h"
 #include "syscall.h"
 #include "interruptGate.h"
 #include "elf.h"
@@ -6,8 +6,8 @@
 #include "apic.h"
 #define STACKLIMIT_G1(a)   ((((uint32)(a))-1)>>12) //gdt 表项粒度为1的段界限
 
- BootParam bootparam;
- KernelData kernelData;
+BootParam bootparam;
+KernelData kernelData;
 
 char* hexstr32(char buff[9],uint32 val)
 {
@@ -387,7 +387,7 @@ int _start(BootParam *argv)
 	wrmsr_fence(IA32_X2APIC_SELF_IPI,eax,edx);
 	
 	//IPI测试
-	eax = 0x84080; //vector =0x80  level = 1 tirgger =0  Destination Shorthand =All Excluding Self
+	eax = 0xC4400; //vector =0x80  level = 1 tirgger =0  Destination Shorthand =All Excluding Self
 	edx =0xffffffff;
 	wrmsr_fence(IA32_X2APIC_ICR,eax,edx);  
 

@@ -29,13 +29,13 @@ typedef struct MemInfo
 
 typedef struct DriveParametersPacket
 {
-	uint16 InfoSize; // Êı¾İ°ü³ß´ç (26 ×Ö½Ú)
-	uint16 Flags; // ĞÅÏ¢±êÖ¾
-	uint32 Cylinders; // ´ÅÅÌÖùÃæÊı
-	uint32 Heads; // ´ÅÅÌ´ÅÍ·Êı
-	uint32 SectorsPerTrack; // Ã¿´ÅµÀÉÈÇøÊı
-	uint32 Sectors; // ´ÅÅÌ×ÜÉÈÇøÊı
-	uint16 SectorSize; // ÉÈÇø³ß´ç (ÒÔ×Ö½ÚÎªµ¥Î»)
+	uint16 InfoSize; // æ•°æ®åŒ…å°ºå¯¸ (26 å­—èŠ‚)
+	uint16 Flags; // ä¿¡æ¯æ ‡å¿—
+	uint32 Cylinders; // ç£ç›˜æŸ±é¢æ•°
+	uint32 Heads; // ç£ç›˜ç£å¤´æ•°
+	uint32 SectorsPerTrack; // æ¯ç£é“æ‰‡åŒºæ•°
+	uint32 Sectors; // ç£ç›˜æ€»æ‰‡åŒºæ•°
+	uint16 SectorSize; // æ‰‡åŒºå°ºå¯¸ (ä»¥å­—èŠ‚ä¸ºå•ä½)
 }DriveParametersPacket;
 
 #define MEMINFOMAXSIZE 60

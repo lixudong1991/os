@@ -5,19 +5,19 @@ pageStatusOffset equ 28
 setgdtr:
 	push ebx
 	mov ebx,[esp+8]
-	LOCK lgdt [ebx]
+	lgdt [ebx]
 	pop ebx
 	ret
 setidtr:
 	push ebx
 	mov ebx,[esp+8]
-	LOCK lidt [ebx]
+	lidt [ebx]
 	pop ebx
 	ret
 invlpg_s:
 	push ebx
 	mov ebx,[esp+8]
-	LOCK invlpg [ebx]
+	invlpg [ebx]
 	pop ebx
 	ret
 cli_s:
@@ -123,7 +123,7 @@ testBit:
 	push ebx
 	mov ebx,[ebp+8]
 	mov eax,[ebp+0xc]
-	LOCK bt dword [ebx],eax
+	bt dword [ebx],eax
 	mov eax,1
 	mov ebx,0
 	cmovnb eax,ebx
@@ -145,7 +145,7 @@ allocatePhy4kPage:
 		mov edx,[bootparam+pageStatusOffset]
 next4k:	LOCK bts dword [edx],eax
 		jnb target4k	
-		LOCK inc eax
+		inc eax
 		cmp eax,0x10000
 		jae no4k
 		jmp next4k
@@ -476,75 +476,75 @@ rdmsr_fence:
 
 rtc_8259a_enable:
 	push eax
-	         ;ÉèÖÃ8259AÖĞ¶Ï¿ØÖÆÆ÷
+	         ;è®¾ç½®8259Aä¸­æ–­æ§åˆ¶å™¨
     mov al,0x11
-    out 0x20,al                        ;ICW1£º±ßÑØ´¥·¢/¼¶Áª·½Ê½
+    out 0x20,al                        ;ICW1ï¼šè¾¹æ²¿è§¦å‘/çº§è”æ–¹å¼
     mov al,0x20
-    out 0x21,al                        ;ICW2:ÆğÊ¼ÖĞ¶ÏÏòÁ¿
+    out 0x21,al                        ;ICW2:èµ·å§‹ä¸­æ–­å‘é‡
     mov al,0x04
-    out 0x21,al                        ;ICW3:´ÓÆ¬¼¶Áªµ½IR2
+    out 0x21,al                        ;ICW3:ä»ç‰‡çº§è”åˆ°IR2
     mov al,0x01
-    out 0x21,al                        ;ICW4:·Ç×ÜÏß»º³å£¬È«Ç¶Ì×£¬Õı³£EOI
+    out 0x21,al                        ;ICW4:éæ€»çº¿ç¼“å†²ï¼Œå…¨åµŒå¥—ï¼Œæ­£å¸¸EOI
 
     mov al,0x11
-    out 0xa0,al                        ;ICW1£º±ßÑØ´¥·¢/¼¶Áª·½Ê½
+    out 0xa0,al                        ;ICW1ï¼šè¾¹æ²¿è§¦å‘/çº§è”æ–¹å¼
     mov al,0x70
-    out 0xa1,al                        ;ICW2:ÆğÊ¼ÖĞ¶ÏÏòÁ¿
+    out 0xa1,al                        ;ICW2:èµ·å§‹ä¸­æ–­å‘é‡
     mov al,0x02
-    out 0xa1,al                        ;ICW3:´ÓÆ¬¼¶Áªµ½IR2
+    out 0xa1,al                        ;ICW3:ä»ç‰‡çº§è”åˆ°IR2
     mov al,0x01
-    out 0xa1,al                        ;ICW4:·Ç×ÜÏß»º³å£¬È«Ç¶Ì×£¬Õı³£EOI
+    out 0xa1,al                        ;ICW4:éæ€»çº¿ç¼“å†²ï¼Œå…¨åµŒå¥—ï¼Œæ­£å¸¸EOI
 
-	         ;ÉèÖÃºÍÊ±ÖÓÖĞ¶ÏÏà¹ØµÄÓ²¼ş 
-         mov al,0x0b                        ;RTC¼Ä´æÆ÷B
-         or al,0x80                         ;×è¶ÏNMI
+	         ;è®¾ç½®å’Œæ—¶é’Ÿä¸­æ–­ç›¸å…³çš„ç¡¬ä»¶ 
+         mov al,0x0b                        ;RTCå¯„å­˜å™¨B
+         or al,0x80                         ;é˜»æ–­NMI
          out 0x70,al
-         mov al,0x42                        ;ÉèÖÃ¼Ä´æÆ÷B£¬ÖÜÆÚĞÔÖĞ¶Ï£¬¿ª·Å¸ü
-         out 0x71,al                        ;ĞÂ½áÊøºóÖĞ¶Ï£¬BCDÂë£¬24Ğ¡Ê±ÖÆ
+         mov al,0x42                        ;è®¾ç½®å¯„å­˜å™¨Bï¼Œå‘¨æœŸæ€§ä¸­æ–­ï¼Œå¼€æ”¾æ›´
+         out 0x71,al                        ;æ–°ç»“æŸåä¸­æ–­ï¼ŒBCDç ï¼Œ24å°æ—¶åˆ¶
 
 		 mov al,0x0a
 		 or al,0x80
 		 out 0x70,al
 		 in al,0x71
-		 or al,0x0c							;ÉèÖÃÖĞ¶ÏÊ±¼äÎª62.5ms  0x0d=125ms, 0x0e=250ms,0x0f=500ms,0x07=1.9ms
+		 or al,0x0c							;è®¾ç½®ä¸­æ–­æ—¶é—´ä¸º62.5ms  0x0d=125ms, 0x0e=250ms,0x0f=500ms,0x07=1.9ms
 		 out 0x71,al
 
 
 
-         in al,0xa1                         ;¶Á8259´ÓÆ¬µÄIMR¼Ä´æÆ÷
-         and al,0xfe                        ;Çå³ıbit 0(´ËÎ»Á¬½ÓRTC)
-         out 0xa1,al                        ;Ğ´»Ø´Ë¼Ä´æÆ÷
+         in al,0xa1                         ;è¯»8259ä»ç‰‡çš„IMRå¯„å­˜å™¨
+         and al,0xfe                        ;æ¸…é™¤bit 0(æ­¤ä½è¿æ¥RTC)
+         out 0xa1,al                        ;å†™å›æ­¤å¯„å­˜å™¨
 
          mov al,0x0c
          out 0x70,al
-         in al,0x71                         ;¶ÁRTC¼Ä´æÆ÷C£¬¸´Î»Î´¾öµÄÖĞ¶Ï×´Ì¬
+         in al,0x71                         ;è¯»RTCå¯„å­˜å™¨Cï¼Œå¤ä½æœªå†³çš„ä¸­æ–­çŠ¶æ€
 	pop eax
 	ret
 
 interrupt8259a_disable:
 	push eax
 	mov al,0xff 
-    out 0x21,al                        ;½ûÓÃÖ÷Æ¬ËùÓĞÖĞ¶Ï
+    out 0x21,al                        ;ç¦ç”¨ä¸»ç‰‡æ‰€æœ‰ä¸­æ–­
 
     mov al,0xff                      
-    out 0xa1,al                        ;½ûÓÃ´ÓÆ¬ËùÓĞÖĞ¶Ï
-	         ;ÉèÖÃ8259AÖĞ¶Ï¿ØÖÆÆ÷
+    out 0xa1,al                        ;ç¦ç”¨ä»ç‰‡æ‰€æœ‰ä¸­æ–­
+	         ;è®¾ç½®8259Aä¸­æ–­æ§åˆ¶å™¨
     mov al,0x11
-    out 0x20,al                        ;ICW1£º±ßÑØ´¥·¢/¼¶Áª·½Ê½
+    out 0x20,al                        ;ICW1ï¼šè¾¹æ²¿è§¦å‘/çº§è”æ–¹å¼
     mov al,0x20
-    out 0x21,al                        ;ICW2:ÆğÊ¼ÖĞ¶ÏÏòÁ¿
+    out 0x21,al                        ;ICW2:èµ·å§‹ä¸­æ–­å‘é‡
     mov al,0x04
-    out 0x21,al                        ;ICW3:´ÓÆ¬¼¶Áªµ½IR2
+    out 0x21,al                        ;ICW3:ä»ç‰‡çº§è”åˆ°IR2
     mov al,0x01
-    out 0x21,al                        ;ICW4:·Ç×ÜÏß»º³å£¬È«Ç¶Ì×£¬Õı³£EOI
+    out 0x21,al                        ;ICW4:éæ€»çº¿ç¼“å†²ï¼Œå…¨åµŒå¥—ï¼Œæ­£å¸¸EOI
 
     mov al,0x11
-    out 0xa0,al                        ;ICW1£º±ßÑØ´¥·¢/¼¶Áª·½Ê½
+    out 0xa0,al                        ;ICW1ï¼šè¾¹æ²¿è§¦å‘/çº§è”æ–¹å¼
     mov al,0x70
-    out 0xa1,al                        ;ICW2:ÆğÊ¼ÖĞ¶ÏÏòÁ¿
+    out 0xa1,al                        ;ICW2:èµ·å§‹ä¸­æ–­å‘é‡
     mov al,0x02
-    out 0xa1,al                        ;ICW3:´ÓÆ¬¼¶Áªµ½IR2
+    out 0xa1,al                        ;ICW3:ä»ç‰‡çº§è”åˆ°IR2
     mov al,0x01
-    out 0xa1,al                        ;ICW4:·Ç×ÜÏß»º³å£¬È«Ç¶Ì×£¬Õı³£EOI
+    out 0xa1,al                        ;ICW4:éæ€»çº¿ç¼“å†²ï¼Œå…¨åµŒå¥—ï¼Œæ­£å¸¸EOI
 	pop eax
 	ret	

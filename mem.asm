@@ -28,7 +28,7 @@ memcmp_s:
 	cld 
 	repe cmpsb
 	mov cl,[esi]
-	LOCK sub cl,[edi]
+	sub cl,[edi]
 	movsx eax,cl
 	pop ecx
 	pop edi

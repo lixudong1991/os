@@ -5,8 +5,8 @@ extern   kernelData,hexstr32
 IA32_X2APIC_EOI equ 0x80B
 IA32_X2APIC_ESR equ 0x828
 
-puts_int:                                 ;ÏÔÊ¾0ÖÕÖ¹µÄ×Ö·û´®²¢ÒÆ¶¯¹â±ê 
-         push ebx                                   ;ÊäÈë£ºDS:EBX=´®µØÖ·
+puts_int:                                 ;æ˜¾ç¤º0ç»ˆæ­¢çš„å­—ç¬¦ä¸²å¹¶ç§»åŠ¨å…‰æ ‡ 
+         push ebx                                   ;è¾“å…¥ï¼šDS:EBX=ä¸²åœ°å€
 		 mov ebx,[esp+8]
          push ecx
   .getc:
@@ -20,33 +20,33 @@ puts_int:                                 ;ÏÔÊ¾0ÖÕÖ¹µÄ×Ö·û´®²¢ÒÆ¶¯¹â±ê
          pop ecx
 		 pop ebx
          
-         ret                               ;¶Î¼ä·µ»Ø
+         ret                               ;æ®µé—´è¿”å›
 
-.put_char:                                   ;ÔÚµ±Ç°¹â±ê´¦ÏÔÊ¾Ò»¸ö×Ö·û,²¢ÍÆ½ø
-                                            ;¹â±ê¡£½öÓÃÓÚ¶ÎÄÚµ÷ÓÃ 
-                                            ;ÊäÈë£ºCL=×Ö·ûASCIIÂë 
+.put_char:                                   ;åœ¨å½“å‰å…‰æ ‡å¤„æ˜¾ç¤ºä¸€ä¸ªå­—ç¬¦,å¹¶æ¨è¿›
+                                            ;å…‰æ ‡ã€‚ä»…ç”¨äºæ®µå†…è°ƒç”¨ 
+                                            ;è¾“å…¥ï¼šCL=å­—ç¬¦ASCIIç  
          pushad
 
-         ;ÒÔÏÂÈ¡µ±Ç°¹â±êÎ»ÖÃ
+         ;ä»¥ä¸‹å–å½“å‰å…‰æ ‡ä½ç½®
          mov dx,0x3d4
          mov al,0x0e
          out dx,al
          inc dx                             ;0x3d5
-         in al,dx                           ;¸ß×Ö
+         in al,dx                           ;é«˜å­—
          mov ah,al
 
          dec dx                             ;0x3d4
          mov al,0x0f
          out dx,al
          inc dx                             ;0x3d5
-         in al,dx                           ;µÍ×Ö
-         mov bx,ax                          ;BX=´ú±í¹â±êÎ»ÖÃµÄ16Î»Êı
-         and ebx,0x0000ffff                 ;×¼±¸Ê¹ÓÃ32Î»Ñ°Ö··½Ê½·ÃÎÊÏÔ´æ 
+         in al,dx                           ;ä½å­—
+         mov bx,ax                          ;BX=ä»£è¡¨å…‰æ ‡ä½ç½®çš„16ä½æ•°
+         and ebx,0x0000ffff                 ;å‡†å¤‡ä½¿ç”¨32ä½å¯»å€æ–¹å¼è®¿é—®æ˜¾å­˜ 
          
-         cmp cl,0x0d                        ;»Ø³µ·û£¿
+         cmp cl,0x0d                        ;å›è½¦ç¬¦ï¼Ÿ
          jnz .put_0a                         
          
-         mov ax,bx                          ;ÒÔÏÂ°´»Ø³µ·û´¦Àí 
+         mov ax,bx                          ;ä»¥ä¸‹æŒ‰å›è½¦ç¬¦å¤„ç† 
          mov bl,80
          div bl
          mul bl
@@ -54,30 +54,30 @@ puts_int:                                 ;ÏÔÊ¾0ÖÕÖ¹µÄ×Ö·û´®²¢ÒÆ¶¯¹â±ê
          jmp .set_cursor
 
   .put_0a:
-         cmp cl,0x0a                        ;»»ĞĞ·û£¿
+         cmp cl,0x0a                        ;æ¢è¡Œç¬¦ï¼Ÿ
          jnz .put_other
-         add bx,80                          ;Ôö¼ÓÒ»ĞĞ 
+         add bx,80                          ;å¢åŠ ä¸€è¡Œ 
          jmp .roll_screen
 
-  .put_other:                               ;Õı³£ÏÔÊ¾×Ö·û
+  .put_other:                               ;æ­£å¸¸æ˜¾ç¤ºå­—ç¬¦
          shl bx,1
-         mov [0xb8000+ebx],cl            ;ÔÚ¹â±êÎ»ÖÃ´¦ÏÔÊ¾×Ö·û 
+         mov [0xb8000+ebx],cl            ;åœ¨å…‰æ ‡ä½ç½®å¤„æ˜¾ç¤ºå­—ç¬¦ 
 
-         ;ÒÔÏÂ½«¹â±êÎ»ÖÃÍÆ½øÒ»¸ö×Ö·û
+         ;ä»¥ä¸‹å°†å…‰æ ‡ä½ç½®æ¨è¿›ä¸€ä¸ªå­—ç¬¦
          shr bx,1
          inc bx
 
   .roll_screen:
-         cmp bx,2000                        ;¹â±ê³¬³öÆÁÄ»£¿¹öÆÁ
+         cmp bx,2000                        ;å…‰æ ‡è¶…å‡ºå±å¹•ï¼Ÿæ»šå±
          jl .set_cursor
 
          cld
-         mov esi,0xb80a0                 ;Ğ¡ĞÄ£¡32Î»Ä£Ê½ÏÂmovsb/w/d 
-         mov edi,0xb8000                 ;Ê¹ÓÃµÄÊÇesi/edi/ecx 
+         mov esi,0xb80a0                 ;å°å¿ƒï¼32ä½æ¨¡å¼ä¸‹movsb/w/d 
+         mov edi,0xb8000                 ;ä½¿ç”¨çš„æ˜¯esi/edi/ecx 
          mov ecx,960
          rep movsd
-         mov bx,3840                        ;Çå³ıÆÁÄ»×îµ×Ò»ĞĞ
-         mov ecx,80                         ;32Î»³ÌĞòÓ¦¸ÃÊ¹ÓÃECX
+         mov bx,3840                        ;æ¸…é™¤å±å¹•æœ€åº•ä¸€è¡Œ
+         mov ecx,80                         ;32ä½ç¨‹åºåº”è¯¥ä½¿ç”¨ECX
   .cls:
          mov word [0xb8000+ebx],0x0720
          add bx,2
@@ -260,9 +260,9 @@ general_interrupt_handler:
 
 interrupt_8259a_handler:
     ; push eax     
-    ; mov al,0x20                        ;ÖĞ¶Ï½áÊøÃüÁîEOI 
-    ; out 0xa0,al                        ;Ïò´ÓÆ¬·¢ËÍ 
-    ; out 0x20,al                        ;ÏòÖ÷Æ¬·¢ËÍ       
+    ; mov al,0x20                        ;ä¸­æ–­ç»“æŸå‘½ä»¤EOI 
+    ; out 0xa0,al                        ;å‘ä»ç‰‡å‘é€ 
+    ; out 0x20,al                        ;å‘ä¸»ç‰‡å‘é€       
     ; pop eax        
     iretd
 
@@ -271,14 +271,14 @@ interrupt_70_handler:
 	push ebx 
 	push edx
 	push esi
-        ;  mov al,0x20                        ;ÖĞ¶Ï½áÊøÃüÁîEOI
-        ;  out 0xa0,al                        ;Ïò8259A´ÓÆ¬·¢ËÍ
-        ;  out 0x20,al                        ;Ïò8259AÖ÷Æ¬·¢ËÍ
+        ;  mov al,0x20                        ;ä¸­æ–­ç»“æŸå‘½ä»¤EOI
+        ;  out 0xa0,al                        ;å‘8259Aä»ç‰‡å‘é€
+        ;  out 0x20,al                        ;å‘8259Aä¸»ç‰‡å‘é€
 
-        ;  mov al,0x0c                        ;¼Ä´æÆ÷CµÄË÷Òı¡£ÇÒ¿ª·ÅNMI
+        ;  mov al,0x0c                        ;å¯„å­˜å™¨Cçš„ç´¢å¼•ã€‚ä¸”å¼€æ”¾NMI
         ;  out 0x70,al
-        ;  in al,0x71                         ;¶ÁÒ»ÏÂRTCµÄ¼Ä´æÆ÷C£¬·ñÔòÖ»·¢ÉúÒ»´ÎÖĞ¶Ï
-        ;                                   ;´Ë´¦²»¿¼ÂÇÄÖÖÓºÍÖÜÆÚĞÔÖĞ¶ÏµÄÇé¿ö  										  
+        ;  in al,0x71                         ;è¯»ä¸€ä¸‹RTCçš„å¯„å­˜å™¨Cï¼Œå¦åˆ™åªå‘ç”Ÿä¸€æ¬¡ä¸­æ–­
+        ;                                   ;æ­¤å¤„ä¸è€ƒè™‘é—¹é’Ÿå’Œå‘¨æœŸæ€§ä¸­æ–­çš„æƒ…å†µ  										  
     mov ebx,kernelData
 	mov eax,20
 	mov edx,32
