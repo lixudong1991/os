@@ -137,6 +137,11 @@ static void createInterruptGate(KernelData* kdata)
 			item.segAddr = systemCall;
 			item.GateDPL = 3;
 		}
+		else if(i == 0x81)
+		{
+			item.segAddr = local_x2apic_error_handling;
+			item.GateDPL = 0;	
+		}
 		else
 			item.segAddr = general_interrupt_handler;
 
@@ -288,6 +293,7 @@ int _start(BootParam *argv)
 	kernelData.idtInfo.limit = 0xffff;
 	kernelData.idtInfo.type = 0;
 	kernelData.taskList.size = 0;
+	interrupt8259a_disable();
 	createInterruptGate(&kernelData);
 
 	TaskCtrBlock* tcbhead = (TaskCtrBlock*)allocateVirtual4kPage(sizeof(TaskCtrBlock), &(bootparam.kernelAllocateNextAddr),PAGE_RW);
@@ -314,7 +320,8 @@ int _start(BootParam *argv)
 	setgdtr(&(kernelData.gdtInfo));
 	settr(tcbhead->tssSel);
 	createCallGate(&kernelData);
-	
+	//禁用8259a所有中断
+
 	// char number[32];
 	// puts("\r\nbus:");
 	// puts(hexstr32(number, bootparam.bus));
@@ -334,8 +341,6 @@ int _start(BootParam *argv)
 	buff[512] = 0;
 	puts("\r\n");
 	puts(buff);*/
-	//createTask(&(kernelData.taskList),200,4);
-	//createTask(&(kernelData.taskList), 250,4);
 	//callTss(kernelData.taskList.tcb_Last->tssSel);
 	//testfun();
 
@@ -363,18 +368,49 @@ int _start(BootParam *argv)
     printf("Local x2APIC ID:.0x%x\r\n",eax);
 	rdmsrcall(IA32_X2APIC_VERSION,&eax,edx);
 	printf("Local x2APIC Version:0x%x\r\n",eax);
-	rdmsrcall(IA32_X2APIC_LDR,&eax,edx);
+	rdmsrcall(IA32_X2APIC_LDR,&eax,edx);//Logical x2APIC ID = [(x2APIC ID[19:4] « 16) | (1 « x2APIC ID[3:0])]
 	printf("Logical Destination:0x%x\r\n",eax);
+
+
+	//rtc_8259a_enable();
+
+	//设置并初始化Local Apic error 中断向量为 0x81
+    eax =0x81;
+	edx =0;
+	wrmsr_fence(IA32_X2APIC_LVT_ERROR,eax,edx);
+	eax=edx=0;
+	wrmsr_fence(IA32_X2APIC_ESR,eax,edx);
+
+	//给自身处理器发送80h号中断测试
 	eax =0x80;
 	edx =0;
 	wrmsr_fence(IA32_X2APIC_SELF_IPI,eax,edx);
+	
+	//IPI测试
+	eax = 0x84080; //vector =0x80  level = 1 tirgger =0  Destination Shorthand =All Excluding Self
+	edx =0xffffffff;
+	wrmsr_fence(IA32_X2APIC_ICR,eax,edx);  
+
+	//Apic timer test
+	eax = 0x20080; //vector =0x80  Timer Mode =  Periodic    Not Masked
+	edx =0;
+	wrmsr_fence(IA32_X2APIC_LVT_TIMER,eax,edx); 
+	eax = 0x9; //Divide Configuration 101: Divide by 64
+	edx =0;
+	wrmsr_fence(IA32_X2APIC_DIV_CONF,eax,edx); 
+	eax = 0x000fffff; //Initial Count 
+	edx =0;
+	wrmsr_fence(IA32_X2APIC_INIT_COUNT,eax,edx); 
+
+	//createTask(&(kernelData.taskList),200,4);
+	//createTask(&(kernelData.taskList), 250,4);
 	// uint32 count = 0;
-	// while (1)
-	// {
-	// //	printf("kernel process.....................%s %d\r\n","count =", count++);
-	// 	uint32 count = 0xfffff;
-	// 	while (count--) {}
-	// }
+	while (1)
+	{
+	//	printf("kernel process.....................%s %d\r\n","count =", count++);
+		uint32 count = 0xfffff;
+		while (count--) {}
+	}
 	printf("enter die\r\n");
 	while (1)
 		die();	

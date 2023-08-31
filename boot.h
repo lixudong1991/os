@@ -283,6 +283,7 @@ TaskCtrBlock* createNewTcb(TcbList* taskList);
 
 void TerminateProgram(uint32 retval);
 
-
+extern void rtc_8259a_enable();
+extern void interrupt8259a_disable();
 
 #endif

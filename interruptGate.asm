@@ -1,7 +1,9 @@
 
-global exceptionCalls,general_interrupt_handler,systemCall,interrupt_8259a_handler,interrupt_70_handler
+global exceptionCalls,general_interrupt_handler,systemCall,interrupt_8259a_handler,interrupt_70_handler,local_x2apic_error_handling
 
 extern   kernelData,hexstr32
+IA32_X2APIC_EOI equ 0x80B
+IA32_X2APIC_ESR equ 0x828
 
 puts_int:                                 ;显示0终止的字符串并移动光标 
          push ebx                                   ;输入：DS:EBX=串地址
@@ -257,11 +259,11 @@ general_interrupt_handler:
     iretd
 
 interrupt_8259a_handler:
-    push eax     
-    mov al,0x20                        ;中断结束命令EOI 
-    out 0xa0,al                        ;向从片发送 
-    out 0x20,al                        ;向主片发送       
-    pop eax        
+    ; push eax     
+    ; mov al,0x20                        ;中断结束命令EOI 
+    ; out 0xa0,al                        ;向从片发送 
+    ; out 0x20,al                        ;向主片发送       
+    ; pop eax        
     iretd
 
 interrupt_70_handler:
@@ -269,14 +271,14 @@ interrupt_70_handler:
 	push ebx 
 	push edx
 	push esi
-         mov al,0x20                        ;中断结束命令EOI
-         out 0xa0,al                        ;向8259A从片发送
-         out 0x20,al                        ;向8259A主片发送
+        ;  mov al,0x20                        ;中断结束命令EOI
+        ;  out 0xa0,al                        ;向8259A从片发送
+        ;  out 0x20,al                        ;向8259A主片发送
 
-         mov al,0x0c                        ;寄存器C的索引。且开放NMI
-         out 0x70,al
-         in al,0x71                         ;读一下RTC的寄存器C，否则只发生一次中断
-                                          ;此处不考虑闹钟和周期性中断的情况  										  
+        ;  mov al,0x0c                        ;寄存器C的索引。且开放NMI
+        ;  out 0x70,al
+        ;  in al,0x71                         ;读一下RTC的寄存器C，否则只发生一次中断
+        ;                                   ;此处不考虑闹钟和周期性中断的情况  										  
     mov ebx,kernelData
 	mov eax,20
 	mov edx,32
@@ -300,6 +302,7 @@ nexttask1:
 	mov edx,32
 	mov [ebx+edx],esi
 	mov dword [esi+0x10],1
+	call writeEOI
 	jmp far [esi+8]
 ret70:
 	pop esi
@@ -311,8 +314,72 @@ systemCall:
 	push systemCallmsg
 	call puts_int
 	add esp,4
+	push ecx
+	push edx
+	mov ecx,0x802
+	rdmsr
+	push eax
+	push dword excep_codebuff
+	call hexstr32
+	add esp,8
+	push excep_codebuffstr
+	call puts_int
+	add esp,4
+
+	mov ecx,0x80D
+	rdmsr
+	push eax
+	push dword excep_codebuff
+	call hexstr32
+	add esp,8
+	push excep_codebuffstr
+	call puts_int
+	add esp,4
+
+	pop ecx
+	pop edx
+	call writeEOI
 	iretd
-	
+
+local_x2apic_error_handling:
+	push ecx
+	push edx
+	xor eax,eax
+	xor edx,edx
+	mov ecx,IA32_X2APIC_ESR
+	mfence
+	wrmsr
+	xor eax,eax
+	xor edx,edx
+	mov ecx,IA32_X2APIC_ESR
+    mfence
+	rdmsr
+	push eax
+	push dword local_x2apic_error_codebuff
+	call hexstr32
+	add esp,8
+	push local_x2apic_error_msg
+	call puts_int
+	add esp,4
+	pop edx
+	pop ecx
+	call writeEOI
+	iretd
+
+writeEOI:
+	push edx
+	push ecx
+	xor edx,edx
+	xor eax,eax
+	mov ecx,IA32_X2APIC_EOI
+	mfence
+	wrmsr
+    pop ecx
+	pop edx
+	ret
+
+local_x2apic_error_msg         db 'local x2apic error: '
+local_x2apic_error_codebuff    db  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0	
 systemCallmsg    db  'systemCall encounted 0x80  ',0
 excep_msg        db  '********Exception encounted********',0
 intnum			 db  '00',0,'01',0,'02',0,'03',0,'04',0,'05',0,'06',0,'07',0,'08',0,'09',0,'10',0,'11',0

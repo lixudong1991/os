@@ -1,69 +1,23 @@
 
-global setgdtr,setldtr,settr,cs_data,ds_data,ss_data,fs_data,gs_data,cpuidcall,rdmsrcall,wrmsrcall,wrmsr_fence,rdmsr_fence,setds,setgs,setfs,esp_data,cr3_data,flags_data,setBit,resetBit,testBit,allocatePhy4kPage,freePhy4kPage,sysInLong,sysOutLong,callTss,setidtr,cli_s,sti_s,invlpg_s,intcall,resetcr3
+global setgdtr,setldtr,settr,cs_data,ds_data,ss_data,fs_data,gs_data,cpuidcall,rdmsrcall,wrmsrcall,wrmsr_fence,rdmsr_fence,setds,setgs,setfs,esp_data,cr3_data,flags_data,setBit,resetBit,testBit,allocatePhy4kPage,freePhy4kPage,sysInLong,sysOutLong,callTss,setidtr,cli_s,sti_s,invlpg_s,intcall,resetcr3,rtc_8259a_enable,interrupt8259a_disable
 extern bootparam
 pageStatusOffset equ 28
 setgdtr:
 	push ebx
 	mov ebx,[esp+8]
-	lgdt [ebx]
+	LOCK lgdt [ebx]
 	pop ebx
 	ret
 setidtr:
 	push ebx
 	mov ebx,[esp+8]
-	lidt [ebx]
-
-	push eax
-	         ;设置8259A中断控制器
-    mov al,0x11
-    out 0x20,al                        ;ICW1：边沿触发/级联方式
-    mov al,0x20
-    out 0x21,al                        ;ICW2:起始中断向量
-    mov al,0x04
-    out 0x21,al                        ;ICW3:从片级联到IR2
-    mov al,0x01
-    out 0x21,al                        ;ICW4:非总线缓冲，全嵌套，正常EOI
-
-    mov al,0x11
-    out 0xa0,al                        ;ICW1：边沿触发/级联方式
-    mov al,0x70
-    out 0xa1,al                        ;ICW2:起始中断向量
-    mov al,0x02
-    out 0xa1,al                        ;ICW3:从片级联到IR2
-    mov al,0x01
-    out 0xa1,al                        ;ICW4:非总线缓冲，全嵌套，正常EOI
-
-	         ;设置和时钟中断相关的硬件 
-         mov al,0x0b                        ;RTC寄存器B
-         or al,0x80                         ;阻断NMI
-         out 0x70,al
-         mov al,0x42                        ;设置寄存器B，周期性中断，开放更
-         out 0x71,al                        ;新结束后中断，BCD码，24小时制
-
-		 mov al,0x0a
-		 or al,0x80
-		 out 0x70,al
-		 in al,0x71
-		 or al,0x0c							;设置中断时间为62.5ms  0x0d=125ms, 0x0e=250ms,0x0f=500ms,0x07=1.9ms
-		 out 0x71,al
-
-
-
-         in al,0xa1                         ;读8259从片的IMR寄存器
-         and al,0xfe                        ;清除bit 0(此位连接RTC)
-         out 0xa1,al                        ;写回此寄存器
-
-         mov al,0x0c
-         out 0x70,al
-         in al,0x71                         ;读RTC寄存器C，复位未决的中断状态
-
-	pop eax
+	LOCK lidt [ebx]
 	pop ebx
 	ret
 invlpg_s:
 	push ebx
 	mov ebx,[esp+8]
-	invlpg [ebx]
+	LOCK invlpg [ebx]
 	pop ebx
 	ret
 cli_s:
@@ -146,7 +100,7 @@ setBit:
 	push ebx
 	mov ebx,[ebp+8]
 	mov eax,[ebp+0xc]
-	bts dword [ebx],eax
+	LOCK bts dword [ebx],eax
 	pop ebx
 	pop eax
 	pop ebp
@@ -158,7 +112,7 @@ resetBit:
 	push ebx
 	mov ebx,[ebp+8]
 	mov eax,[ebp+0xc]
-	btr dword [ebx],eax
+	LOCK btr dword [ebx],eax
 	pop ebx
 	pop eax
 	pop ebp
@@ -169,7 +123,7 @@ testBit:
 	push ebx
 	mov ebx,[ebp+8]
 	mov eax,[ebp+0xc]
-	bt dword [ebx],eax
+	LOCK bt dword [ebx],eax
 	mov eax,1
 	mov ebx,0
 	cmovnb eax,ebx
@@ -189,9 +143,9 @@ allocatePhy4kPage:
 		push ebx		
 		mov eax,[esp+0xc]
 		mov edx,[bootparam+pageStatusOffset]
-next4k:	bts dword [edx],eax
+next4k:	LOCK bts dword [edx],eax
 		jnb target4k	
-		inc eax
+		LOCK inc eax
 		cmp eax,0x10000
 		jae no4k
 		jmp next4k
@@ -206,7 +160,7 @@ freePhy4kPage:
 		mov eax,[esp+8]
 		shr eax,12
 		mov edx,[bootparam+pageStatusOffset]
-		btr dword [edx],eax
+		LOCK btr dword [edx],eax
 		mov eax,1
 		jb  freePhy4kPageret
 		xor eax,eax
@@ -519,3 +473,78 @@ rdmsr_fence:
 	pop ecx
 	pop ebp
 	ret
+
+rtc_8259a_enable:
+	push eax
+	         ;设置8259A中断控制器
+    mov al,0x11
+    out 0x20,al                        ;ICW1：边沿触发/级联方式
+    mov al,0x20
+    out 0x21,al                        ;ICW2:起始中断向量
+    mov al,0x04
+    out 0x21,al                        ;ICW3:从片级联到IR2
+    mov al,0x01
+    out 0x21,al                        ;ICW4:非总线缓冲，全嵌套，正常EOI
+
+    mov al,0x11
+    out 0xa0,al                        ;ICW1：边沿触发/级联方式
+    mov al,0x70
+    out 0xa1,al                        ;ICW2:起始中断向量
+    mov al,0x02
+    out 0xa1,al                        ;ICW3:从片级联到IR2
+    mov al,0x01
+    out 0xa1,al                        ;ICW4:非总线缓冲，全嵌套，正常EOI
+
+	         ;设置和时钟中断相关的硬件 
+         mov al,0x0b                        ;RTC寄存器B
+         or al,0x80                         ;阻断NMI
+         out 0x70,al
+         mov al,0x42                        ;设置寄存器B，周期性中断，开放更
+         out 0x71,al                        ;新结束后中断，BCD码，24小时制
+
+		 mov al,0x0a
+		 or al,0x80
+		 out 0x70,al
+		 in al,0x71
+		 or al,0x0c							;设置中断时间为62.5ms  0x0d=125ms, 0x0e=250ms,0x0f=500ms,0x07=1.9ms
+		 out 0x71,al
+
+
+
+         in al,0xa1                         ;读8259从片的IMR寄存器
+         and al,0xfe                        ;清除bit 0(此位连接RTC)
+         out 0xa1,al                        ;写回此寄存器
+
+         mov al,0x0c
+         out 0x70,al
+         in al,0x71                         ;读RTC寄存器C，复位未决的中断状态
+	pop eax
+	ret
+
+interrupt8259a_disable:
+	push eax
+	mov al,0xff 
+    out 0x21,al                        ;禁用主片所有中断
+
+    mov al,0xff                      
+    out 0xa1,al                        ;禁用从片所有中断
+	         ;设置8259A中断控制器
+    mov al,0x11
+    out 0x20,al                        ;ICW1：边沿触发/级联方式
+    mov al,0x20
+    out 0x21,al                        ;ICW2:起始中断向量
+    mov al,0x04
+    out 0x21,al                        ;ICW3:从片级联到IR2
+    mov al,0x01
+    out 0x21,al                        ;ICW4:非总线缓冲，全嵌套，正常EOI
+
+    mov al,0x11
+    out 0xa0,al                        ;ICW1：边沿触发/级联方式
+    mov al,0x70
+    out 0xa1,al                        ;ICW2:起始中断向量
+    mov al,0x02
+    out 0xa1,al                        ;ICW3:从片级联到IR2
+    mov al,0x01
+    out 0xa1,al                        ;ICW4:非总线缓冲，全嵌套，正常EOI
+	pop eax
+	ret	
