@@ -264,7 +264,7 @@ void createTask(TcbList *taskList,int taskStartSection,int SectionCount)
 	uint32 taskPageDir = (uint32)allocatePhy4kPage(0);
 	
 	*(uint32*)0xFFFFFFF8 = (taskPageDir|0x7);
-	newTask->TssData.cr3 = (taskPageDir|0x7);
+	newTask->TssData.cr3 = (taskPageDir);
 	resetcr3();
 	memcpy_s((char*)0xFFFFE000, (char*)(kernelData.pageDirectory), 4096);
 	*(uint32*)0xFFFFEFFC = (taskPageDir | 0x7);

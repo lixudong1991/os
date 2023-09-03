@@ -705,9 +705,9 @@ stdos3:	mov [ebx],edx
 		mov eax,cr4
 		or eax,0x80 ;Enables global pagesPGE designated with G flag
 		mov cr4,eax
-		
+
 		 ;令CR3寄存器指向页目录，并正式开启页功能 
-        mov eax,0x8003                 ;PCD=PWT=0
+        mov eax,0x8000                 ;PCD=PWT=0
         mov cr3,eax
 		mov eax,cr0
         or eax,0x80000000
