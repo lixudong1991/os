@@ -4,6 +4,7 @@
 #include "elf.h"
 #include "printf.h"
 #include "apic.h"
+#include "cpufeature.h"
 #define STACKLIMIT_G1(a)   ((((uint32)(a))-1)>>12) //gdt 表项粒度为1的段界限
 
 BootParam bootparam;
@@ -346,57 +347,24 @@ int _start(BootParam *argv)
 	puts(buff);*/
 	//callTss(kernelData.taskList.tcb_Last->tssSel);
 	//testfun();
+	check_cpu_features();
 
     uint32_t eax=0,ebx=0,ecx=0,edx=0;
-    cpuidcall(1, &eax, &ebx,&ecx,&edx);
-	printf("cpuid[1] EAX:0x%x EBX:0x%x ECX:0x%x EDX:0x%x\r\n",eax,ebx,ecx,edx);
-	uint32 supportSSE = 0,supportSSE2=0,supportSSE3=0,supportSSSE3=0,support_FXSAVE_FXRSTOR =0,supportCLFLUSH =0;
-	if(edx & (1<<25))
-		supportSSE =1;
-	if(edx & (1<<26))
-		supportSSE2 =1;
-	if(ecx & 1)
-		supportSSE3 =1;			
-	if(ecx & (1<<9))
-		supportSSSE3 =1;
-	if(edx & (1<<24))
-		support_FXSAVE_FXRSTOR =1;	
-	if(edx & (1<<19))
-		supportCLFLUSH =1;		
-	printf("support: SSE=%d, SSE2=%d, SSE3=%d, SSSE3=%d, FXSAVE/FXRSTOR=%d, CLFLUSH=%d\r\n",supportSSE,supportSSE2,supportSSE3,supportSSSE3,support_FXSAVE_FXRSTOR,supportCLFLUSH);
 	printf("cr4: 0x%x\r\n",cr4_data());	
-	uint32 support_monitor_mwait = 0,smallsize =0,largestsize=0;
-	if(ecx & (1<<3))
-	{
-		support_monitor_mwait = 1;
-		cpuidcall(5,&eax,&ebx,&ecx,&edx);
-		printf("support:monitor/mwait\r\n");
-		printf("cpuid[5] EAX:0x%x EBX:0x%x smallsize:0x%x largestsize:0x%x\r\n",eax,ebx,ecx&0x0000ffff,edx&0x0000ffff);
-	}
 	eax = cr0_data();
 	printf("cr0_data: 0x%x\r\n",eax);
-
-	printf("local APIC support: 0x%x\r\n",check_apic());
-	printf("is support x2APIC: 0x%x\r\n",check_x2apic());
-
-	uint32 apicTimerTscDeadline = check_apic_timer_tscdeadline();
-	printf("apicTimerTscDeadlineMode: 0x%x\r\n",apicTimerTscDeadline);
-	if(apicTimerTscDeadline == 0)
-		printf("apicTimerTscDeadlineMode not support\r\n");
-	else
-		printf("apicTimerTscDeadlineMode support\r\n");		
 	eax=0,edx=0;
-	rdmsrcall(IA32_APIC_BASE_MSR,&eax,edx);
+	rdmsrcall(IA32_APIC_BASE_MSR,&eax,&edx);
 	printf("before enable x2apic msr: low 32:0x%x high 32:%x\r\n",eax,edx);
 	enablingx2APIC();
 	eax=edx=0;
-	rdmsrcall(IA32_APIC_BASE_MSR,&eax,edx);
+	rdmsrcall(IA32_APIC_BASE_MSR,&eax,&edx);
 	printf("after enable x2apic msr: low 32:0x%x high 32:%x\r\n",eax,edx);
-	rdmsrcall(IA32_X2APIC_APICID,&eax,edx);
+	rdmsrcall(IA32_X2APIC_APICID,&eax,&edx);
     printf("Local x2APIC ID:.0x%x\r\n",eax);
-	rdmsrcall(IA32_X2APIC_VERSION,&eax,edx);
+	rdmsrcall(IA32_X2APIC_VERSION,&eax,&edx);
 	printf("Local x2APIC Version:0x%x\r\n",eax); 
-	rdmsrcall(IA32_X2APIC_LDR,&eax,edx);//Logical x2APIC ID = [(x2APIC ID[19:4] « 16) | (1 « x2APIC ID[3:0])]
+	rdmsrcall(IA32_X2APIC_LDR,&eax,&edx);//Logical x2APIC ID = [(x2APIC ID[19:4] « 16) | (1 « x2APIC ID[3:0])]
 	printf("Logical Destination:0x%x\r\n",eax);
 
 	//rtc_8259a_enable();
@@ -431,17 +399,17 @@ int _start(BootParam *argv)
 	// edx =0;
 	// wrmsr_fence(IA32_X2APIC_INIT_COUNT,eax,edx); 
 	
-	createTask(&(kernelData.taskList),200,4);
-	createTask(&(kernelData.taskList), 250,4);
-    uint32 count = 0;
-	while (1)
-	{
-	    printf("kernel process.....................%s %d\r\n","count =", count++);
-		//给自身处理器发送82h号任务切换
-		eax =0x82;
-		edx =0;
-		wrmsr_fence(IA32_X2APIC_SELF_IPI,eax,edx);
-	}
+	// createTask(&(kernelData.taskList),200,4);
+	// createTask(&(kernelData.taskList), 250,4);
+    // uint32 count = 0;
+	// while (1)
+	// {
+	//     printf("kernel process.....................%s %d\r\n","count =", count++);
+	// 	//给自身处理器发送82h号任务切换
+	// 	eax =0x82;
+	// 	edx =0;
+	// 	wrmsr_fence(IA32_X2APIC_SELF_IPI,eax,edx);
+	// }
 	while (1) 
 	{
 		asm("sti");

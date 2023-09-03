@@ -702,10 +702,6 @@ stdos3:	mov [ebx],edx
 		bts dword [0x1b000],9
 		bts dword [0x1b000],0xa	
 		
-		mov eax,cr4
-		or eax,0x80 ;Enables global pagesPGE designated with G flag
-		mov cr4,eax
-
 		 ;令CR3寄存器指向页目录，并正式开启页功能 
         mov eax,0x8000                 ;PCD=PWT=0
         mov cr3,eax
@@ -715,6 +711,10 @@ stdos3:	mov [ebx],edx
 		
 		lgdt [0600h+gdt_size-osstart]
 		
+		mov eax,cr4
+		or eax,0x80 ;Enables global pagesPGE designated with G flag
+		mov cr4,eax
+
 		push dword 4
 		call allocateVirtual4kPage
 		add esp,4		

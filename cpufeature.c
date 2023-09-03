@@ -1,0 +1,96 @@
+#include "cpufeature.h"
+#include "boot.h"
+#include "apic.h"
+#include "memcachectl.h"
+#include "printf.h"
+int cpufeatures[cpu_feature_size] = {0};
+
+void check_cpu_features()
+{
+	 uint32_t eax=0,ebx=0,ecx=0,edx=0;
+    cpuidcall(1, &eax, &ebx,&ecx,&edx);
+	printf("cpuid[1] EAX:0x%x EBX:0x%x ECX:0x%x EDX:0x%x\r\n",eax,ebx,ecx,edx);
+	if(edx & (1<<25))
+		cpufeatures[cpu_support_sse] =1;		
+	if(edx & (1<<26))
+		cpufeatures[cpu_support_sse2] =1;
+	if(ecx & 1)
+		cpufeatures[cpu_support_sse3] =1;	
+	if(ecx & (1<<9))
+		cpufeatures[cpu_support_ssse3] =1;
+	if(edx & (1<<24))
+		cpufeatures[cpu_support_fxsave_fxrstor] =1;
+	if(edx & (1<<19))
+		cpufeatures[cpu_support_clflush] =1;
+	if(edx & CPUID_SUPPORT_EDX_MTRR)
+		cpufeatures[cpu_support_mtrr] =1;	
+	if(ecx & (1<<3))
+		cpufeatures[cpu_support_monitor_mwait] =1;		
+	if(edx & CPUID_FEAT_EDX_APIC)
+		cpufeatures[cpu_support_apic] =1;
+	if(ecx & CPUID_SUPPORT_ECX_x2APIC)
+		cpufeatures[cpu_support_x2apic] =1;
+	if(ecx & CPUID_APIC_TIMER_TSCDEADLINE)
+		cpufeatures[cpu_support_tscdeadline] =1;
+
+	printf("support: SSE=%d, SSE2=%d, SSE3=%d, SSSE3=%d, FXSAVE/FXRSTOR=%d, CLFLUSH=%d, apic =%d, x2apic =%d, tscdeadline =%d\r\n",
+ 			cpufeatures[cpu_support_sse],
+			cpufeatures[cpu_support_sse2],
+			cpufeatures[cpu_support_sse3],
+			cpufeatures[cpu_support_ssse3],
+			cpufeatures[cpu_support_fxsave_fxrstor],
+			cpufeatures[cpu_support_clflush],
+			cpufeatures[cpu_support_apic],
+			cpufeatures[cpu_support_x2apic],
+			cpufeatures[cpu_support_tscdeadline]);
+	printf("support:monitor/mwait = %d\r\n",cpufeatures[cpu_support_monitor_mwait]);
+	if(cpufeatures[cpu_support_monitor_mwait])
+	{
+		cpuidcall(5,&eax,&ebx,&ecx,&edx);
+		printf("cpuid[5] EAX:0x%x EBX:0x%x smallsize:0x%x largestsize:0x%x\r\n",eax,ebx,ecx&0x0000ffff,edx&0x0000ffff);
+	}
+	printf("support: mtrr = %d\r\n",cpufeatures[cpu_support_mtrr]);
+	if(cpufeatures[cpu_support_mtrr])
+	{
+		eax=edx=0;
+		rdmsrcall(IA32_MTRRCAP_MSR,&eax,&edx);
+		printf("MTRRCAP msr: eax=0x%x,edx=0x%x\r\n",eax,edx);
+		eax=edx=0;
+		rdmsrcall(IA32_MTRR_DEF_TYPE_MSR,&eax,&edx);
+		printf("MTRR_DEF_TYPE msr: eax=0x%x,edx=0x%x\r\n",eax,edx);
+		eax=edx=0;
+		rdmsrcall(IA32_MTRR_FIX64K_00000_MSR,&eax,&edx);
+		printf("MTRR_FIX64K_00000: 0x%x%x  ",edx,eax);
+		eax=edx=0;
+		rdmsrcall(IA32_MTRR_FIX16K_80000_MSR,&eax,&edx);
+		printf("MTRR_FIX16K_80000: 0x%x%x  ",edx,eax);
+		eax=edx=0;
+		rdmsrcall(IA32_MTRR_FIX16K_A0000_MSR,&eax,&edx);
+		printf("MTRR_FIX16K_A0000: 0x%x%x  ",edx,eax);
+		eax=edx=0;
+		rdmsrcall(IA32_MTRR_FIX4K_C0000_MSR,&eax,&edx);
+		printf("MTRR_FIX4K_C0000: 0x%x%x  ",edx,eax);
+		eax=edx=0;
+		rdmsrcall(IA32_MTRR_FIX4K_C8000_MSR,&eax,&edx);
+		printf("MTRR_FIX4K_C8000: 0x%x%x  ",edx,eax);
+		eax=edx=0;
+		rdmsrcall(IA32_MTRR_FIX4K_D0000_MSR,&eax,&edx);
+		printf("MTRR_FIX4K_D0000: 0x%x%x  ",edx,eax);
+		eax=edx=0;
+		rdmsrcall(IA32_MTRR_FIX4K_D8000_MSR,&eax,&edx);
+		printf("MTRR_FIX4K_D8000: 0x%x%x  ",edx,eax);
+		eax=edx=0;
+		rdmsrcall(IA32_MTRR_FIX4K_E0000_MSR,&eax,&edx);
+		printf("MTRR_FIX4K_E0000: 0x%x%x  ",edx,eax);
+		eax=edx=0;
+		rdmsrcall(IA32_MTRR_FIX4K_E8000_MSR,&eax,&edx);
+		printf("MTRR_FIX4K_E8000: 0x%x%x  ",edx,eax);
+		eax=edx=0;
+		rdmsrcall(IA32_MTRR_FIX4K_F0000_MSR,&eax,&edx);
+		printf("MTRR_FIX4K_F0000: 0x%x%x  ",edx,eax);	
+		eax=edx=0;
+		rdmsrcall(IA32_MTRR_FIX4K_F8000_MSR,&eax,&edx);
+		printf("MTRR_FIX4K_F8000: 0x%x%x\r\n",edx,eax);													
+	}
+
+}
