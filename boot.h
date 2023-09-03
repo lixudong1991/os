@@ -140,7 +140,6 @@ typedef struct KernelData
 	uint32   gataSize;
 	GateInfo gateInfo[MAX_GATECOUNT];
 }KernelData;
-
 typedef struct ProgramHead
 {
 	uint32 size;
@@ -216,6 +215,11 @@ uint32 cr3_data();
 uint32 flags_data();
 void resetcr3();
 
+extern uint32 cr0_data();
+extern void set_cr0data(uint32 data);
+extern uint32 cr4_data();
+extern void set_cr4data(uint32 data);
+
 extern int cpuidcall(uint32 callnum,uint32 *eax,uint32 *ebx,uint32 *ecx,uint32 *edx);
 extern int rdmsrcall(uint32 msrid,uint32 *eax,uint32 *edx);
 extern int wrmsrcall(uint32 msrid,uint32 eax,uint32 edx);
@@ -256,6 +260,8 @@ extern uint32 freePhy4kPage(uint32 page);
 #define PAGE_R	   0
 #define PAGE_RW	   2   
 
+#define PAGE_G   0x100 
+
 #define PAGE_ALL_PRIVILEG  4
 
 char* allocateVirtual4kPage(uint32 size, uint32* pAddr,uint32 prop);
@@ -286,4 +292,7 @@ void TerminateProgram(uint32 retval);
 extern void rtc_8259a_enable();
 extern void interrupt8259a_disable();
 
+//地址范围必须是write-back type
+extern uint32 _monitor(void *addr,uint32 extensions,uint32 hints);
+extern uint32 _mwait(uint32 extensions,uint32 hints);
 #endif

@@ -569,7 +569,7 @@ read_DriveParam:
 		pop dx
 		ret
 		
-kernelSectionCount      equ      48    ;用户程序1+用户程序2+kernel的总扇区数
+kernelSectionCount      equ      100    ;用户程序1+用户程序2+kernel的总扇区数
 kernelStartSection      equ      16     ;内核加载起始扇区
 kernelLoadAddr 			equ      0x3b00 ;内核加载内存起始地址
 kernelVirAddr			equ      0xc0000000
@@ -652,8 +652,8 @@ stdos1:	mov dword [ebx],0
 
 			
 		mov ebx,0x8000	
-		mov dword [ebx+0xffc],0x8003
-		mov dword [ebx],0x9003
+		mov dword [ebx+0xffc],0x8103
+		mov dword [ebx],0x9103
 		mov eax,kernelSectionCount
 		mov ecx,512
 		mul ecx
@@ -670,7 +670,7 @@ stdos2:	mov [ebx],edx
 		loop stdos2
 		
 		mov eax,0xb8
-		mov ebx,0xb8003
+		mov ebx,0xb8103
 		mov ecx,8
 stdos4:
 		mov dword [0x9000+eax*4],ebx 
@@ -684,9 +684,9 @@ stdos4:
 		mov eax,kernelVirAddr
 		shr eax,22
 		shl eax,2
-		mov dword [ebx+eax],0xa003
+		mov dword [ebx+eax],0xa103
 		mov ecx,0x30
-		mov edx,0xb003
+		mov edx,0xb103
 		mov ebx,0xa000
 stdos3:	mov [ebx],edx
 		mov eax,edx
@@ -696,11 +696,15 @@ stdos3:	mov [ebx],edx
 		add edx,0x1000
 		loop stdos3
 		
-		mov dword [ebx],0x7003
+		mov dword [ebx],0x7103
 		bts dword [0x1b000],7
 		bts dword [0x1b000],8
 		bts dword [0x1b000],9
 		bts dword [0x1b000],0xa	
+		
+		mov eax,cr4
+		or eax,0x80 ;Enables global pagesPGE designated with G flag
+		mov cr4,eax
 		
 		 ;令CR3寄存器指向页目录，并正式开启页功能 
         mov eax,0x8003                 ;PCD=PWT=0

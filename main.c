@@ -142,7 +142,10 @@ static void createInterruptGate(KernelData* kdata)
 			item.segAddr = local_x2apic_error_handling;
 			item.GateDPL = 0;	
 		}
-		else
+		else if(i == 0x82)
+		{
+			item.segAddr = ApicTimeOut;		
+		}else
 			item.segAddr = general_interrupt_handler;
 
 		appendTableGateItem(&(kdata->idtInfo), &item);
@@ -153,7 +156,7 @@ static void createInterruptGate(KernelData* kdata)
 }
 TaskCtrBlock* createNewTcb(TcbList* taskList)
 {
-	TaskCtrBlock* newTcb = (TaskCtrBlock*)allocate_memory(taskList->tcb_Frist,sizeof(TaskCtrBlock),  PAGE_RW);
+	TaskCtrBlock* newTcb = (TaskCtrBlock*)allocate_memory(taskList->tcb_Frist,sizeof(TaskCtrBlock),  PAGE_G|PAGE_RW);
 	memset_s(newTcb, 0, sizeof(TaskCtrBlock));
 	newTcb->prior = taskList->tcb_Last;
 	taskList->tcb_Last->next = newTcb;
@@ -347,6 +350,31 @@ int _start(BootParam *argv)
     uint32_t eax=0,ebx=0,ecx=0,edx=0;
     cpuidcall(1, &eax, &ebx,&ecx,&edx);
 	printf("cpuid[1] EAX:0x%x EBX:0x%x ECX:0x%x EDX:0x%x\r\n",eax,ebx,ecx,edx);
+	uint32 supportSSE = 0,supportSSE2=0,supportSSE3=0,supportSSSE3=0,support_FXSAVE_FXRSTOR =0,supportCLFLUSH =0;
+	if(edx & (1<<25))
+		supportSSE =1;
+	if(edx & (1<<26))
+		supportSSE2 =1;
+	if(ecx & 1)
+		supportSSE3 =1;			
+	if(ecx & (1<<9))
+		supportSSSE3 =1;
+	if(edx & (1<<24))
+		support_FXSAVE_FXRSTOR =1;	
+	if(edx & (1<<19))
+		supportCLFLUSH =1;		
+	printf("support: SSE=%d, SSE2=%d, SSE3=%d, SSSE3=%d, FXSAVE/FXRSTOR=%d, CLFLUSH=%d\r\n",supportSSE,supportSSE2,supportSSE3,supportSSSE3,support_FXSAVE_FXRSTOR,supportCLFLUSH);
+	printf("cr4: 0x%x\r\n",cr4_data());	
+	uint32 support_monitor_mwait = 0,smallsize =0,largestsize=0;
+	if(ecx & (1<<3))
+	{
+		support_monitor_mwait = 1;
+		cpuidcall(5,&eax,&ebx,&ecx,&edx);
+		printf("support:monitor/mwait\r\n");
+		printf("cpuid[5] EAX:0x%x EBX:0x%x smallsize:0x%x largestsize:0x%x\r\n",eax,ebx,ecx&0x0000ffff,edx&0x0000ffff);
+	}
+	eax = cr0_data();
+	printf("cr0_data: 0x%x\r\n",eax);
 
 	printf("local APIC support: 0x%x\r\n",check_apic());
 	printf("is support x2APIC: 0x%x\r\n",check_x2apic());
@@ -367,10 +395,9 @@ int _start(BootParam *argv)
 	rdmsrcall(IA32_X2APIC_APICID,&eax,edx);
     printf("Local x2APIC ID:.0x%x\r\n",eax);
 	rdmsrcall(IA32_X2APIC_VERSION,&eax,edx);
-	printf("Local x2APIC Version:0x%x\r\n",eax);
+	printf("Local x2APIC Version:0x%x\r\n",eax); 
 	rdmsrcall(IA32_X2APIC_LDR,&eax,edx);//Logical x2APIC ID = [(x2APIC ID[19:4] « 16) | (1 « x2APIC ID[3:0])]
 	printf("Logical Destination:0x%x\r\n",eax);
-
 
 	//rtc_8259a_enable();
 
@@ -387,33 +414,39 @@ int _start(BootParam *argv)
 	wrmsr_fence(IA32_X2APIC_SELF_IPI,eax,edx);
 	
 	//IPI测试
-	eax = 0xC4400; //vector =0x80  level = 1 tirgger =0  Destination Shorthand =All Excluding Self
+	eax = 0xC4080; //vector =0x80  level = 1 tirgger =0  Destination Shorthand =All Excluding Self
 	edx =0xffffffff;
 	wrmsr_fence(IA32_X2APIC_ICR,eax,edx);  
 
-	//Apic timer test
-	eax = 0x20080; //vector =0x80  Timer Mode =  Periodic    Not Masked
+
+	//Apic timer task switch
+	eax = 0x82; //vector =0x78  Timer Mode =  Periodic    Not Masked
 	edx =0;
 	wrmsr_fence(IA32_X2APIC_LVT_TIMER,eax,edx); 
 	eax = 0x9; //Divide Configuration 101: Divide by 64
 	edx =0;
 	wrmsr_fence(IA32_X2APIC_DIV_CONF,eax,edx); 
-	eax = 0x000fffff; //Initial Count 
-	edx =0;
-	wrmsr_fence(IA32_X2APIC_INIT_COUNT,eax,edx); 
 
-	//createTask(&(kernelData.taskList),200,4);
-	//createTask(&(kernelData.taskList), 250,4);
-	// uint32 count = 0;
+	// eax = 0x000fffff; //Initial Count 
+	// edx =0;
+	// wrmsr_fence(IA32_X2APIC_INIT_COUNT,eax,edx); 
+	
+	createTask(&(kernelData.taskList),200,4);
+	createTask(&(kernelData.taskList), 250,4);
+    uint32 count = 0;
 	while (1)
 	{
-	//	printf("kernel process.....................%s %d\r\n","count =", count++);
-		uint32 count = 0xfffff;
-		while (count--) {}
+	    printf("kernel process.....................%s %d\r\n","count =", count++);
+		//给自身处理器发送82h号任务切换
+		eax =0x82;
+		edx =0;
+		wrmsr_fence(IA32_X2APIC_SELF_IPI,eax,edx);
 	}
-	printf("enter die\r\n");
-	while (1)
-		die();	
+	while (1) 
+	{
+		asm("sti");
+		asm("hlt");
+	}	
 }
 
 void TerminateProgram(uint32 retval)

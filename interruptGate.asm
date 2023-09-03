@@ -1,9 +1,10 @@
 
-global exceptionCalls,general_interrupt_handler,systemCall,interrupt_8259a_handler,interrupt_70_handler,local_x2apic_error_handling
+global exceptionCalls,general_interrupt_handler,systemCall,interrupt_8259a_handler,interrupt_70_handler,local_x2apic_error_handling,ApicTimeOut
 
 extern   kernelData,hexstr32
 IA32_X2APIC_EOI equ 0x80B
 IA32_X2APIC_ESR equ 0x828
+IA32_X2APIC_INIT_COUNT equ 0x838
 
 puts_int:                                 ;显示0终止的字符串并移动光标 
          push ebx                                   ;输入：DS:EBX=串地址
@@ -310,6 +311,52 @@ ret70:
 	pop ebx
     pop eax        
     iretd
+
+ApicTimeOut:
+    push eax   
+	push ecx 
+	push edx
+	push esi									  
+    mov ecx,kernelData
+	test dword [ecx+28],0xffffffff
+	je ApicTimeOutret
+	cmp dword [ecx+28],1
+	je ApicTimeOutret
+	mov esi,[ecx+32]
+ApicTimeOutnexttask:
+	mov esi,[esi]
+	cmp esi,0
+	jne ApicTimeOutnexttask1
+	mov esi,[ecx+20]
+ApicTimeOutnexttask1:
+	cmp esi,[ecx+32]
+	je ApicTimeOutret
+	test dword [esi+0x10],0xffffffff
+	jnz ApicTimeOutnexttask
+	mov edx,[ecx+32]
+	mov dword [edx+0x10],0
+	mov [ecx+32],esi
+	mov dword [esi+0x10],1
+	cmp esi,[ecx+20]
+	je noSetTimer
+	mov eax,0xffff  ;task cpu time
+	xor edx,edx
+	mov ecx,IA32_X2APIC_INIT_COUNT
+	mfence
+	wrmsr
+noSetTimer:
+	call writeEOI
+	jmp far [esi+8]
+	jmp ApicTimeOutret0
+ApicTimeOutret:
+	call writeEOI
+ApicTimeOutret0:	
+	pop esi
+	pop edx
+	pop ecx
+    pop eax  
+	iretd
+
 systemCall:
 	push systemCallmsg
 	call puts_int
@@ -392,4 +439,4 @@ excep_codebuff    db  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 exceptionCalls   dd  general_exception0_handler,general_exception1_handler,general_exception2_handler,general_exception3_handler,general_exception4_handler
 				 dd  general_exception5_handler,general_exception6_handler,general_exception7_handler,general_exception8_handler,general_exception9_handler
 				 dd  general_exception10_handler,general_exception11_handler,general_exception12_handler,general_exception13_handler,general_exception14_handler
-				 dd  general_exception15_handler,general_exception16_handler,general_exception17_handler,general_exception18_handler,general_exception19_handler
+				 dd  general_exception15_handler,general_exception16_handler,general_exception17_handler,general_exception18_handler,general_exception19_handler		

@@ -6,6 +6,7 @@ extern void interrupt_8259a_handler();
 extern void interrupt_70_handler();
 extern void local_x2apic_error_handling();
 extern void systemCall();
+extern void ApicTimeOut();
 extern uint32 exceptionCalls[20];
 
 #endif // !INTERRUPTGATE_H_

@@ -1,5 +1,6 @@
 
 global setgdtr,setldtr,settr,cs_data,ds_data,ss_data,fs_data,gs_data,cpuidcall,rdmsrcall,wrmsrcall,wrmsr_fence,rdmsr_fence,setds,setgs,setfs,esp_data,cr3_data,flags_data,setBit,resetBit,testBit,allocatePhy4kPage,freePhy4kPage,sysInLong,sysOutLong,callTss,setidtr,cli_s,sti_s,invlpg_s,intcall,resetcr3,rtc_8259a_enable,interrupt8259a_disable
+global _monitor,_mwait,cr0_data,set_cr0data,cr4_data,set_cr4data
 extern bootparam
 pageStatusOffset equ 28
 setgdtr:
@@ -67,7 +68,20 @@ esp_data:
 	mov eax,esp
 	sub eax,4
 	ret
-
+cr0_data:
+	mov eax,cr0
+	ret
+set_cr0data:
+	mov eax,[esp+4]
+	mov cr0,eax
+	ret
+cr4_data:
+	mov eax,cr4
+	ret
+set_cr4data:
+	mov eax,[esp+4]
+	mov cr4,eax
+	ret
 cr3_data:
 	mov eax,cr3
 	ret
@@ -134,9 +148,10 @@ testBit:
 callTss:
 	push dword [esp+4]
 	push dword 0
-	call far [esp]
+	jmp far [esp]
 	add esp,8
 	ret
+
 
 allocatePhy4kPage:
 		push edx
@@ -472,6 +487,27 @@ rdmsr_fence:
     pop edx
 	pop ecx
 	pop ebp
+	ret
+
+_monitor:
+	push ebp
+	mov ebp,esp
+	push ecx
+	push edx
+	mov eax,[ebp+8]
+	mov ecx,[ebp+0xc]
+	mov edx,[ebp+0x10]
+	monitor
+	pop edx
+	pop ecx
+	pop ebp
+	ret
+_mwait:
+	push ecx
+	mov ecx,[esp+0x8]
+	mov eax,[esp+0xc]
+	mwait
+	pop ecx
 	ret
 
 rtc_8259a_enable:
