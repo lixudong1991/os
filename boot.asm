@@ -436,7 +436,7 @@ rdmsrcall:
 	mov ecx,[ebp+0xc]
 	mov [ecx],eax
 	mov ecx,[ebp+0x10]
-	mov [edx],edx
+	mov [ecx],edx
     pop edx
 	pop ecx
 	pop ebp
@@ -483,7 +483,7 @@ rdmsr_fence:
 	mov ecx,[ebp+0xc]
 	mov [ecx],eax
 	mov ecx,[ebp+0x10]
-	mov [edx],edx
+	mov [ecx],edx
     pop edx
 	pop ecx
 	pop ebp

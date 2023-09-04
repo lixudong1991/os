@@ -348,7 +348,7 @@ int _start(BootParam *argv)
 	//callTss(kernelData.taskList.tcb_Last->tssSel);
 	//testfun();
 	check_cpu_features();
-
+	check_mtrr();
     uint32_t eax=0,ebx=0,ecx=0,edx=0;
 	printf("cr4: 0x%x\r\n",cr4_data());	
 	eax = cr0_data();

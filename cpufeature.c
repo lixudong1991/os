@@ -7,7 +7,7 @@ int cpufeatures[cpu_feature_size] = {0};
 
 void check_cpu_features()
 {
-	 uint32_t eax=0,ebx=0,ecx=0,edx=0;
+	uint32_t eax=0,ebx=0,ecx=0,edx=0;
     cpuidcall(1, &eax, &ebx,&ecx,&edx);
 	printf("cpuid[1] EAX:0x%x EBX:0x%x ECX:0x%x EDX:0x%x\r\n",eax,ebx,ecx,edx);
 	if(edx & (1<<25))
@@ -50,47 +50,4 @@ void check_cpu_features()
 		printf("cpuid[5] EAX:0x%x EBX:0x%x smallsize:0x%x largestsize:0x%x\r\n",eax,ebx,ecx&0x0000ffff,edx&0x0000ffff);
 	}
 	printf("support: mtrr = %d\r\n",cpufeatures[cpu_support_mtrr]);
-	if(cpufeatures[cpu_support_mtrr])
-	{
-		eax=edx=0;
-		rdmsrcall(IA32_MTRRCAP_MSR,&eax,&edx);
-		printf("MTRRCAP msr: eax=0x%x,edx=0x%x\r\n",eax,edx);
-		eax=edx=0;
-		rdmsrcall(IA32_MTRR_DEF_TYPE_MSR,&eax,&edx);
-		printf("MTRR_DEF_TYPE msr: eax=0x%x,edx=0x%x\r\n",eax,edx);
-		eax=edx=0;
-		rdmsrcall(IA32_MTRR_FIX64K_00000_MSR,&eax,&edx);
-		printf("MTRR_FIX64K_00000: 0x%x%x  ",edx,eax);
-		eax=edx=0;
-		rdmsrcall(IA32_MTRR_FIX16K_80000_MSR,&eax,&edx);
-		printf("MTRR_FIX16K_80000: 0x%x%x  ",edx,eax);
-		eax=edx=0;
-		rdmsrcall(IA32_MTRR_FIX16K_A0000_MSR,&eax,&edx);
-		printf("MTRR_FIX16K_A0000: 0x%x%x  ",edx,eax);
-		eax=edx=0;
-		rdmsrcall(IA32_MTRR_FIX4K_C0000_MSR,&eax,&edx);
-		printf("MTRR_FIX4K_C0000: 0x%x%x  ",edx,eax);
-		eax=edx=0;
-		rdmsrcall(IA32_MTRR_FIX4K_C8000_MSR,&eax,&edx);
-		printf("MTRR_FIX4K_C8000: 0x%x%x  ",edx,eax);
-		eax=edx=0;
-		rdmsrcall(IA32_MTRR_FIX4K_D0000_MSR,&eax,&edx);
-		printf("MTRR_FIX4K_D0000: 0x%x%x  ",edx,eax);
-		eax=edx=0;
-		rdmsrcall(IA32_MTRR_FIX4K_D8000_MSR,&eax,&edx);
-		printf("MTRR_FIX4K_D8000: 0x%x%x  ",edx,eax);
-		eax=edx=0;
-		rdmsrcall(IA32_MTRR_FIX4K_E0000_MSR,&eax,&edx);
-		printf("MTRR_FIX4K_E0000: 0x%x%x  ",edx,eax);
-		eax=edx=0;
-		rdmsrcall(IA32_MTRR_FIX4K_E8000_MSR,&eax,&edx);
-		printf("MTRR_FIX4K_E8000: 0x%x%x  ",edx,eax);
-		eax=edx=0;
-		rdmsrcall(IA32_MTRR_FIX4K_F0000_MSR,&eax,&edx);
-		printf("MTRR_FIX4K_F0000: 0x%x%x  ",edx,eax);	
-		eax=edx=0;
-		rdmsrcall(IA32_MTRR_FIX4K_F8000_MSR,&eax,&edx);
-		printf("MTRR_FIX4K_F8000: 0x%x%x\r\n",edx,eax);													
-	}
-
 }
