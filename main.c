@@ -5,6 +5,7 @@
 #include "printf.h"
 #include "apic.h"
 #include "cpufeature.h"
+#include "memcachectl.h"
 #define STACKLIMIT_G1(a)   ((((uint32)(a))-1)>>12) //gdt 表项粒度为1的段界限
 
 BootParam bootparam;

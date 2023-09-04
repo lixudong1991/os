@@ -33,7 +33,7 @@ void check_cpu_features()
 	if(ecx & CPUID_APIC_TIMER_TSCDEADLINE)
 		cpufeatures[cpu_support_tscdeadline] =1;
 
-	printf("support: SSE=%d, SSE2=%d, SSE3=%d, SSSE3=%d, FXSAVE/FXRSTOR=%d, CLFLUSH=%d, apic =%d, x2apic =%d, tscdeadline =%d\r\n",
+	printf("support: SSE=%d, SSE2=%d, SSE3=%d, SSSE3=%d, FXSAVE/FXRSTOR=%d, CLFLUSH=%d, apic =%d, x2apic =%d, tscdeadline =%d, mtrr =%d\r\n",
  			cpufeatures[cpu_support_sse],
 			cpufeatures[cpu_support_sse2],
 			cpufeatures[cpu_support_sse3],
@@ -42,12 +42,12 @@ void check_cpu_features()
 			cpufeatures[cpu_support_clflush],
 			cpufeatures[cpu_support_apic],
 			cpufeatures[cpu_support_x2apic],
-			cpufeatures[cpu_support_tscdeadline]);
+			cpufeatures[cpu_support_tscdeadline],
+			cpufeatures[cpu_support_mtrr]);
 	printf("support:monitor/mwait = %d\r\n",cpufeatures[cpu_support_monitor_mwait]);
 	if(cpufeatures[cpu_support_monitor_mwait])
 	{
 		cpuidcall(5,&eax,&ebx,&ecx,&edx);
 		printf("cpuid[5] EAX:0x%x EBX:0x%x smallsize:0x%x largestsize:0x%x\r\n",eax,ebx,ecx&0x0000ffff,edx&0x0000ffff);
 	}
-	printf("support: mtrr = %d\r\n",cpufeatures[cpu_support_mtrr]);
 }

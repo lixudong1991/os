@@ -38,5 +38,5 @@ void check_mtrr();
 
 #define MIXED_TYPES  -1
 int mem_cache_type_get(uint32 base,uint32 size);
-
+int mem_cache_type_set(uint32 base,uint32 size,int type);
 #endif

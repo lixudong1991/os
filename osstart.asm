@@ -714,7 +714,9 @@ stdos3:	mov [ebx],edx
 		mov eax,cr4
 		or eax,0x80 ;Enables global pagesPGE designated with G flag
 		mov cr4,eax
-
+		mov eax,cr3
+		mov cr3,eax
+		
 		push dword 4
 		call allocateVirtual4kPage
 		add esp,4		

@@ -295,4 +295,7 @@ extern void interrupt8259a_disable();
 //地址范围必须是write-back type
 extern uint32 _monitor(void *addr,uint32 extensions,uint32 hints);
 extern uint32 _mwait(uint32 extensions,uint32 hints);
+
+extern uint32 pre_mtrr_change();
+extern void post_mtrr_change(uint32 cr4data);
 #endif
