@@ -257,6 +257,7 @@ extern uint32 freePhy4kPage(uint32 page);
 #define PAGE_ALL_PRIVILEG 4
 
 char *allocateVirtual4kPage(uint32 size, uint32 *pAddr, uint32 prop);
+int mem4k_map(uint32 linearaddr,uint32 phyaddr,int memcachType,uint32 prop);
 
 extern void memcpy_s(char *des, char *src, uint32 size);
 extern int memcmp_s(char *src1, char *src2, uint32 size);

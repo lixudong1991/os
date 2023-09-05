@@ -285,6 +285,64 @@ void testfun()
 	freePhy4kPage(addr);
 }
 */
+void useX2apic()
+{
+	uint32_t eax = 0, ebx = 0, ecx = 0, edx = 0;
+	rdmsrcall(IA32_APIC_BASE_MSR, &eax, &edx);
+	printf("before enable x2apic msr: low 32:0x%x high 32:%x\r\n", eax, edx);
+	enablingx2APIC();
+	eax = edx = 0;
+	rdmsrcall(IA32_APIC_BASE_MSR, &eax, &edx);
+	printf("after enable x2apic msr: low 32:0x%x high 32:%x\r\n", eax, edx);
+	rdmsrcall(IA32_X2APIC_APICID, &eax, &edx);
+	printf("Local x2APIC ID:.0x%x\r\n", eax);
+	rdmsrcall(IA32_X2APIC_VERSION, &eax, &edx);
+	printf("Local x2APIC Version:0x%x\r\n", eax);
+	rdmsrcall(IA32_X2APIC_LDR, &eax, &edx); // Logical x2APIC ID = [(x2APIC ID[19:4] « 16) | (1 « x2APIC ID[3:0])]
+	printf("Logical Destination:0x%x\r\n", eax);
+
+	// rtc_8259a_enable();
+
+	// 设置并初始化Local Apic error 中断向量为 0x81
+	eax = 0x81;
+	edx = 0;
+	wrmsr_fence(IA32_X2APIC_LVT_ERROR, eax, edx);
+	eax = edx = 0;
+	wrmsr_fence(IA32_X2APIC_ESR, eax, edx);
+
+	// 给自身处理器发送80h号中断测试
+	eax = 0x80;
+	edx = 0;
+	wrmsr_fence(IA32_X2APIC_SELF_IPI, eax, edx);
+
+	// IPI测试
+	eax = 0xCC500; // vector =0x80  level = 1 tirgger =0  Destination Shorthand =All Excluding Self
+	edx = 0xffffffff;
+	wrmsr_fence(IA32_X2APIC_ICR, eax, edx);
+
+	// Apic timer task switch
+	eax = 0x82; // vector =0x78  Timer Mode =  Periodic    Not Masked
+	edx = 0;
+	wrmsr_fence(IA32_X2APIC_LVT_TIMER, eax, edx);
+	eax = 0x9; // Divide Configuration 101: Divide by 64
+	edx = 0;
+	wrmsr_fence(IA32_X2APIC_DIV_CONF, eax, edx);
+
+	// eax = 0x000fffff; //Initial Count
+	// edx =0;
+	// wrmsr_fence(IA32_X2APIC_INIT_COUNT,eax,edx);
+}
+void usexapic()
+{
+	enablexApic();
+	int stat = mem4k_map(0xFEE00000, 0xFEE00000, MEM_UC, PAGE_RW);
+	printf("map xapic addr 0xFEE00000 status %d\r\n", stat);
+	LOCAL_APIC *xapic = (LOCAL_APIC *)0xFEE00000;
+	printf("xapic siv =0x%x\r\n",xapic->SIV[0]);
+	xapic->SIV[0] |=0x100; //software enable xapic
+	printf("xapic id =0x%x\r\n",xapic->ID[0]);
+	printf("xapic Version =0x%x\r\n",xapic->Version[0]);
+}
 int _start(BootParam *argv)
 {
 	clearscreen();
@@ -350,64 +408,22 @@ int _start(BootParam *argv)
 	// testfun();
 	check_cpu_features();
 	check_mtrr();
-	uint32_t addr = 0xFEE00000,size =0x1000;
-	printf("before 0x%x mem cache type %d\r\n",addr,mem_cache_type_get(addr,size));
-	int temp = mem_variable_type_set(0,addr,size,MEM_UC);
-	printf("after 0x%x mem cache type %d  temp = %d\r\n",addr,mem_cache_type_get(addr,size),temp);
-	addr = 0xb8000,size =0x1000;
-	printf("before 0x%x mem cache type %d\r\n",addr,mem_cache_type_get(addr,size));
-	temp = mem_fix_type_set(addr,size,MEM_WB);
-	printf("after 0x%x mem cache type %d temp=%d\r\n",addr,mem_cache_type_get(addr,size),temp);
+	check_pat();
+	uint32_t addr = 0xFEE00000, size = 0x1000;
+	printf("before 0x%x mem cache type %d\r\n", addr, mem_cache_type_get(addr, size));
+	int temp = mem_variable_type_set(3, addr, size, MEM_UC);
+	printf("after 0x%x mem cache type %d  temp = %d\r\n", addr, mem_cache_type_get(addr, size), temp);
+	addr = 0xb8000, size = 0x1000;
+	printf("before 0x%x mem cache type %d\r\n", addr, mem_cache_type_get(addr, size));
+	temp = mem_fix_type_set(addr, size, MEM_UC);
+	printf("after 0x%x mem cache type %d temp=%d\r\n", addr, mem_cache_type_get(addr, size), temp);
 
 	uint32_t eax = 0, ebx = 0, ecx = 0, edx = 0;
 	printf("cr4: 0x%x\r\n", cr4_data());
 	eax = cr0_data();
 	printf("cr0_data: 0x%x\r\n", eax);
 	eax = 0, edx = 0;
-	rdmsrcall(IA32_APIC_BASE_MSR, &eax, &edx);
-	printf("before enable x2apic msr: low 32:0x%x high 32:%x\r\n", eax, edx);
-	enablingx2APIC();
-	eax = edx = 0;
-	rdmsrcall(IA32_APIC_BASE_MSR, &eax, &edx);
-	printf("after enable x2apic msr: low 32:0x%x high 32:%x\r\n", eax, edx);
-	rdmsrcall(IA32_X2APIC_APICID, &eax, &edx);
-	printf("Local x2APIC ID:.0x%x\r\n", eax);
-	rdmsrcall(IA32_X2APIC_VERSION, &eax, &edx);
-	printf("Local x2APIC Version:0x%x\r\n", eax);
-	rdmsrcall(IA32_X2APIC_LDR, &eax, &edx); // Logical x2APIC ID = [(x2APIC ID[19:4] « 16) | (1 « x2APIC ID[3:0])]
-	printf("Logical Destination:0x%x\r\n", eax);
-
-	// rtc_8259a_enable();
-
-	// 设置并初始化Local Apic error 中断向量为 0x81
-	eax = 0x81;
-	edx = 0;
-	wrmsr_fence(IA32_X2APIC_LVT_ERROR, eax, edx);
-	eax = edx = 0;
-	wrmsr_fence(IA32_X2APIC_ESR, eax, edx);
-
-	// 给自身处理器发送80h号中断测试
-	eax = 0x80;
-	edx = 0;
-	wrmsr_fence(IA32_X2APIC_SELF_IPI, eax, edx);
-
-	// IPI测试
-	eax = 0xCC500; // vector =0x80  level = 1 tirgger =0  Destination Shorthand =All Excluding Self
-	edx = 0xffffffff;
-	wrmsr_fence(IA32_X2APIC_ICR, eax, edx);
-
-	// Apic timer task switch
-	eax = 0x82; // vector =0x78  Timer Mode =  Periodic    Not Masked
-	edx = 0;
-	wrmsr_fence(IA32_X2APIC_LVT_TIMER, eax, edx);
-	eax = 0x9; // Divide Configuration 101: Divide by 64
-	edx = 0;
-	wrmsr_fence(IA32_X2APIC_DIV_CONF, eax, edx);
-
-	// eax = 0x000fffff; //Initial Count
-	// edx =0;
-	// wrmsr_fence(IA32_X2APIC_INIT_COUNT,eax,edx);
-
+	usexapic();
 	// createTask(&(kernelData.taskList),200,4);
 	// createTask(&(kernelData.taskList), 250,4);
 	// uint32 count = 0;

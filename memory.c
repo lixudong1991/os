@@ -1,4 +1,5 @@
 #include "boot.h"
+#include "memcachectl.h"
 #define ALLOC_ALIGN 4
 extern BootParam bootparam;
 
@@ -58,4 +59,54 @@ char *allocateVirtual4kPage(uint32 size, uint32 *pAddr, uint32 prop)
 	}
 	*pAddr = addr + size;
 	return (char *)addr;
+}
+
+int mem4k_map(uint32 linearaddr, uint32 phyaddr, int memcachType, uint32 prop)
+{
+	if ((linearaddr & 0x0fff) || (phyaddr & 0x0fff))
+		return FALSE;
+	uint32 startaddr = linearaddr;
+	prop &= 6;
+	uint32 pageDiraddr = startaddr >> 22;
+	pageDiraddr = pageDiraddr << 2;
+	uint32 *ppageDiraddr = (uint32 *)(0xfffff000 + pageDiraddr);
+	asm("mfence");
+	uint32 tableaddr = *ppageDiraddr;
+	if ((tableaddr & 1) != 1)
+	{
+		tableaddr = (uint32)allocatePhy4kPage(0);
+		tableaddr |= (prop | 1);
+		asm("mfence");
+		*ppageDiraddr = tableaddr;
+		resetcr3();
+		memset_s((char *)(0xffc00000 | (pageDiraddr << 10)), 0, 4096);
+	}
+	else
+	{
+		tableaddr |= (prop | 1);
+		asm("mfence");
+		*ppageDiraddr = tableaddr;
+		resetcr3();
+	}
+
+	uint32 pageAddr = (startaddr & 0x3FF000) >> 12;
+	pageAddr = pageAddr << 2;
+	uint32 *pagePhyAddr = (uint32 *)((0xffc00000 | (pageDiraddr << 10)) + pageAddr);
+	asm("mfence");
+	if (((*pagePhyAddr) & 1) != 1)
+	{
+		*pagePhyAddr = phyaddr;
+		(*pagePhyAddr) |= 1;
+	}
+	else
+		return FALSE;
+	asm("mfence");
+	(*pagePhyAddr) |= prop;
+	if(memcachType>=0||memcachType<8)
+	{
+		asm("mfence");
+		(*pagePhyAddr) |=mem_type_map_pat[memcachType];
+	}		
+	resetcr3();
+	return TRUE;
 }

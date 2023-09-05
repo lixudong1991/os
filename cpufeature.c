@@ -33,7 +33,9 @@ void check_cpu_features()
 	if (ecx & CPUID_APIC_TIMER_TSCDEADLINE)
 		cpufeatures[cpu_support_tscdeadline] = 1;
 
-	printf("support: SSE=%d, SSE2=%d, SSE3=%d, SSSE3=%d, FXSAVE/FXRSTOR=%d, CLFLUSH=%d, apic =%d, x2apic =%d, tscdeadline =%d, mtrr =%d\r\n",
+	if (edx & CPUID_SUPPORT_EDX_PAT)
+		cpufeatures[cpu_support_pat] = 1;
+	printf("support: SSE=%d, SSE2=%d, SSE3=%d, SSSE3=%d, FXSAVE/FXRSTOR=%d, CLFLUSH=%d, apic =%d, x2apic =%d, tscdeadline =%d, mtrr =%d\r\n, PAT= %d\r\n",
 		   cpufeatures[cpu_support_sse],
 		   cpufeatures[cpu_support_sse2],
 		   cpufeatures[cpu_support_sse3],
@@ -43,7 +45,8 @@ void check_cpu_features()
 		   cpufeatures[cpu_support_apic],
 		   cpufeatures[cpu_support_x2apic],
 		   cpufeatures[cpu_support_tscdeadline],
-		   cpufeatures[cpu_support_mtrr]);
+		   cpufeatures[cpu_support_mtrr],
+		   cpufeatures[cpu_support_pat]);
 	printf("support:monitor/mwait = %d\r\n", cpufeatures[cpu_support_monitor_mwait]);
 	if (cpufeatures[cpu_support_monitor_mwait])
 	{

@@ -5,6 +5,26 @@
 
 #define val_str(a) ((a) ? "enable" : "disable")
 #define vall_str(a) ((a) ? "support" : "not support")
+
+uint32 mem_type_map_pat[8] = {0x18,0x18,0x18,0x18,0x8,0x18,0,0x10};//WC,WP映射为UC
+
+uint32 IA32_MTRR_PHYSBASE_ADDR(int index)
+{
+    return IA32_MTRR_PHYSBASE0_MSR+index*2;
+}
+uint32 IA32_MTRR_PHYSMASK_ADDR(int index)
+{
+    return IA32_MTRR_PHYSMASK0_MSR+index*2;
+}
+void check_pat()
+{
+    uint32_t eax = 0,edx = 0;
+    if(cpufeatures[cpu_support_pat])
+    {
+        rdmsrcall(IA32_PAT_MSR, &eax, &edx);
+        printf("pat eax:0x%x edx:0x%x\r\n",eax,edx);
+    }
+}
 void check_mtrr()
 {
     uint32_t eax = 0, ebx = 0, ecx = 0, edx = 0;
@@ -244,8 +264,16 @@ int get_4kmem_cache_type(uint32 base)
         phymask <<= 32;
         phymask |= (eax1 & 0xFFFFF000);
         lbase = base;
-        if (lbase & phymask == phybase & phymask)
-            return eax & 0xff;
+        
+        if ((lbase & phymask) == (phybase & phymask))
+        {
+           // edx1 = (uint32_t)&phybase;
+           // edx = (uint32_t)&phymask;
+          //  eax1= (uint32_t)&lbase;
+          //  printf("index =%d basel:0x%x 0x%x maskl:0x%x 0x%x addl:0x%x 0x%x\r\n",i, *(uint32 *)edx1, *(uint32 *)(edx1 + 4), *(uint32 *)edx, *(uint32 *)(edx + 4),*(uint32 *)eax1, *(uint32 *)(eax1 + 4));
+            return (eax & 0xff);
+        }
+            
     }
     return defaultType;
 }
@@ -284,11 +312,11 @@ int mem_fix_type_set(uint32 base, uint32 size, int type)
     uint32_t eax = 0, edx = 0, eax1 = 0, edx1 = 0;
     if (cpufeatures[cpu_support_mtrr])
     {
-        if (base & 0x0fff || size & 0x0fff || (size == 0))
+        if ((base & 0x0fff) || (size & 0x0fff)|| (size == 0))
             return FALSE;
         rdmsrcall(IA32_MTRRCAP_MSR, &eax, &edx);
         rdmsrcall(IA32_MTRR_DEF_TYPE_MSR, &eax1, &edx1);
-        if (eax & (1 << 8) && (eax1 & (1 << 10)))
+        if ((eax & (1 << 8)) && (eax1 & (1 << 10)))
         {
             if (base < 0x100000)
             {
@@ -307,11 +335,11 @@ int mem_variable_type_set(int msrId, uint32 base, uint32 size, int type)
     uint32_t eax = 0, edx = 0, eax1 = 0, edx1 = 0;
     if (cpufeatures[cpu_support_mtrr])
     {
-        if (base & 0x0fff || size & 0x0fff || (size == 0))
+        if ((base & 0x0fff) || (size & 0x0fff) || (size == 0))
             return FALSE;
         rdmsrcall(IA32_MTRRCAP_MSR, &eax, &edx);
         rdmsrcall(IA32_MTRR_DEF_TYPE_MSR, &eax1, &edx1);
-        if (eax & (1 << 8) && (eax1 & (1 << 10)))
+        if ((eax & (1 << 8)) && (eax1 & (1 << 10)))
         {
             if (base < 0x100000)
                 return FALSE;
@@ -319,7 +347,7 @@ int mem_variable_type_set(int msrId, uint32 base, uint32 size, int type)
         if (base % size != 0)
             return FALSE;
         uint32_t vcnt = eax & 0xff;
-        if (vcnt == 0 || msrId < 0 || msrId > vcnt - 1)
+        if (vcnt == 0 || msrId < 0 || msrId > (vcnt - 1))
             return FALSE;
         uint64 phybase = base, phymask = base + size;
         phybase |= (type & 0xff);
@@ -344,7 +372,7 @@ int mem_variable_type_set(int msrId, uint32 base, uint32 size, int type)
                 phymask |= (((uint64)1) << index);
         }
         phymask |= (((uint64)1) << 11);
-        printf("eax:0x%x edx:0x%x eax1:0x%x edx1:0x%x\r\n", *(uint32 *)eax, *(uint32 *)(eax + 4), *(uint32 *)edx, *(uint32 *)(edx + 4));
+        //printf("eax:0x%x edx:0x%x eax1:0x%x edx1:0x%x\r\n", *(uint32 *)eax, *(uint32 *)(eax + 4), *(uint32 *)edx, *(uint32 *)(edx + 4));
         uint32 cr4data = pre_mtrr_change();
         wrmsr_fence(IA32_MTRR_PHYSBASE_ADDR(msrId), *(uint32 *)eax, *(uint32 *)(eax + 4));
         wrmsr_fence(IA32_MTRR_PHYSMASK_ADDR(msrId),*(uint32*)edx,*(uint32*)(edx+4));

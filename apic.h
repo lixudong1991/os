@@ -126,5 +126,5 @@ typedef struct LOCAL_APIC
 #define CPUID_APIC_TIMER_TSCDEADLINE 0x1000000
 
 int enablingx2APIC();
-
+int enablexApic();
 #endif

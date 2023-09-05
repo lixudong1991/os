@@ -14,6 +14,7 @@ enum cpu_feature_index
     cpu_support_apic,
     cpu_support_x2apic,
     cpu_support_tscdeadline,
+    cpu_support_pat,
     cpu_feature_size
 };
 

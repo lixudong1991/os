@@ -17,3 +17,14 @@ int enablingx2APIC()
    }
    return FALSE;
 }
+int enablexApic()
+{  
+   uint32 eax = 0, edx = 0;
+   if (cpufeatures[cpu_support_apic])
+   {
+      rdmsr_fence(IA32_APIC_BASE_MSR, &eax, &edx);
+      eax |= 0x800;
+      wrmsr_fence(IA32_APIC_BASE_MSR, eax, edx);
+      return TRUE;
+   }
+}
