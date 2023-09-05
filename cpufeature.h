@@ -2,7 +2,7 @@
 #define MEM_TYPE_H__H
 
 enum cpu_feature_index
-{   
+{
     cpu_support_sse = 0,
     cpu_support_sse2,
     cpu_support_sse3,

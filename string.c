@@ -4,7 +4,8 @@ int strncmp_s(const char *cs, const char *ct, uint32 count)
 {
 	unsigned char c1, c2;
 
-	while (count) {
+	while (count)
+	{
 		c1 = *cs++;
 		c2 = *ct++;
 		if (c1 != c2)
@@ -19,20 +20,22 @@ int strncmp_s(const char *cs, const char *ct, uint32 count)
 uint32 strnlen(const char *s, uint32 maxlen)
 {
 	const char *es = s;
-	while (*es && maxlen) {
+	while (*es && maxlen)
+	{
 		es++;
 		maxlen--;
 	}
 
 	return (es - s);
 }
-int strcmp_s(const char* str1, const char* str2)
+int strcmp_s(const char *str1, const char *str2)
 {
-	const unsigned char* s1 = (const unsigned char*)str1;
-	const unsigned char* s2 = (const unsigned char*)str2;
+	const unsigned char *s1 = (const unsigned char *)str1;
+	const unsigned char *s2 = (const unsigned char *)str2;
 	int delta = 0;
 
-	while (*s1 || *s2) {
+	while (*s1 || *s2)
+	{
 		delta = *s1 - *s2;
 		if (delta)
 			return delta;

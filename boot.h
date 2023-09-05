@@ -4,18 +4,16 @@
 #include "ctype.h"
 #include "stdint.h"
 
-#define _INTSIZEOF(n)   ( (sizeof(n) + sizeof(int) - 1) & ~(sizeof(int) - 1) )
-#define _ADDRESSOF(v)   ( &(v) )
+#define _INTSIZEOF(n) ((sizeof(n) + sizeof(int) - 1) & ~(sizeof(int) - 1))
+#define _ADDRESSOF(v) (&(v))
 
 #define va_start _crt_va_start
 #define va_arg _crt_va_arg
 #define va_end _crt_va_end
 
-#define _crt_va_start(ap,v)  ( ap = (va_list)_ADDRESSOF(v) + _INTSIZEOF(v) )
-#define _crt_va_arg(ap,t)    ( *(t *)((ap += _INTSIZEOF(t)) - _INTSIZEOF(t)) )
-#define _crt_va_end(ap)      ( ap = (va_list)0 )
-
-
+#define _crt_va_start(ap, v) (ap = (va_list)_ADDRESSOF(v) + _INTSIZEOF(v))
+#define _crt_va_arg(ap, t) (*(t *)((ap += _INTSIZEOF(t)) - _INTSIZEOF(t)))
+#define _crt_va_end(ap) (ap = (va_list)0)
 
 #pragma pack(1)
 
@@ -24,19 +22,19 @@ typedef struct MemInfo
 	uint64 BaseAddr;
 	uint64 Length;
 	uint32 type;
-	
-}MemInfo;
+
+} MemInfo;
 
 typedef struct DriveParametersPacket
 {
-	uint16 InfoSize; // 数据包尺寸 (26 字节)
-	uint16 Flags; // 信息标志
-	uint32 Cylinders; // 磁盘柱面数
-	uint32 Heads; // 磁盘磁头数
+	uint16 InfoSize;		// 数据包尺寸 (26 字节)
+	uint16 Flags;			// 信息标志
+	uint32 Cylinders;		// 磁盘柱面数
+	uint32 Heads;			// 磁盘磁头数
 	uint32 SectorsPerTrack; // 每磁道扇区数
-	uint32 Sectors; // 磁盘总扇区数
-	uint16 SectorSize; // 扇区尺寸 (以字节为单位)
-}DriveParametersPacket;
+	uint32 Sectors;			// 磁盘总扇区数
+	uint16 SectorSize;		// 扇区尺寸 (以字节为单位)
+} DriveParametersPacket;
 
 #define MEMINFOMAXSIZE 60
 typedef struct BootParam
@@ -61,21 +59,21 @@ typedef struct BootParam
 	uint32 device;
 	uint32 bar5;
 	uint32 ReadAddress;
-}BootParam;
+} BootParam;
 
 typedef struct Tableinfo
 {
 	short limit;
 	uint32 base;
 	uint16 type;
-}Tableinfo;
+} Tableinfo;
 
 typedef struct GateInfo
 {
 	uint16 gateSelect;
 	uint32 gateAddr;
 	char gateName[34];
-}GateInfo;
+} GateInfo;
 typedef struct TssHead
 {
 	uint32 priorTssSel;
@@ -105,41 +103,40 @@ typedef struct TssHead
 	uint32 ldtsel;
 	uint16 empty;
 	uint16 ioPermission;
-}TssHead;
+} TssHead;
 typedef struct TaskCtrBlock
 {
-	struct TaskCtrBlock* next;
-	struct TaskCtrBlock* prior;
+	struct TaskCtrBlock *next;
+	struct TaskCtrBlock *prior;
 	uint32 AllocateNextAddr;
 	uint32 tssSel;
 	uint32 taskStats;
-	TssHead  TssData;
-}TaskCtrBlock;
-
+	TssHead TssData;
+} TaskCtrBlock;
 
 typedef struct TcbList
 {
-	TaskCtrBlock* tcb_Frist;
-	TaskCtrBlock* tcb_Last;
+	TaskCtrBlock *tcb_Frist;
+	TaskCtrBlock *tcb_Last;
 	uint32 size;
-}TcbList;
+} TcbList;
 typedef struct ProgramaData
 {
 	uint32 proEntry;
 	uint32 vir_base;
 	uint32 vir_end;
-}ProgramaData;
+} ProgramaData;
 #define MAX_GATECOUNT 16
 typedef struct KernelData
 {
 	Tableinfo gdtInfo;
-	uint32*  pageDirectory;
+	uint32 *pageDirectory;
 	Tableinfo idtInfo;
-	TcbList	 taskList;
-	TaskCtrBlock* currentTask;
-	uint32   gataSize;
+	TcbList taskList;
+	TaskCtrBlock *currentTask;
+	uint32 gataSize;
 	GateInfo gateInfo[MAX_GATECOUNT];
-}KernelData;
+} KernelData;
 typedef struct ProgramHead
 {
 	uint32 size;
@@ -152,20 +149,18 @@ typedef struct ProgramHead
 	uint32 dataBase;
 	uint32 dataLen;
 	uint32 saltCount;
-}ProgramHead;
-
-
+} ProgramHead;
 
 #pragma pack(4)
 
-#define DATASEG_R 	 0
-#define DATASEG_RW 	 2
-#define DATASEG_R_E  4
+#define DATASEG_R 0
+#define DATASEG_RW 2
+#define DATASEG_R_E 4
 #define DATASEG_RW_E 6
 
-#define CODESEG_X    8
-#define CODESEG_XR   10
-#define CODESEG_X_C  12 
+#define CODESEG_X 8
+#define CODESEG_XR 10
+#define CODESEG_X_C 12
 #define CODESEG_XR_C 14
 
 #define LDTSEGTYPE 2
@@ -183,27 +178,26 @@ typedef struct TableSegmentItem
 	char DPL;
 	char S;
 	char Type;
-}TableSegmentItem;
+} TableSegmentItem;
 
-#define CALL_GATE_TYPE  0xC0000000000
-#define INTERRUPT_GATE_TYPE  0xE0000000000
-#define SNARE_GATE_TYPE  0xF0000000000
+#define CALL_GATE_TYPE 0xC0000000000
+#define INTERRUPT_GATE_TYPE 0xE0000000000
+#define SNARE_GATE_TYPE 0xF0000000000
 
-typedef struct TableGateItem{
+typedef struct TableGateItem
+{
 	uint64 Type;
 	uint16 segSelect;
 	char argCount;
 	char GateDPL;
 	uint32 segAddr;
 	short P;
-}TableGateItem;
+} TableGateItem;
 
 void setgdtr(Tableinfo *info);
 void setldtr(uint32 ldtrSel);
 void settr(uint32 trSel);
-void setidtr(Tableinfo* info);
-
-
+void setidtr(Tableinfo *info);
 
 uint32 cs_data();
 uint32 ds_data();
@@ -220,20 +214,18 @@ extern void set_cr0data(uint32 data);
 extern uint32 cr4_data();
 extern void set_cr4data(uint32 data);
 
-extern int cpuidcall(uint32 callnum,uint32 *eax,uint32 *ebx,uint32 *ecx,uint32 *edx);
-extern int rdmsrcall(uint32 msrid,uint32 *eax,uint32 *edx);
-extern int wrmsrcall(uint32 msrid,uint32 eax,uint32 edx);
-extern int rdmsr_fence(uint32 msrid,uint32 *eax,uint32 *edx);
-extern int wrmsr_fence(uint32 msrid,uint32 eax,uint32 edx);
-
+extern int cpuidcall(uint32 callnum, uint32 *eax, uint32 *ebx, uint32 *ecx, uint32 *edx);
+extern int rdmsrcall(uint32 msrid, uint32 *eax, uint32 *edx);
+extern int wrmsrcall(uint32 msrid, uint32 eax, uint32 edx);
+extern int rdmsr_fence(uint32 msrid, uint32 *eax, uint32 *edx);
+extern int wrmsr_fence(uint32 msrid, uint32 eax, uint32 edx);
 
 extern uint32_t sysInLong(unsigned short port);
 extern void sysOutLong(unsigned short port, uint32_t val);
 
-void setBit(uint32* addr, uint32 nr);
-void resetBit(uint32* addr, uint32 nr);
-uint32 testBit(uint32* addr, uint32 nr);
-
+void setBit(uint32 *addr, uint32 nr);
+void resetBit(uint32 *addr, uint32 nr);
+uint32 testBit(uint32 *addr, uint32 nr);
 
 void setds(uint32 segSel);
 void setgs(uint32 segSel);
@@ -241,60 +233,59 @@ void setfs(uint32 segSel);
 void callTss(uint32 tssSel);
 void intcall();
 
-void invlpg_s(uint32* tlbitem);
+void invlpg_s(uint32 *tlbitem);
 void cli_s();
 void sti_s();
 
-//int sprintf(char *buf, const char *fmt, ...);
-//int vsprintf(char *buf, const char *fmt, va_list args);
-//int printf(const char *fmt, ...);
+// int sprintf(char *buf, const char *fmt, ...);
+// int vsprintf(char *buf, const char *fmt, va_list args);
+// int printf(const char *fmt, ...);
 
 extern void die();
 extern void clearscreen();
 extern void setcursor(uint32 pos);
 extern uint32 getcursor();
-char* allocate_memory(TaskCtrBlock *task,uint32 size, uint32 prop);
+char *allocate_memory(TaskCtrBlock *task, uint32 size, uint32 prop);
 
-extern char* allocatePhy4kPage(uint32 startPhyPage);
+extern char *allocatePhy4kPage(uint32 startPhyPage);
 extern uint32 freePhy4kPage(uint32 page);
-#define PAGE_R	   0
-#define PAGE_RW	   2   
+#define PAGE_R 0
+#define PAGE_RW 2
 
-#define PAGE_G   0x100 
+#define PAGE_G 0x100
 
-#define PAGE_ALL_PRIVILEG  4
+#define PAGE_ALL_PRIVILEG 4
 
-char* allocateVirtual4kPage(uint32 size, uint32* pAddr,uint32 prop);
+char *allocateVirtual4kPage(uint32 size, uint32 *pAddr, uint32 prop);
 
-extern void memcpy_s(char *des,char *src,uint32 size);
-extern int memcmp_s(char *src1,char *src2,uint32 size);
+extern void memcpy_s(char *des, char *src, uint32 size);
+extern int memcmp_s(char *src1, char *src2, uint32 size);
 extern void *memset_s(void *s, int c, size_t count);
-extern char *strcpy_s(char* dest, const char *src);
+extern char *strcpy_s(char *dest, const char *src);
 extern uint32 strlen_s(char *s);
-int strncmp_s(const char* cs, const char* ct, uint32 count);
-int strcmp_s(const char* str1, const char* str2);
-char* hexstr32(char buff[9], uint32 val);
-char* hexstr64(char buff[17], uint64 val);
+int strncmp_s(const char *cs, const char *ct, uint32 count);
+int strcmp_s(const char *str1, const char *str2);
+char *hexstr32(char buff[9], uint32 val);
+char *hexstr64(char buff[17], uint64 val);
 
-int read_sectors(char *des,int startSector,int count);
+int read_sectors(char *des, int startSector, int count);
 
-int read_ata_sectors(char* des, int startSector, int count);
+int read_ata_sectors(char *des, int startSector, int count);
 
-uint16 appendTableSegItem(Tableinfo *info,TableSegmentItem *item);
-BOOL getTableSegItem(Tableinfo *info,TableSegmentItem *item,uint16 SegSelect);
-uint16 appendTableGateItem(Tableinfo *info,TableGateItem *item);
+uint16 appendTableSegItem(Tableinfo *info, TableSegmentItem *item);
+BOOL getTableSegItem(Tableinfo *info, TableSegmentItem *item, uint16 SegSelect);
+uint16 appendTableGateItem(Tableinfo *info, TableGateItem *item);
 
-TaskCtrBlock* createNewTcb(TcbList* taskList);
-
+TaskCtrBlock *createNewTcb(TcbList *taskList);
 
 void TerminateProgram(uint32 retval);
 
 extern void rtc_8259a_enable();
 extern void interrupt8259a_disable();
 
-//地址范围必须是write-back type
-extern uint32 _monitor(void *addr,uint32 extensions,uint32 hints);
-extern uint32 _mwait(uint32 extensions,uint32 hints);
+// 地址范围必须是write-back type
+extern uint32 _monitor(void *addr, uint32 extensions, uint32 hints);
+extern uint32 _mwait(uint32 extensions, uint32 hints);
 
 extern uint32 pre_mtrr_change();
 extern void post_mtrr_change(uint32 cr4data);
