@@ -1,11 +1,17 @@
 
-global exceptionCalls,general_interrupt_handler,systemCall,interrupt_8259a_handler,interrupt_70_handler,local_x2apic_error_handling,ApicTimeOut
-
+global exceptionCalls,general_interrupt_handler,systemCall,interrupt_8259a_handler,interrupt_70_handler,local_x2apic_error_handling,x2ApicTimeOut
+global local_xapic_error_handling,xApicTimeOut,getXapicAddr
 extern   kernelData,hexstr32
 IA32_X2APIC_EOI equ 0x80B
 IA32_X2APIC_ESR equ 0x828
 IA32_X2APIC_INIT_COUNT equ 0x838
+IA32_APIC_BASE_MSR equ 0x1B
 
+XAPIC_ID_OFFSET  equ 0x20
+XAPIC_LDR_OFFSET  equ 0xD0
+XAPIC_InitialCount_OFFSET  equ 0x380
+XAPIC_ErrStatus_OFFSET  equ 0x280
+XAPIC_EOI_OFFSET  equ 0xB0
 puts_int:                                 ;显示0终止的字符串并移动光标 
          push ebx                                   ;输入：DS:EBX=串地址
 		 mov ebx,[esp+8]
@@ -303,7 +309,7 @@ nexttask1:
 	mov edx,32
 	mov [ebx+edx],esi
 	mov dword [esi+0x10],1
-	call writeEOI
+	;call writeEOI
 	jmp far [esi+8]
 ret70:
 	pop esi
@@ -312,7 +318,7 @@ ret70:
     pop eax        
     iretd
 
-ApicTimeOut:
+x2ApicTimeOut:
     push eax   
 	push ecx 
 	push edx
@@ -356,15 +362,45 @@ ApicTimeOutret0:
 	pop ecx
     pop eax  
 	iretd
+;如果使用x2apic 则放开下面
+; systemCall:
+; 	push systemCallmsg
+; 	call puts_int
+; 	add esp,4
+; 	push ecx
+; 	push edx
+; 	mov ecx,0x802
+; 	rdmsr
+; 	push eax
+; 	push dword excep_codebuff
+; 	call hexstr32
+; 	add esp,8
+; 	push excep_codebuffstr
+; 	call puts_int
+; 	add esp,4
 
+; 	mov ecx,0x80D
+; 	rdmsr
+; 	push eax
+; 	push dword excep_codebuff
+; 	call hexstr32
+; 	add esp,8
+; 	push excep_codebuffstr
+; 	call puts_int
+; 	add esp,4
+
+; 	pop ecx
+; 	pop edx
+; 	call writeEOI
+; 	iretd
 systemCall:
 	push systemCallmsg
 	call puts_int
 	add esp,4
-	push ecx
 	push edx
-	mov ecx,0x802
-	rdmsr
+	call getXapicAddr
+	mov edx,eax
+	mov eax,[edx+XAPIC_ID_OFFSET]
 	push eax
 	push dword excep_codebuff
 	call hexstr32
@@ -373,8 +409,7 @@ systemCall:
 	call puts_int
 	add esp,4
 
-	mov ecx,0x80D
-	rdmsr
+	mov eax,[edx+XAPIC_LDR_OFFSET]
 	push eax
 	push dword excep_codebuff
 	call hexstr32
@@ -382,10 +417,8 @@ systemCall:
 	push excep_codebuffstr
 	call puts_int
 	add esp,4
-
-	pop ecx
 	pop edx
-	call writeEOI
+	call xapicwriteEOI
 	iretd
 
 local_x2apic_error_handling:
@@ -424,8 +457,89 @@ writeEOI:
     pop ecx
 	pop edx
 	ret
+local_xapic_error_handling:
+	push ecx
+	push edx
+	xor eax,eax
+	xor edx,edx
+	mov ecx,IA32_APIC_BASE_MSR
+    mfence
+	rdmsr
+	and eax,0xFFFFF000
+	mov edx,eax
+	mov dword [edx+XAPIC_ErrStatus_OFFSET],0
+	mov eax,[edx+XAPIC_ErrStatus_OFFSET]
+	push eax
+	push dword local_x2apic_error_codebuff
+	call hexstr32
+	add esp,8
+	push local_x2apic_error_msg
+	call puts_int
+	add esp,4
+	call xapicwriteEOI
+	pop edx
+	pop ecx
+	iretd
+xApicTimeOut:
+    push eax   
+	push ecx 
+	push edx
+	push esi									  
+    mov ecx,kernelData
+	test dword [ecx+28],0xffffffff
+	je xApicTimeOutret
+	cmp dword [ecx+28],1
+	je xApicTimeOutret
+	mov esi,[ecx+32]
+xApicTimeOutnexttask:
+	mov esi,[esi]
+	cmp esi,0
+	jne xApicTimeOutnexttask1
+	mov esi,[ecx+20]
+xApicTimeOutnexttask1:
+	cmp esi,[ecx+32]
+	je xApicTimeOutret
+	test dword [esi+0x10],0xffffffff
+	jnz xApicTimeOutnexttask
+	mov edx,[ecx+32]
+	mov dword [edx+0x10],0
+	mov [ecx+32],esi
+	mov dword [esi+0x10],1
+	cmp esi,[ecx+20]
+	je xnoSetTimer
+	call getXapicAddr
+	mov dword [eax+XAPIC_InitialCount_OFFSET],0xffff ;task cpu time
+xnoSetTimer:
+	call xapicwriteEOI
+	jmp far [esi+8]
+	jmp xApicTimeOutret0
+xApicTimeOutret:
+	call xapicwriteEOI
+xApicTimeOutret0:	
+	pop esi
+	pop edx
+	pop ecx
+    pop eax  
+	iretd
 
-local_x2apic_error_msg         db 'local x2apic error: '
+xapicwriteEOI:
+	call getXapicAddr
+	mov dword [eax+XAPIC_EOI_OFFSET],0
+	ret
+getXapicAddr:
+	push ecx
+	push edx
+	xor eax,eax
+	xor edx,edx
+	mov ecx,IA32_APIC_BASE_MSR
+	rdmsr
+	and eax,0xFFFFF000
+	pop edx
+	pop ecx
+	ret
+
+
+local_x2apic_error_msg         db 'apic error: '
 local_x2apic_error_codebuff    db  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0	
 systemCallmsg    db  'systemCall encounted 0x80  ',0
 excep_msg        db  '********Exception encounted********',0

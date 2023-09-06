@@ -1,6 +1,6 @@
 #ifndef _APIC_H_HH
 #define _APIC_H_HH
-#include "boot.h"
+#include "stdint.h"
 
 typedef struct LOCAL_APIC
 {
@@ -125,6 +125,12 @@ typedef struct LOCAL_APIC
 
 #define CPUID_APIC_TIMER_TSCDEADLINE 0x1000000
 
-int enablingx2APIC();
-int enablexApic();
+
+extern volatile uint32 xapicaddr;
+extern volatile uint32 logicalID;
+
+#define X2APIC_ENABLE 0
+
+void initApic();
+extern LOCAL_APIC *xapic_obj;
 #endif
