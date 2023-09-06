@@ -292,8 +292,70 @@ void testfun()
 	freePhy4kPage(addr);
 }
 */
-int _start(BootParam *argv)
+void APproc(void *argv)
 {
+	uint32_t eax = 0, edx = 0;
+	rdmsr_fence(IA32_APIC_BASE_MSR, &eax, &edx);
+	if((eax & 0x100) == 0)//判读是否是AP
+	{
+		printf("AP log id %d\r\n",(int)argv);
+		while (1)
+		{
+			asm("sti");
+			asm("hlt");
+		}
+	}
+}
+void configAp()
+{
+#if X2APIC_ENABLE
+#else
+	printf("map 0x4b000:%d\r\n",mem4k_map(0x4b000,0x4b000,MEM_UC,PAGE_RW));
+	read_ata_sectors(0x4b000, 144, 2);
+	uint32_t addr = 0x7000, size = 0x2000;
+	printf("before 0x%x mem cache type %d\r\n", addr, mem_cache_type_get(addr, size));
+	int temp = mem_fix_type_set(addr, size, MEM_UC);
+	printf("after 0x%x mem cache type %d  temp = %d\r\n", addr, mem_cache_type_get(addr, size), temp);
+
+	AParg *arg =(AParg*)0x7c00;
+	memset_s(arg,0,sizeof(AParg));
+	arg->entry = bootparam.entry;
+	arg->gdt_size = kernelData.gdtInfo.limit;
+	arg->gdt_base = kernelData.gdtInfo.base;
+	
+	xapic_obj->ICR1[0] = 0;
+	xapic_obj->ICR0[0] = 0xC4500; //发送Init
+
+	xapic_obj->ICR1[0] = 0;
+	xapic_obj->ICR0[0] = 0xC464B; //发送SIPI AP执行0x4b000处的代码
+
+	uint32 waitap = 0xffffffff;
+	while(waitap--);
+
+	uint32 *stackinfo= (uint32*)(0x7c00+sizeof(AParg));
+	printf("Ap count =%d\r\n",arg->logcpucount);
+	for(int i=0;i<arg->logcpucount;i++)
+	{
+		char *stack = allocate_memory(kernelData.taskList.tcb_Frist, 4 * 4096, PAGE_RW);
+		TableSegmentItem tempSeg;
+		memset_s((char *)&tempSeg, 0, sizeof(TableSegmentItem));
+		tempSeg.segmentBaseAddr = 0;
+		tempSeg.segmentLimit = STACKLIMIT_G1(stack);
+		tempSeg.G = 1;
+		tempSeg.D_B = 1;
+		tempSeg.P = 1;
+		tempSeg.DPL = 0;
+		tempSeg.S = 1;
+		tempSeg.Type = DATASEG_RW_E;
+		*stackinfo++ = (uint32)stack+4 * 4096;
+		*stackinfo++ =appendTableSegItem(&(kernelData.gdtInfo), &tempSeg);
+	}
+	arg->jumpok = 1;
+#endif
+}
+int _start(void *argv)
+{
+	APproc(argv);
 	clearscreen();
 	printf("aaaaabbccccdddd%d %d\r\n", 4444, 555);
 	memcpy_s((char *)&bootparam, (char *)argv, sizeof(BootParam));
@@ -358,11 +420,8 @@ int _start(BootParam *argv)
 	check_cpu_features();
 	check_mtrr();
 	check_pat();
-	uint32_t addr = 0xFEE00000, size = 0x1000;
-	printf("before 0x%x mem cache type %d\r\n", addr, mem_cache_type_get(addr, size));
-	int temp = mem_variable_type_set(3, addr, size, MEM_UC);
-	printf("after 0x%x mem cache type %d  temp = %d\r\n", addr, mem_cache_type_get(addr, size), temp);
-	addr = 0xb8000, size = 0x1000;
+
+	uint32 addr = 0xb8000, size = 0x1000,temp=0;
 	printf("before 0x%x mem cache type %d\r\n", addr, mem_cache_type_get(addr, size));
 	temp = mem_fix_type_set(addr, size, MEM_UC);
 	printf("after 0x%x mem cache type %d temp=%d\r\n", addr, mem_cache_type_get(addr, size), temp);
@@ -373,6 +432,9 @@ int _start(BootParam *argv)
 	printf("cr0_data: 0x%x\r\n", eax);
 	eax = 0, edx = 0;
 	initApic();
+	configAp();
+
+
 // 	createTask(&(kernelData.taskList), 200, 4);
 // 	createTask(&(kernelData.taskList), 250, 4);
 // 	uint32 count = 0;

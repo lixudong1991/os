@@ -662,7 +662,7 @@ stdos1:	mov dword [ebx],0
 		mov ecx,eax
 		inc ecx
 		mov [0600h+loadend4k-osstart],ecx
-		mov edx,3
+		mov edx,0x1B
 		mov ebx,0x9000
 stdos2:	mov [ebx],edx
 		add ebx,4

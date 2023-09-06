@@ -61,6 +61,17 @@ typedef struct BootParam
 	uint32 ReadAddress;
 } BootParam;
 
+typedef struct AParg
+{
+	uint32 entry;
+	uint16 jumpok;
+	uint16 gdt_size;
+	uint32 gdt_base;
+	uint32 logcpumenutex;
+	uint32 logcpucount;
+}AParg;
+
+
 typedef struct Tableinfo
 {
 	short limit;
