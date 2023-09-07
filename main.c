@@ -8,8 +8,15 @@
 #include "memcachectl.h"
 #define STACKLIMIT_G1(a) ((((uint32)(a)) - 1) >> 12) // gdt 表项粒度为1的段界限
 
+#define LOCK_START 0x1000
+
 BootParam bootparam;
 KernelData kernelData;
+LockBlock *lockblock=NULL;
+AParg *aparg = (AParg *)0x7c00;
+ProcessorInfo processorinfo;
+LockObj kernelLock;
+LockObj printLock;
 char *hexstr32(char buff[9], uint32 val)
 {
 	char hexs[] = "0123456789ABCDEF";
@@ -292,13 +299,24 @@ void testfun()
 	freePhy4kPage(addr);
 }
 */
-void APproc(void *argv)
+void APproc(uint32 argv)
 {
 	uint32_t eax = 0, edx = 0;
 	rdmsr_fence(IA32_APIC_BASE_MSR, &eax, &edx);
-	if((eax & 0x100) == 0)//判读是否是AP
+	setidtr(&(kernelData.idtInfo));
+	setgdtr(&(kernelData.gdtInfo));
+	asm("sti");
+	//if ((eax & 0x100) == 0) // 判读是否是AP
 	{
-		printf("AP log id %d\r\n",(int)argv);
+		
+		printf("AP log =========%d init\r\n",argv);
+		spinlock(kernelLock.plock);
+		initApic();
+		unlock(kernelLock.plock);
+		processorinfo.processcontent[argv].id = argv;
+		processorinfo.processcontent[argv].apicAddr = getXapicAddr();
+		processorMtrrSync();
+		printf("AP %d enter hlt\r\n",argv);
 		while (1)
 		{
 			asm("sti");
@@ -306,58 +324,132 @@ void APproc(void *argv)
 		}
 	}
 }
-void configAp()
+void initLockBlock()
+{
+	uint32_t addr = LOCK_START, size = 0x1000;
+	mem_fix_type_set(addr, size, MEM_UC);
+	lockblock =  LOCK_START;
+	memset_s(lockblock,0,size);
+	setBit(lockblock->lockstatus,0);
+	lockblock->lockData[0]=0;
+}
+int createLock(LockObj *lobj)
+{
+	int ret =FALSE;
+	asm("cli");
+	spinlock(&(lockblock->lockData[0]));
+	int i=1;
+	for(;i<MAX_LOCK;i++)
+	{
+		if(!testBit(lockblock->lockstatus,i))
+			break;
+	}
+	if(i<MAX_LOCK)
+	{
+		setBit(lockblock->lockstatus,i);
+		lobj->index =i;
+		lobj->plock = &(lockblock->lockData[i]);
+		lockblock->lockData[i]= 0;
+		ret = TRUE;
+	}
+	unlock(&(lockblock->lockData[0]));
+	asm("sti");
+	return ret;
+}
+void releaseLock(LockObj *lobj)
+{
+	asm("cli");
+	spinlock(&(lockblock->lockData[0]));
+	if(lobj->index >0 &&lobj->index<MAX_LOCK)
+	{
+		resetBit(lockblock->lockstatus,lobj->index);
+		lockblock->lockData[lobj->index] = 0;	
+		lobj->plock = NULL;
+	}
+	unlock(&(lockblock->lockData[0]));
+	asm("sti");
+}
+void MPinit()
 {
 #if X2APIC_ENABLE
 #else
-	printf("map 0x4b000:%d\r\n",mem4k_map(0x4b000,0x4b000,MEM_UC,PAGE_RW));
+	printf("map 0x4b000:%d\r\n", mem4k_map(0x4b000, 0x4b000, MEM_UC, PAGE_RW));
 	read_ata_sectors(0x4b000, 144, 2);
-	uint32_t addr = 0x7000, size = 0x2000;
-	printf("before 0x%x mem cache type %d\r\n", addr, mem_cache_type_get(addr, size));
-	int temp = mem_fix_type_set(addr, size, MEM_UC);
-	printf("after 0x%x mem cache type %d  temp = %d\r\n", addr, mem_cache_type_get(addr, size), temp);
+	uint32_t addr = 0x7000, size = 0x1000,temp=0;
+	mem_fix_type_set(addr, size, MEM_UC);
 
-	AParg *arg =(AParg*)0x7c00;
-	memset_s(arg,0,sizeof(AParg));
-	arg->entry = bootparam.entry;
-	arg->gdt_size = kernelData.gdtInfo.limit;
-	arg->gdt_base = kernelData.gdtInfo.base;
-	
-	xapic_obj->ICR1[0] = 0;
-	xapic_obj->ICR0[0] = 0xC4500; //发送Init
+	memset_s(aparg, 0, sizeof(AParg));
+	aparg->entry = APproc;
+	aparg->gdt_size = kernelData.gdtInfo.limit;
+	aparg->gdt_base = 0xb000;
+	aparg->logcpucount = 1;
+
+	LOCAL_APIC *xapic_obj =(LOCAL_APIC *)getXapicAddr();
+	mem4k_map((uint32)xapic_obj, (uint32)xapic_obj, MEM_UC, PAGE_RW);
 
 	xapic_obj->ICR1[0] = 0;
-	xapic_obj->ICR0[0] = 0xC464B; //发送SIPI AP执行0x4b000处的代码
+	xapic_obj->ICR0[0] = 0xC4500; // 发送Init
+
+	xapic_obj->ICR1[0] = 0;
+	xapic_obj->ICR0[0] = 0xC464B; // 发送SIPI AP执行0x4b000处的代码
 
 	uint32 waitap = 0xffffffff;
-	while(waitap--);
+	while (waitap--);
+	memset_s(&processorinfo,0,sizeof(processorinfo));
+	processorinfo.count = aparg->logcpucount;
 
-	uint32 *stackinfo= (uint32*)(0x7c00+sizeof(AParg));
-	printf("Ap count =%d\r\n",arg->logcpucount);
-	for(int i=0;i<arg->logcpucount;i++)
+	addr = xapicaddr, size = 0x1000*(aparg->logcpucount);
+	temp = mem_variable_type_set(4,addr, size, MEM_UC);
+	printf("after 0x%x mem cache type %d temp=%d\r\n", addr, mem_cache_type_get(addr, size), temp);
+
+	initApic();
+	processorinfo.processcontent[0].id =0;
+	processorinfo.processcontent[0].apicAddr = getXapicAddr();
+	
+
+	uint32 *stackinfo = (uint32 *)(0x7c00 + sizeof(AParg));
+	printf("processor count =%d\r\n", aparg->logcpucount);
+	TableSegmentItem tempSeg;
+	memset_s((char *)&tempSeg, 0, sizeof(TableSegmentItem));
+	tempSeg.segmentBaseAddr = 0;
+	tempSeg.G = 1;
+	tempSeg.D_B = 1;
+	tempSeg.P = 1;
+	tempSeg.DPL = 0;
+	tempSeg.S = 1;
+	tempSeg.Type = DATASEG_RW_E;
+	for (int i = 0; i < aparg->logcpucount; i++)
 	{
 		char *stack = allocate_memory(kernelData.taskList.tcb_Frist, 4 * 4096, PAGE_RW);
-		TableSegmentItem tempSeg;
-		memset_s((char *)&tempSeg, 0, sizeof(TableSegmentItem));
-		tempSeg.segmentBaseAddr = 0;
 		tempSeg.segmentLimit = STACKLIMIT_G1(stack);
-		tempSeg.G = 1;
-		tempSeg.D_B = 1;
-		tempSeg.P = 1;
-		tempSeg.DPL = 0;
-		tempSeg.S = 1;
-		tempSeg.Type = DATASEG_RW_E;
-		*stackinfo++ = (uint32)stack+4 * 4096;
-		*stackinfo++ =appendTableSegItem(&(kernelData.gdtInfo), &tempSeg);
+		*stackinfo++ = (uint32)stack + 4 * 4096;
+		*stackinfo++ = appendTableSegItem(&(kernelData.gdtInfo), &tempSeg);
 	}
-	arg->jumpok = 1;
+	aparg->gdt_size = kernelData.gdtInfo.limit;
+	setgdtr(&(kernelData.gdtInfo));
+
+	waitap = 0xffffff;
+	while (waitap--);
+	aparg->jumpok = 1;
 #endif
+}
+void processorMtrrSync()
+{
+	asm("cli");
+	spinlock(kernelLock.plock);
+	aparg->logcpucount++;
+	unlock(kernelLock.plock);
+	while(aparg->logcpucount!=processorinfo.count);
+	refreshMtrrMsrs();
+	spinlock(kernelLock.plock);
+	aparg->logcpucount--;
+	unlock(kernelLock.plock);
+	while(aparg->logcpucount!=0);
+	asm("sti");
 }
 int _start(void *argv)
 {
-	APproc(argv);
 	clearscreen();
-	printf("aaaaabbccccdddd%d %d\r\n", 4444, 555);
 	memcpy_s((char *)&bootparam, (char *)argv, sizeof(BootParam));
 	kernelData.gdtInfo.base = bootparam.gdt_base;
 	kernelData.gdtInfo.limit = bootparam.gdt_size;
@@ -394,6 +486,9 @@ int _start(void *argv)
 	setgdtr(&(kernelData.gdtInfo));
 	settr(tcbhead->tssSel);
 	createCallGate(&kernelData);
+	initLockBlock();
+	createLock(&kernelLock);
+	createLock(&printLock);
 	// 禁用8259a所有中断
 
 	// char number[32];
@@ -420,38 +515,35 @@ int _start(void *argv)
 	check_cpu_features();
 	check_mtrr();
 	check_pat();
-
-	uint32 addr = 0xb8000, size = 0x1000,temp=0;
-	printf("before 0x%x mem cache type %d\r\n", addr, mem_cache_type_get(addr, size));
-	temp = mem_fix_type_set(addr, size, MEM_UC);
-	printf("after 0x%x mem cache type %d temp=%d\r\n", addr, mem_cache_type_get(addr, size), temp);
-
-	uint32_t eax = 0, ebx = 0, ecx = 0, edx = 0;
+	
+	uint32_t eax = 0;
 	printf("cr4: 0x%x\r\n", cr4_data());
 	eax = cr0_data();
 	printf("cr0_data: 0x%x\r\n", eax);
-	eax = 0, edx = 0;
-	initApic();
-	configAp();
+	MPinit();
+	cacheMtrrMsrs();
 
+	aparg->logcpucount = 0;
+	processorMtrrSync();
 
-// 	createTask(&(kernelData.taskList), 200, 4);
-// 	createTask(&(kernelData.taskList), 250, 4);
-// 	uint32 count = 0;
-// 	while (1)
-// 	{
-// 		printf("kernel process.....................%s %d\r\n", "count =", count++);
-// 		// 给自身处理器发送82h号任务切换
-// #if X2APIC_ENABLE
-// 		eax = 0x82;
-// 		edx = 0;
-// 		wrmsr_fence(IA32_X2APIC_SELF_IPI, eax, edx);
-// #else
-// 		xapic_obj->ICR1[0] = 0;
-// 		xapic_obj->ICR0[0] = 0x44082;
-// #endif
-// 	}
-	printf("enter hlt\r\n");
+	LOCAL_APIC *xapic_obj =(LOCAL_APIC *)getXapicAddr();
+	// 	createTask(&(kernelData.taskList), 200, 4);
+	// 	createTask(&(kernelData.taskList), 250, 4);
+	// 	uint32 count = 0;
+	// 	while (1)
+	// 	{
+	// 		printf("kernel process.....................%s %d\r\n", "count =", count++);
+	// 		// 给自身处理器发送82h号任务切换
+	// #if X2APIC_ENABLE
+	// 		eax = 0x82;
+	// 		edx = 0;
+	// 		wrmsr_fence(IA32_X2APIC_SELF_IPI, eax, edx);
+	// #else
+	// 		xapic_obj->ICR1[0] = 0;
+	// 		xapic_obj->ICR0[0] = 0x44082;
+	// #endif
+	// 	}
+	printf("BSP enter hlt\r\n");
 	while (1)
 	{
 		asm("sti");

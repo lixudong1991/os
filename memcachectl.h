@@ -36,10 +36,37 @@
 
 extern uint32 mem_type_map_pat[8];//映射内存缓存类型为PAT表中相同内存缓存类型的PCD和PWD值，例如当PAT3的内存类型为UC时，则mem_type_map_pat[MEM_UC] =0x18,此时PCD=PWD=1(0x18第3和第4位为1)，2*PCD+PWD =3，PAT[3]=UC
 
+typedef struct MTRR_FIX_MSR{
+    uint32 msrid;
+    uint32 datalow;
+    uint32 datahigh;
+    uint32 startaddr;
+}MTRR_FIX_MSR;
+
+typedef struct MTRR_Variable_MSR{
+    uint32 baselow;
+    uint32 basehigh;
+    uint32 masklow;
+    uint32 maskhign;
+}MTRR_Variable_MSR;
+
+#define MAX_VARIABLE_MTRR_MSR_COUNT  10
+
+typedef struct MtrrMSRinfo{
+    uint32 variableMsrCount;
+    MTRR_Variable_MSR variableData[MAX_VARIABLE_MTRR_MSR_COUNT];
+    MTRR_FIX_MSR fixMsr[11];
+}MtrrMSRinfo;
+
+extern MtrrMSRinfo mtrrmsrinfo;
+
 void check_mtrr();
 void check_pat();
 #define MIXED_TYPES -1
 int mem_cache_type_get(uint32 base, uint32 size);
 int mem_fix_type_set(uint32 base, uint32 size, int type);
 int mem_variable_type_set(int msrId,uint32 base, uint32 size, int type);
+
+void cacheMtrrMsrs();
+void refreshMtrrMsrs();
 #endif

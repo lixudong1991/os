@@ -13,21 +13,19 @@ IA32_MTRR_DEF_TYPE_MSR equ 0x2FF
 
 
 
-    mov ax,0xb800
-    xor bx,bx
-    mov ds,ax
-    mov cx,80                         ;32位程序应该使用ECX
-    mov dx,0x0720
-.cls:
-    mov [bx],dx
-    add bx,2
-    loop .cls
+;     mov ax,0xb800
+;     xor bx,bx
+;     mov ds,ax
+;     mov cx,80                         ;32位程序应该使用ECX
+;     mov dx,0x0741
+; .cls:
+;     mov [bx],dx
+;     add bx,2
+;     loop .cls
 
     xor ax,ax
     xor bx,bx
-    mov ds,ax
-    
-    mov bx,apargstart
+    mov ds,ax  
 
     mov eax,cr3_data
     mov cr3,eax
@@ -53,7 +51,6 @@ start32:
     mov gs,eax
     mov fs,eax	
     
-
 	mov ecx,IA32_MTRR_DEF_TYPE_MSR
 	xor eax,eax
 	xor edx,edx
@@ -86,12 +83,34 @@ canjump:
     cmp word [apargstart+jumpok],1
     jnz canjump
 
-    shl ebx,3
-    mov eax,[ebx+apargstart+logcpuesp+4]
-    mov ss,eax
-    mov eax,[ebx+apargstart+logcpuesp]
-    mov esp,eax
-    jmp [apargstart+mainentry]
+    lgdt [apargstart+gdt_size]
+
+    mov eax,ebx
+    mov ecx,8
+    mul ecx
+
+    mov ecx,[eax+apargstart+logcpuesp+4]
+    mov ss,ecx
+    mov ecx,[eax+apargstart+logcpuesp]
+    mov esp,ecx
+
+    mov eax,ebx
+    mov ecx,160
+    mul ecx
+    mov edx,0xb81E0
+    add edx,eax
+    mov cx,80                         ;32位程序应该使用ECX
+    mov ax,0x0730
+    add ax,bx
+.cls:
+    mov [edx],ax
+    add edx,2
+    loop .cls
+
+    push ebx
+    call [apargstart+mainentry]
+    cli
+    hlt
 
 apmesg  db 'apmesg =============',0
 

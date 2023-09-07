@@ -71,6 +71,18 @@ typedef struct AParg
 	uint32 logcpucount;
 }AParg;
 
+typedef struct  ProcessorContent
+{
+	uint32 id;
+	uint32 apicAddr;	
+}ProcessorContent;
+
+#define PROCESSOR_MAX_COUNT  8
+
+typedef struct ProcessorInfo{
+	uint32 count;
+	ProcessorContent processcontent[PROCESSOR_MAX_COUNT];
+}ProcessorInfo;
 
 typedef struct Tableinfo
 {
@@ -301,4 +313,24 @@ extern uint32 _mwait(uint32 extensions, uint32 hints);
 
 extern uint32 pre_mtrr_change();
 extern void post_mtrr_change(uint32 cr4data);
+
+
+#define MAX_LOCK 512
+typedef struct LockBlock
+{
+	char lockstatus[MAX_LOCK/8];
+	uint32 lockData[MAX_LOCK];
+}LockBlock;
+
+typedef struct LockObj
+{
+	uint32 index;
+	uint32 *plock;
+}LockObj;
+
+void initLockBlock();
+int createLock(LockObj *lobj);
+extern int spinlock(uint32 *lobj);
+extern int unlock(uint32 *lobj);
+void releaseLock(LockObj *lobj);
 #endif

@@ -5,9 +5,9 @@
 #include "printf.h"
 extern uint32 getXapicAddr();
 
-volatile uint32 xapicaddr = 0xFEE00000;
+volatile uint32 xapicaddr = 0xbff00000;
 volatile uint32 logicalID = 1;
-LOCAL_APIC *xapic_obj = NULL;
+
 int enablingx2APIC()
 {
    uint32 eax = 0, edx = 0;
@@ -119,20 +119,17 @@ void initxapic()
    xapic->LVT_Error[0] =0x81;
    xapic->ErrStatus[0] =0;
 
-   // 给自身处理器发送80h号中断测试
-   xapic->ICR1[0]=0;
-   xapic->ICR0[0]=0x44080;
+   // // 给自身处理器发送80h号中断测试
+   // xapic->ICR1[0]=0;
+   // xapic->ICR0[0]=0x44080;
 
-   // IPI测试
-   xapic->ICR1[0]=0;
-   xapic->ICR0[0]=0x84080;
+   // // IPI测试
+   // xapic->ICR1[0]=0;
+   // xapic->ICR0[0]=0x84080;
 
-   // Apic timer task switch
-   xapic->LVT_Timer[0]=0x82;
-   xapic->DivideConfiguration[0]=9;
-
-
-   xapic_obj = xapic;
+   // // Apic timer task switch
+   // xapic->LVT_Timer[0]=0x82;
+   // xapic->DivideConfiguration[0]=9;
 }
 
 void initApic()

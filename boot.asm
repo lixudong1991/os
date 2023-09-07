@@ -1,6 +1,6 @@
 
 global setgdtr,setldtr,settr,cs_data,ds_data,ss_data,fs_data,gs_data,cpuidcall,rdmsrcall,wrmsrcall,wrmsr_fence,rdmsr_fence,setds,setgs,setfs,esp_data,cr3_data,flags_data,setBit,resetBit,testBit,allocatePhy4kPage,freePhy4kPage,sysInLong,sysOutLong,callTss,setidtr,cli_s,sti_s,invlpg_s,intcall,resetcr3,rtc_8259a_enable,interrupt8259a_disable
-global _monitor,_mwait,cr0_data,set_cr0data,cr4_data,set_cr4data,pre_mtrr_change,post_mtrr_change
+global _monitor,_mwait,cr0_data,set_cr0data,cr4_data,set_cr4data,pre_mtrr_change,post_mtrr_change,spinlock,unlock
 extern bootparam
 pageStatusOffset equ 28
 IA32_MTRR_DEF_TYPE_MSR equ 0x2FF
@@ -513,7 +513,6 @@ _mwait:
 pre_mtrr_change:
 	push ecx
 	push edx
-	cli
 	mov eax,cr0
 	or eax,0x40000000
 	and eax,0xDFFFFFFF
@@ -560,10 +559,29 @@ post_mtrr_change:
 	mov eax,cr3
 	mov cr3,eax
 	wbinvd
-	sti
 	pop edx
 	pop ecx
 	ret
+
+
+spinlock:
+	push ebx
+	mov ebx,[esp+8]
+spin_lock:
+	mov eax,1
+    xchg  eax,[ebx]
+    test eax,eax
+    jnz   spin_lock
+	pop ebx
+	ret
+unlock:
+	push ebx
+	mov ebx,[esp+8]
+	mov   eax,0
+    xchg  eax, [ebx]
+	pop ebx
+	ret
+
 rtc_8259a_enable:
 	push eax
 	         ;设置8259A中断控制器

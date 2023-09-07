@@ -131,6 +131,6 @@ extern volatile uint32 logicalID;
 
 #define X2APIC_ENABLE 0
 
+
 void initApic();
-extern LOCAL_APIC *xapic_obj;
 #endif

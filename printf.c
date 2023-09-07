@@ -15,6 +15,7 @@
 
 #include "boot.h"
 #include "printf.h"
+extern LockObj printLock;
 static int skip_atoi(const char **s)
 {
 	int i = 0;
@@ -324,7 +325,6 @@ int printf(const char *fmt, ...)
 	va_start(args, fmt);
 	printed = vsprintf(printf_buf, fmt, args);
 	va_end(args);
-
 	puts(printf_buf);
 
 	return printed;
@@ -362,7 +362,9 @@ int putchar(int _Character)
 }
 void puts(const char *str)
 {
+	spinlock(printLock.plock);
 	char *pstr = str;
 	while (*pstr != 0)
 		putchar(*pstr++);
+	unlock(printLock.plock);	
 }
