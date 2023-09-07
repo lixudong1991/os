@@ -573,6 +573,7 @@ kernelSectionCount      equ      100    ;用户程序1+用户程序2+kernel的�
 kernelStartSection      equ      16     ;内核加载起始扇区
 kernelLoadAddr 			equ      0x3b00 ;内核加载内存起始地址
 kernelVirAddr			equ      0xc0000000
+startPhyPage 			equ      0x100
 stdos:  
 
 
@@ -838,7 +839,7 @@ allcate0:
 		shl edx,2
 		test dword [0xfffff000+edx],1
 		jne addPhyaddr
-		push dword [0600h+loadend4k-osstart]
+		push dword startPhyPage
 		call allocatePhy4kPage
 		add esp,4
 		or eax,3
@@ -853,7 +854,7 @@ addPhyaddr:
 		add edx,eax
 		test dword [edx],1
 		jne allcate1
-		push dword [0600h+loadend4k-osstart]
+		push dword startPhyPage
 		call allocatePhy4kPage
 		add esp,4
 		or eax,3

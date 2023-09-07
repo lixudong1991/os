@@ -156,7 +156,7 @@ typedef struct KernelData
 	uint32 *pageDirectory;
 	Tableinfo idtInfo;
 	TcbList taskList;
-	TaskCtrBlock *currentTask;
+	TaskCtrBlock *nextTask;
 	uint32 gataSize;
 	GateInfo gateInfo[MAX_GATECOUNT];
 } KernelData;

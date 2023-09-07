@@ -1,7 +1,7 @@
 
 global exceptionCalls,general_interrupt_handler,systemCall,interrupt_8259a_handler,interrupt_70_handler,local_x2apic_error_handling,x2ApicTimeOut
 global local_xapic_error_handling,xApicTimeOut,getXapicAddr
-extern   kernelData,hexstr32
+extern   kernelData,hexstr32,kernelLock,spinlock,unlock,mainTask,procCurrTask
 IA32_X2APIC_EOI equ 0x80B
 IA32_X2APIC_ESR equ 0x828
 IA32_X2APIC_INIT_COUNT equ 0x838
@@ -480,45 +480,105 @@ local_xapic_error_handling:
 	pop edx
 	pop ecx
 	iretd
+; xApicTimeOut:
+;     push eax   
+; 	push ecx 
+; 	push edx
+; 	push esi									  
+;     mov ecx,kernelData
+; 	test dword [ecx+28],0xffffffff
+; 	je xApicTimeOutret
+; 	cmp dword [ecx+28],1
+; 	je xApicTimeOutret
+; 	mov esi,[ecx+32]
+; xApicTimeOutnexttask:
+; 	mov esi,[esi]
+; 	cmp esi,0
+; 	jne xApicTimeOutnexttask1
+; 	mov esi,[ecx+20]
+; xApicTimeOutnexttask1:
+; 	cmp esi,[ecx+32]
+; 	je xApicTimeOutret
+; 	test dword [esi+0x10],0xffffffff
+; 	jnz xApicTimeOutnexttask
+; 	mov edx,[ecx+32]
+; 	mov dword [edx+0x10],0
+; 	mov [ecx+32],esi
+; 	mov dword [esi+0x10],1
+; 	cmp esi,[ecx+20]
+; 	je xnoSetTimer
+; 	call getXapicAddr
+; 	mov dword [eax+XAPIC_InitialCount_OFFSET],0xffff ;task cpu time
+; xnoSetTimer:
+; 	call xapicwriteEOI
+; 	jmp far [esi+8]
+; 	jmp xApicTimeOutret0
+; xApicTimeOutret:
+; 	call xapicwriteEOI
+; xApicTimeOutret0:	
+; 	pop esi
+; 	pop edx
+; 	pop ecx
+;     pop eax  
+; 	iretd
+
 xApicTimeOut:
-    push eax   
+    push eax  
+	push ebx 
 	push ecx 
 	push edx
-	push esi									  
+	push esi		
+	mov ecx,[kernelLock+4]
+	push ecx
+	call spinlock
+	add esp,4
     mov ecx,kernelData
 	test dword [ecx+28],0xffffffff
 	je xApicTimeOutret
 	cmp dword [ecx+28],1
 	je xApicTimeOutret
 	mov esi,[ecx+32]
+	call getXapicId
+	mov ebx,eax
+	shl ebx,2
+	add ebx,procCurrTask
 xApicTimeOutnexttask:
-	mov esi,[esi]
 	cmp esi,0
 	jne xApicTimeOutnexttask1
 	mov esi,[ecx+20]
+	mov esi,[esi]
 xApicTimeOutnexttask1:
-	cmp esi,[ecx+32]
+	cmp [ebx],esi
 	je xApicTimeOutret
 	test dword [esi+0x10],0xffffffff
-	jnz xApicTimeOutnexttask
-	mov edx,[ecx+32]
-	mov dword [edx+0x10],0
-	mov [ecx+32],esi
+	jz xApicTimeOutnexttask2
+	mov esi,[esi]
+	jmp xApicTimeOutnexttask
+xApicTimeOutnexttask2:
+	mov eax,[ebx]
+	mov dword [eax+0x10],0
 	mov dword [esi+0x10],1
-	cmp esi,[ecx+20]
-	je xnoSetTimer
-	call getXapicAddr
-	mov dword [eax+XAPIC_InitialCount_OFFSET],0xffff ;task cpu time
-xnoSetTimer:
+	mov [ebx],esi
+	mov eax,[esi]
+	mov [ecx+32],eax
+	mov eax,[kernelLock+4]
+	push eax 
+	call unlock
+	add esp,4
 	call xapicwriteEOI
 	jmp far [esi+8]
 	jmp xApicTimeOutret0
 xApicTimeOutret:
+	mov eax,[kernelLock+4]
+	push eax 
+	call unlock
+	add esp,4
 	call xapicwriteEOI
 xApicTimeOutret0:	
 	pop esi
 	pop edx
 	pop ecx
+	pop ebx
     pop eax  
 	iretd
 
@@ -537,7 +597,11 @@ getXapicAddr:
 	pop edx
 	pop ecx
 	ret
-
+getXapicId:
+	call getXapicAddr
+	mov eax,[eax+XAPIC_ID_OFFSET]
+	shr eax,24
+	ret
 
 local_x2apic_error_msg         db 'apic error: '
 local_x2apic_error_codebuff    db  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0	

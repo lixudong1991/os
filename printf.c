@@ -15,7 +15,7 @@
 
 #include "boot.h"
 #include "printf.h"
-extern LockObj printLock;
+LockObj printLock;
 static int skip_atoi(const char **s)
 {
 	int i = 0;

@@ -5,7 +5,7 @@
 #include "printf.h"
 extern uint32 getXapicAddr();
 
-volatile uint32 xapicaddr = 0xbff00000;
+volatile uint32 xapicaddr = 0x80000;
 volatile uint32 logicalID = 1;
 
 int enablingx2APIC()

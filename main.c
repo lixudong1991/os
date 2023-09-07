@@ -16,7 +16,10 @@ LockBlock *lockblock=NULL;
 AParg *aparg = (AParg *)0x7c00;
 ProcessorInfo processorinfo;
 LockObj kernelLock;
-LockObj printLock;
+extern LockObj printLock;
+TaskCtrBlock *bspTask;
+TaskCtrBlock** mainTask;
+TaskCtrBlock** procCurrTask;
 char *hexstr32(char buff[9], uint32 val)
 {
 	char hexs[] = "0123456789ABCDEF";
@@ -305,6 +308,8 @@ void APproc(uint32 argv)
 	rdmsr_fence(IA32_APIC_BASE_MSR, &eax, &edx);
 	setidtr(&(kernelData.idtInfo));
 	setgdtr(&(kernelData.gdtInfo));
+	settr(mainTask[argv]->tssSel);
+	procCurrTask[argv]=mainTask[argv];
 	asm("sti");
 	//if ((eax & 0x100) == 0) // 判读是否是AP
 	{
@@ -316,9 +321,13 @@ void APproc(uint32 argv)
 		processorinfo.processcontent[argv].id = argv;
 		processorinfo.processcontent[argv].apicAddr = getXapicAddr();
 		processorMtrrSync();
-		printf("AP %d enter hlt\r\n",argv);
+		LOCAL_APIC *xapic_obj =(LOCAL_APIC *)getXapicAddr();
+   		xapic_obj->LVT_Timer[0]=0x20082;
+    	xapic_obj->DivideConfiguration[0]=9;
+		xapic_obj->InitialCount[0] = 0xffff;
 		while (1)
 		{
+			printf("AP %d empty hlt\r\n",argv);
 			asm("sti");
 			asm("hlt");
 		}
@@ -397,19 +406,40 @@ void MPinit()
 	while (waitap--);
 	memset_s(&processorinfo,0,sizeof(processorinfo));
 	processorinfo.count = aparg->logcpucount;
+	processorinfo.processcontent[0].id =0;
+	processorinfo.processcontent[0].apicAddr = getXapicAddr();
 
 	addr = xapicaddr, size = 0x1000*(aparg->logcpucount);
 	temp = mem_variable_type_set(4,addr, size, MEM_UC);
 	printf("after 0x%x mem cache type %d temp=%d\r\n", addr, mem_cache_type_get(addr, size), temp);
 
 	initApic();
-	processorinfo.processcontent[0].id =0;
-	processorinfo.processcontent[0].apicAddr = getXapicAddr();
-	
 
+	mainTask = allocate_memory(bspTask,processorinfo.count*sizeof(TaskCtrBlock *),PAGE_RW);
+	procCurrTask = allocate_memory(bspTask,processorinfo.count*sizeof(TaskCtrBlock *),PAGE_RW);
+	mainTask[0] = bspTask;
+	procCurrTask[0]=bspTask;
+	TableSegmentItem tempSeg;
+	memset_s((char *)&tempSeg, 0, sizeof(TableSegmentItem));
+	for(int i=1;i<processorinfo.count;i++)
+	{
+		mainTask[i] = allocate_memory(bspTask,sizeof(TaskCtrBlock),PAGE_RW);
+		memset_s(mainTask[i],0,sizeof(TaskCtrBlock));
+		mainTask[i]->TssData.ioPermission = sizeof(TssHead) - 1;
+		mainTask[i]->TssData.cr3 = cr3_data();
+		tempSeg.segmentBaseAddr = &(bspTask->TssData);
+		tempSeg.segmentLimit = sizeof(TssHead) - 1;
+		tempSeg.G = 0;
+		tempSeg.D_B = 1;
+		tempSeg.P = 1;
+		tempSeg.DPL = 0;
+		tempSeg.S = 0;
+		tempSeg.Type = TSSSEGTYPE;
+		mainTask[i]->tssSel = appendTableSegItem(&(kernelData.gdtInfo), &tempSeg);
+	}
 	uint32 *stackinfo = (uint32 *)(0x7c00 + sizeof(AParg));
 	printf("processor count =%d\r\n", aparg->logcpucount);
-	TableSegmentItem tempSeg;
+	
 	memset_s((char *)&tempSeg, 0, sizeof(TableSegmentItem));
 	tempSeg.segmentBaseAddr = 0;
 	tempSeg.G = 1;
@@ -420,7 +450,7 @@ void MPinit()
 	tempSeg.Type = DATASEG_RW_E;
 	for (int i = 0; i < aparg->logcpucount; i++)
 	{
-		char *stack = allocate_memory(kernelData.taskList.tcb_Frist, 4 * 4096, PAGE_RW);
+		char *stack = allocate_memory(bspTask, 4 * 4096, PAGE_RW);
 		tempSeg.segmentLimit = STACKLIMIT_G1(stack);
 		*stackinfo++ = (uint32)stack + 4 * 4096;
 		*stackinfo++ = appendTableSegItem(&(kernelData.gdtInfo), &tempSeg);
@@ -447,6 +477,9 @@ void processorMtrrSync()
 	while(aparg->logcpucount!=0);
 	asm("sti");
 }
+
+
+
 int _start(void *argv)
 {
 	clearscreen();
@@ -462,19 +495,19 @@ int _start(void *argv)
 	interrupt8259a_disable();
 	createInterruptGate(&kernelData);
 
-	TaskCtrBlock *tcbhead = (TaskCtrBlock *)allocateVirtual4kPage(sizeof(TaskCtrBlock), &(bootparam.kernelAllocateNextAddr), PAGE_RW);
-	memset_s(tcbhead, 0, sizeof(TaskCtrBlock));
-	kernelData.taskList.tcb_Frist = tcbhead;
-	kernelData.taskList.tcb_Last = tcbhead;
+	bspTask = (TaskCtrBlock *)allocateVirtual4kPage(sizeof(TaskCtrBlock), &(bootparam.kernelAllocateNextAddr), PAGE_RW);
+	memset_s(bspTask, 0, sizeof(TaskCtrBlock));
+	
+	kernelData.taskList.tcb_Frist = bspTask;
+	kernelData.taskList.tcb_Last = bspTask;
 	kernelData.taskList.size = 1;
-	kernelData.currentTask = tcbhead;
-	tcbhead->AllocateNextAddr = bootparam.kernelAllocateNextAddr;
-	tcbhead->taskStats = 1;
-	tcbhead->TssData.ioPermission = sizeof(TssHead) - 1;
-	tcbhead->TssData.cr3 = cr3_data();
+	kernelData.nextTask = NULL;
+	bspTask->AllocateNextAddr = bootparam.kernelAllocateNextAddr;
+	bspTask->TssData.ioPermission = sizeof(TssHead) - 1;
+	bspTask->TssData.cr3 = cr3_data();
 	TableSegmentItem tempSeg;
 	memset_s((char *)&tempSeg, 0, sizeof(TableSegmentItem));
-	tempSeg.segmentBaseAddr = &(tcbhead->TssData);
+	tempSeg.segmentBaseAddr = &(bspTask->TssData);
 	tempSeg.segmentLimit = sizeof(TssHead) - 1;
 	tempSeg.G = 0;
 	tempSeg.D_B = 1;
@@ -482,9 +515,9 @@ int _start(void *argv)
 	tempSeg.DPL = 0;
 	tempSeg.S = 0;
 	tempSeg.Type = TSSSEGTYPE;
-	tcbhead->tssSel = appendTableSegItem(&(kernelData.gdtInfo), &tempSeg);
+	bspTask->tssSel = appendTableSegItem(&(kernelData.gdtInfo), &tempSeg);
 	setgdtr(&(kernelData.gdtInfo));
-	settr(tcbhead->tssSel);
+	settr(bspTask->tssSel);
 	createCallGate(&kernelData);
 	initLockBlock();
 	createLock(&kernelLock);
@@ -509,7 +542,7 @@ int _start(void *argv)
 	/*read_ata_sectors(buff,150,1);
 	buff[512] = 0;
 	puts("\r\n");
-	puts(buff);*/
+	puts(buff);*/ 
 	// callTss(kernelData.taskList.tcb_Last->tssSel);
 	// testfun();
 	check_cpu_features();
@@ -526,9 +559,9 @@ int _start(void *argv)
 	aparg->logcpucount = 0;
 	processorMtrrSync();
 
-	LOCAL_APIC *xapic_obj =(LOCAL_APIC *)getXapicAddr();
-	// 	createTask(&(kernelData.taskList), 200, 4);
-	// 	createTask(&(kernelData.taskList), 250, 4);
+
+	createTask(&(kernelData.taskList), 200, 4);
+	createTask(&(kernelData.taskList), 250, 4);
 	// 	uint32 count = 0;
 	// 	while (1)
 	// 	{
@@ -543,9 +576,15 @@ int _start(void *argv)
 	// 		xapic_obj->ICR0[0] = 0x44082;
 	// #endif
 	// 	}
-	printf("BSP enter hlt\r\n");
+
+	// Apic timer task switch
+	LOCAL_APIC *xapic_obj =(LOCAL_APIC *)getXapicAddr();
+    xapic_obj->LVT_Timer[0]=0x20082;
+    xapic_obj->DivideConfiguration[0]=9;
+	xapic_obj->InitialCount[0] = 0xffff;
 	while (1)
 	{
+		printf("BSP empty\r\n");
 		asm("sti");
 		asm("hlt");
 	}
