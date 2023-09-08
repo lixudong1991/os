@@ -15,7 +15,6 @@
 
 #include "boot.h"
 #include "printf.h"
-LockObj printLock;
 static int skip_atoi(const char **s)
 {
 	int i = 0;
@@ -362,9 +361,9 @@ int putchar(int _Character)
 }
 void puts(const char *str)
 {
-	spinlock(printLock.plock);
+	spinlock(lockBuff[PRINT_LOCK].plock);
 	char *pstr = str;
 	while (*pstr != 0)
 		putchar(*pstr++);
-	unlock(printLock.plock);	
+	unlock(lockBuff[PRINT_LOCK].plock);	
 }

@@ -147,10 +147,8 @@ testBit:
 	ret
 
 callTss:
-	push dword [esp+4]
-	push dword 0
-	jmp far [esp]
-	add esp,8
+	mov eax,[esp+4]
+	jmp far [eax]
 	ret
 
 

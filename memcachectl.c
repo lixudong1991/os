@@ -8,7 +8,6 @@
 
 uint32 mem_type_map_pat[8] = {0x18, 0x18, 0x18, 0x18, 0x8, 0x18, 0, 0x10}; // WC,WP映射为UC
 MtrrMSRinfo mtrrmsrinfo;
-
 uint32 IA32_MTRR_PHYSBASE_ADDR(int index)
 {
     return IA32_MTRR_PHYSBASE0_MSR + index * 2;
@@ -373,13 +372,13 @@ void cacheMtrrMsrs()
         rdmsrcall(IA32_MTRR_PHYSBASE_ADDR(i), &(mtrrmsrinfo.variableData[i].baselow), &(mtrrmsrinfo.variableData[i].basehigh));
         rdmsrcall(IA32_MTRR_PHYSMASK_ADDR(i), &(mtrrmsrinfo.variableData[i].masklow), &(mtrrmsrinfo.variableData[i].maskhign));
        // printf("variable range %d:physbase = 0x%x 0x%x  physmask = 0x%x 0x%x\r\n", i, mtrrmsrinfo.variableData[i].basehigh,
-      //         mtrrmsrinfo.variableData[i].baselow, mtrrmsrinfo.variableData[i].maskhign, mtrrmsrinfo.variableData[i].masklow);
+       //        mtrrmsrinfo.variableData[i].baselow, mtrrmsrinfo.variableData[i].maskhign, mtrrmsrinfo.variableData[i].masklow);
     }
 
     for (int i = 0; i < 11; i++)
     {
         rdmsrcall(mtrrmsrinfo.fixMsr[i].msrid, &(mtrrmsrinfo.fixMsr[i].datalow), &(mtrrmsrinfo.fixMsr[i].datahigh));
-       // printf("%x: %x %x  ", mtrrmsrinfo.fixMsr[i].startaddr, mtrrmsrinfo.fixMsr[i].datahigh, mtrrmsrinfo.fixMsr[i].datalow);
+      //  printf("%x: %x %x  ", mtrrmsrinfo.fixMsr[i].startaddr, mtrrmsrinfo.fixMsr[i].datahigh, mtrrmsrinfo.fixMsr[i].datalow);
     }
 }
 

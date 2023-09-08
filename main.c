@@ -15,11 +15,10 @@ KernelData kernelData;
 LockBlock *lockblock=NULL;
 AParg *aparg = (AParg *)0x7c00;
 ProcessorInfo processorinfo;
-LockObj kernelLock;
-extern LockObj printLock;
 TaskCtrBlock *bspTask;
 TaskCtrBlock** mainTask;
 TaskCtrBlock** procCurrTask;
+LockObj lockBuff[LOCK_COUNT];
 char *hexstr32(char buff[9], uint32 val)
 {
 	char hexs[] = "0123456789ABCDEF";
@@ -128,7 +127,6 @@ static void createInterruptGate(KernelData *kdata)
 	}
 	for (; i < 0x20; i++)
 		appendTableGateItem(&(kdata->idtInfo), &item);
-	i = 0x20;
 	item.segAddr = interrupt_8259a_handler;
 	for (; i < 0x27; i++)
 		appendTableGateItem(&(kdata->idtInfo), &item);
@@ -141,33 +139,37 @@ static void createInterruptGate(KernelData *kdata)
 	item.segAddr = interrupt_8259a_handler;
 	for (; i < 0x78; i++)
 		appendTableGateItem(&(kdata->idtInfo), &item);
-	for (; i < 256; i++)
-	{
-		if (i == 0x80)
-		{
-			item.segAddr = systemCall;
-			item.GateDPL = 3;
-		}
-		else if (i == 0x81)
-		{
-#if X2APIC_ENABLE
-			item.segAddr = local_x2apic_error_handling;
-#else
-			item.segAddr = local_xapic_error_handling;
-#endif
-			item.GateDPL = 0;
-		}
-		else if (i == 0x82)
-		{
-#if X2APIC_ENABLE
-			item.segAddr = x2ApicTimeOut;
-#else
-			item.segAddr = xApicTimeOut;
-#endif
-		}
-		else
-			item.segAddr = general_interrupt_handler;
 
+	item.segAddr = general_interrupt_handler;
+	for(;i<0x80;i++)
+	{
+		appendTableGateItem(&(kdata->idtInfo), &item);
+	}
+	item.segAddr = interrupt_80_handler; //syscall
+	item.GateDPL = 3;
+	appendTableGateItem(&(kdata->idtInfo), &item);
+	i++;
+
+	item.segAddr = interrupt_81_handler;//apic error
+	item.GateDPL = 0;
+	appendTableGateItem(&(kdata->idtInfo), &item);
+	i++;
+
+	item.segAddr = interrupt_82_handler; //apictimer
+	appendTableGateItem(&(kdata->idtInfo), &item);
+	i++;
+
+	item.segAddr = interrupt_83_handler;//updategdt
+	appendTableGateItem(&(kdata->idtInfo), &item);
+	i++;
+
+	item.segAddr = interrupt_84_handler;//updatemtrr
+	appendTableGateItem(&(kdata->idtInfo), &item);
+	i++;
+
+	item.segAddr = general_interrupt_handler;
+	for (; i < 0xff; i++)
+	{
 		appendTableGateItem(&(kdata->idtInfo), &item);
 	}
 
@@ -290,9 +292,12 @@ void createTask(TcbList *taskList, int taskStartSection, int SectionCount)
 	*(uint32 *)0xFFFFEFF8 = 0;
 	memset_s(0xfffff004, 0, 0xBF8);
 	*(uint32 *)0xFFFFFFF8 = 0;
-	resetcr3();
-	setgdtr(&(kernelData.gdtInfo));
+	//resetcr3();
+	//setgdtr(&(kernelData.gdtInfo));
 	sti_s();
+    LOCAL_APIC *xapic_obj =(LOCAL_APIC *)getXapicAddr();
+    xapic_obj->ICR1[0]=0;
+    xapic_obj->ICR0[0]=0x84083; //更新gdt
 }
 /*
 void testfun()
@@ -302,37 +307,6 @@ void testfun()
 	freePhy4kPage(addr);
 }
 */
-void APproc(uint32 argv)
-{
-	uint32_t eax = 0, edx = 0;
-	rdmsr_fence(IA32_APIC_BASE_MSR, &eax, &edx);
-	setidtr(&(kernelData.idtInfo));
-	setgdtr(&(kernelData.gdtInfo));
-	settr(mainTask[argv]->tssSel);
-	procCurrTask[argv]=mainTask[argv];
-	asm("sti");
-	//if ((eax & 0x100) == 0) // 判读是否是AP
-	{
-		
-		printf("AP log =========%d init\r\n",argv);
-		spinlock(kernelLock.plock);
-		initApic();
-		unlock(kernelLock.plock);
-		processorinfo.processcontent[argv].id = argv;
-		processorinfo.processcontent[argv].apicAddr = getXapicAddr();
-		processorMtrrSync();
-		LOCAL_APIC *xapic_obj =(LOCAL_APIC *)getXapicAddr();
-   		xapic_obj->LVT_Timer[0]=0x20082;
-    	xapic_obj->DivideConfiguration[0]=9;
-		xapic_obj->InitialCount[0] = 0xffff;
-		while (1)
-		{
-			printf("AP %d empty hlt\r\n",argv);
-			asm("sti");
-			asm("hlt");
-		}
-	}
-}
 void initLockBlock()
 {
 	uint32_t addr = LOCK_START, size = 0x1000;
@@ -378,6 +352,36 @@ void releaseLock(LockObj *lobj)
 	unlock(&(lockblock->lockData[0]));
 	asm("sti");
 }
+void APproc(uint32 argv)
+{
+	uint32_t eax = 0, edx = 0;
+	rdmsr_fence(IA32_APIC_BASE_MSR, &eax, &edx);
+	setidtr(&(kernelData.idtInfo));
+	setgdtr(&(kernelData.gdtInfo));
+	settr(mainTask[argv]->tssSel);
+	procCurrTask[argv]=mainTask[argv];
+	asm("sti");
+	//if ((eax & 0x100) == 0) // 判读是否是AP
+	{
+		
+		printf("AP log =========%d init\r\n",argv);
+		spinlock(lockBuff[KERNEL_LOCK].plock);
+		initApic();
+		unlock(lockBuff[KERNEL_LOCK].plock);
+		processorinfo.processcontent[argv].id = argv;
+		processorinfo.processcontent[argv].apicAddr = getXapicAddr();
+		LOCAL_APIC *xapic_obj =(LOCAL_APIC *)(processorinfo.processcontent[argv].apicAddr);
+   		xapic_obj->LVT_Timer[0]=0x20082;
+    	xapic_obj->DivideConfiguration[0]=9;
+		//xapic_obj->InitialCount[0] = 0xffff;
+		printf("AP %d empty hlt\r\n",argv);
+		while (1)
+		{	
+			asm("sti");
+			asm("hlt");
+		}
+	}
+}
 void MPinit()
 {
 #if X2APIC_ENABLE
@@ -410,7 +414,7 @@ void MPinit()
 	processorinfo.processcontent[0].apicAddr = getXapicAddr();
 
 	addr = xapicaddr, size = 0x1000*(aparg->logcpucount);
-	temp = mem_variable_type_set(4,addr, size, MEM_UC);
+	temp = mem_fix_type_set(addr, size, MEM_UC);
 	printf("after 0x%x mem cache type %d temp=%d\r\n", addr, mem_cache_type_get(addr, size), temp);
 
 	initApic();
@@ -458,27 +462,11 @@ void MPinit()
 	aparg->gdt_size = kernelData.gdtInfo.limit;
 	setgdtr(&(kernelData.gdtInfo));
 
-	waitap = 0xffffff;
+	waitap = 0xffff;
 	while (waitap--);
 	aparg->jumpok = 1;
 #endif
 }
-void processorMtrrSync()
-{
-	asm("cli");
-	spinlock(kernelLock.plock);
-	aparg->logcpucount++;
-	unlock(kernelLock.plock);
-	while(aparg->logcpucount!=processorinfo.count);
-	refreshMtrrMsrs();
-	spinlock(kernelLock.plock);
-	aparg->logcpucount--;
-	unlock(kernelLock.plock);
-	while(aparg->logcpucount!=0);
-	asm("sti");
-}
-
-
 
 int _start(void *argv)
 {
@@ -520,8 +508,10 @@ int _start(void *argv)
 	settr(bspTask->tssSel);
 	createCallGate(&kernelData);
 	initLockBlock();
-	createLock(&kernelLock);
-	createLock(&printLock);
+	createLock(&(lockBuff[KERNEL_LOCK]));
+	createLock(&(lockBuff[PRINT_LOCK]));
+	createLock(&(lockBuff[MTRR_LOCK]));
+
 	// 禁用8259a所有中断
 
 	// char number[32];
@@ -555,13 +545,8 @@ int _start(void *argv)
 	printf("cr0_data: 0x%x\r\n", eax);
 	MPinit();
 	cacheMtrrMsrs();
-
-	aparg->logcpucount = 0;
-	processorMtrrSync();
-
-
-	createTask(&(kernelData.taskList), 200, 4);
-	createTask(&(kernelData.taskList), 250, 4);
+	uint32  waitap= 0xfffffff;
+	while (waitap--);
 	// 	uint32 count = 0;
 	// 	while (1)
 	// 	{
@@ -577,14 +562,24 @@ int _start(void *argv)
 	// #endif
 	// 	}
 
-	// Apic timer task switch
+
+	
 	LOCAL_APIC *xapic_obj =(LOCAL_APIC *)getXapicAddr();
+	//aparg->logcpucount =0;
+	aparg->logcpucount=0;
+	xapic_obj->ICR1[0]=0;
+    xapic_obj->ICR0[0]=0x84084;//更新mtrr
+
+	// Apic timer task switch
     xapic_obj->LVT_Timer[0]=0x20082;
     xapic_obj->DivideConfiguration[0]=9;
-	xapic_obj->InitialCount[0] = 0xffff;
+
+	//createTask(&(kernelData.taskList),200,4);
+	//createTask(&(kernelData.taskList),250,4);
+	//xapic_obj->InitialCount[0] = 0xffff;
+	printf("BSP empty\r\n");
 	while (1)
-	{
-		printf("BSP empty\r\n");
+	{	
 		asm("sti");
 		asm("hlt");
 	}

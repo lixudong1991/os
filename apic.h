@@ -131,6 +131,6 @@ extern volatile uint32 logicalID;
 
 #define X2APIC_ENABLE 0
 
-
+uint32 getXapicAddr();
 void initApic();
 #endif

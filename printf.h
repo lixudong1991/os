@@ -7,5 +7,4 @@ int printf(const char *fmt, ...);
 int putchar(int _Character);
 void puts(const char *str);
 
-extern LockObj printLock;
 #endif // ! _PRINT_F_HH_

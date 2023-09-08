@@ -253,7 +253,7 @@ uint32 testBit(uint32 *addr, uint32 nr);
 void setds(uint32 segSel);
 void setgs(uint32 segSel);
 void setfs(uint32 segSel);
-void callTss(uint32 tssSel);
+void callTss(uint32 *addr);
 void intcall();
 
 void invlpg_s(uint32 *tlbitem);
@@ -328,9 +328,18 @@ typedef struct LockObj
 	uint32 *plock;
 }LockObj;
 
+enum Lock_ID
+{
+	KERNEL_LOCK =0,
+	PRINT_LOCK,
+	MTRR_LOCK,
+	LOCK_COUNT
+};
+
 void initLockBlock();
 int createLock(LockObj *lobj);
 extern int spinlock(uint32 *lobj);
 extern int unlock(uint32 *lobj);
 void releaseLock(LockObj *lobj);
+extern LockObj lockBuff[LOCK_COUNT];
 #endif
