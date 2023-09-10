@@ -2,6 +2,7 @@
 #include "boot.h"
 #include "printf.h"
 #include "apic.h"
+#include "memcachectl.h"
 extern KernelData kernelData;
 extern TaskCtrBlock **mainTask;
 extern TaskCtrBlock **procCurrTask;
@@ -50,31 +51,43 @@ static void x2ApicTimeOut()
 }
 static void xApicTimeOut()
 {
-    // printf("xApicTimeOut apicid:0x%x\r\n",((LOCAL_APIC*)getXapicAddr())->ID[0]);
     LOCAL_APIC *apic = (LOCAL_APIC *)getXapicAddr();
     uint32 apid = apic->ID[0] >> 24;
-    TaskCtrBlock *next = procCurrTask[apid]->next;
-    while (next != procCurrTask[apid])
+    if(kernelData.taskList.size<2)
     {
-        if (next == NULL)
-            next = kernelData.taskList.tcb_Frist->next;
+        xapicwriteEOI();
+        return;
+    }
+    TaskCtrBlock *nextTask = procCurrTask[apid]->next;
+    while(nextTask!=procCurrTask[apid])
+    {
         spinlock(lockBuff[KERNEL_LOCK].plock);
-        if (next->taskStats == 0)
+        if(nextTask->taskStats == 0)
         {
-            next->taskStats =1; 
+            nextTask->taskStats =1;
             unlock(lockBuff[KERNEL_LOCK].plock);
             break;
         }
+        nextTask = nextTask->next;
         unlock(lockBuff[KERNEL_LOCK].plock);
     }
-    if(next!=procCurrTask[apid])
+    printf("xApicTimeOut first:0x%x  current:0x%x  next:0x%x\r\n",kernelData.taskList.tcb_Frist,procCurrTask[apid],nextTask);
+    if(nextTask!=procCurrTask[apid])
     {
         procCurrTask[apid]->taskStats =0;
+        procCurrTask[apid] = nextTask;
+        if(nextTask != kernelData.taskList.tcb_Frist)
+            apic->InitialCount[0] = 0xfffff;
+        printf("jump 0x%x\r\n",nextTask);
         xapicwriteEOI();
-        callTss(&(next->AllocateNextAddr));
+        callTss(&(nextTask->AllocateNextAddr));
     }
     else
+    {
+        if(nextTask != kernelData.taskList.tcb_Frist)
+            apic->InitialCount[0] = 0xfffff;
         xapicwriteEOI();
+    }
 }
 void systemCall()
 {
@@ -105,8 +118,17 @@ void apicTimeOut()
 
 void updataGdt()
 {
+    spinlock(lockBuff[UPDATE_GDT_CR3].plock);
+	aparg->logcpucount++;
+	unlock(lockBuff[UPDATE_GDT_CR3].plock);
+    while(aparg->logcpucount<processorinfo.count);
     resetcr3();
     setgdtr(&(kernelData.gdtInfo));
+
+	spinlock(lockBuff[UPDATE_GDT_CR3].plock);
+	aparg->logcpucount--;
+	unlock(lockBuff[UPDATE_GDT_CR3].plock);
+	while(aparg->logcpucount>0);
     printf("updataGdt apicid:0x%x\r\n", ((LOCAL_APIC *)getXapicAddr())->ID[0]);
     xapicwriteEOI();
 }

@@ -6,18 +6,17 @@
 #include "apic.h"
 #include "cpufeature.h"
 #include "memcachectl.h"
+#include "screen.h"
 #define STACKLIMIT_G1(a) ((((uint32)(a)) - 1) >> 12) // gdt 表项粒度为1的段界限
 
 #define LOCK_START 0x1000
 
 BootParam bootparam;
 KernelData kernelData;
-LockBlock *lockblock=NULL;
+LockBlock *lockblock = NULL;
 AParg *aparg = (AParg *)0x7c00;
 ProcessorInfo processorinfo;
-TaskCtrBlock *bspTask;
-TaskCtrBlock** mainTask;
-TaskCtrBlock** procCurrTask;
+TaskCtrBlock **procCurrTask;
 LockObj lockBuff[LOCK_COUNT];
 char *hexstr32(char buff[9], uint32 val)
 {
@@ -141,29 +140,29 @@ static void createInterruptGate(KernelData *kdata)
 		appendTableGateItem(&(kdata->idtInfo), &item);
 
 	item.segAddr = general_interrupt_handler;
-	for(;i<0x80;i++)
+	for (; i < 0x80; i++)
 	{
 		appendTableGateItem(&(kdata->idtInfo), &item);
 	}
-	item.segAddr = interrupt_80_handler; //syscall
+	item.segAddr = interrupt_80_handler; // syscall
 	item.GateDPL = 3;
 	appendTableGateItem(&(kdata->idtInfo), &item);
 	i++;
 
-	item.segAddr = interrupt_81_handler;//apic error
+	item.segAddr = interrupt_81_handler; // apic error
 	item.GateDPL = 0;
 	appendTableGateItem(&(kdata->idtInfo), &item);
 	i++;
 
-	item.segAddr = interrupt_82_handler; //apictimer
+	item.segAddr = interrupt_82_handler; // apictimer
 	appendTableGateItem(&(kdata->idtInfo), &item);
 	i++;
 
-	item.segAddr = interrupt_83_handler;//updategdt
+	item.segAddr = interrupt_83_handler; // updategdt
 	appendTableGateItem(&(kdata->idtInfo), &item);
 	i++;
 
-	item.segAddr = interrupt_84_handler;//updatemtrr
+	item.segAddr = interrupt_84_handler; // updatemtrr
 	appendTableGateItem(&(kdata->idtInfo), &item);
 	i++;
 
@@ -180,8 +179,9 @@ TaskCtrBlock *createNewTcb(TcbList *taskList)
 {
 	TaskCtrBlock *newTcb = (TaskCtrBlock *)allocate_memory(taskList->tcb_Frist, sizeof(TaskCtrBlock), PAGE_G | PAGE_RW);
 	memset_s(newTcb, 0, sizeof(TaskCtrBlock));
-	newTcb->prior = taskList->tcb_Last;
+	// newTcb->prior = taskList->tcb_Last;
 	taskList->tcb_Last->next = newTcb;
+	newTcb->next = taskList->tcb_Frist;
 	taskList->tcb_Last = newTcb;
 	taskList->size++;
 	return newTcb;
@@ -295,9 +295,11 @@ void createTask(TcbList *taskList, int taskStartSection, int SectionCount)
 	//resetcr3();
 	//setgdtr(&(kernelData.gdtInfo));
 	sti_s();
-    LOCAL_APIC *xapic_obj =(LOCAL_APIC *)getXapicAddr();
-    xapic_obj->ICR1[0]=0;
-    xapic_obj->ICR0[0]=0x84083; //更新gdt
+	LOCAL_APIC *xapic_obj = (LOCAL_APIC *)getXapicAddr();
+	aparg->logcpucount =0;
+	asm("mfence");
+	xapic_obj->ICR1[0] = 0;
+	xapic_obj->ICR0[0] = 0x84083; // 更新gdt,cr3
 }
 /*
 void testfun()
@@ -311,28 +313,28 @@ void initLockBlock()
 {
 	uint32_t addr = LOCK_START, size = 0x1000;
 	mem_fix_type_set(addr, size, MEM_UC);
-	lockblock =  LOCK_START;
-	memset_s(lockblock,0,size);
-	setBit(lockblock->lockstatus,0);
-	lockblock->lockData[0]=0;
+	lockblock = LOCK_START;
+	memset_s(lockblock, 0, size);
+	setBit(lockblock->lockstatus, 0);
+	lockblock->lockData[0] = 0;
 }
 int createLock(LockObj *lobj)
 {
-	int ret =FALSE;
+	int ret = FALSE;
 	asm("cli");
 	spinlock(&(lockblock->lockData[0]));
-	int i=1;
-	for(;i<MAX_LOCK;i++)
+	int i = 1;
+	for (; i < MAX_LOCK; i++)
 	{
-		if(!testBit(lockblock->lockstatus,i))
+		if (!testBit(lockblock->lockstatus, i))
 			break;
 	}
-	if(i<MAX_LOCK)
+	if (i < MAX_LOCK)
 	{
-		setBit(lockblock->lockstatus,i);
-		lobj->index =i;
+		setBit(lockblock->lockstatus, i);
+		lobj->index = i;
 		lobj->plock = &(lockblock->lockData[i]);
-		lockblock->lockData[i]= 0;
+		lockblock->lockData[i] = 0;
 		ret = TRUE;
 	}
 	unlock(&(lockblock->lockData[0]));
@@ -343,10 +345,10 @@ void releaseLock(LockObj *lobj)
 {
 	asm("cli");
 	spinlock(&(lockblock->lockData[0]));
-	if(lobj->index >0 &&lobj->index<MAX_LOCK)
+	if (lobj->index > 0 && lobj->index < MAX_LOCK)
 	{
-		resetBit(lockblock->lockstatus,lobj->index);
-		lockblock->lockData[lobj->index] = 0;	
+		resetBit(lockblock->lockstatus, lobj->index);
+		lockblock->lockData[lobj->index] = 0;
 		lobj->plock = NULL;
 	}
 	unlock(&(lockblock->lockData[0]));
@@ -358,27 +360,36 @@ void APproc(uint32 argv)
 	rdmsr_fence(IA32_APIC_BASE_MSR, &eax, &edx);
 	setidtr(&(kernelData.idtInfo));
 	setgdtr(&(kernelData.gdtInfo));
-	settr(mainTask[argv]->tssSel);
-	procCurrTask[argv]=mainTask[argv];
+	settr(procCurrTask[argv]->tssSel);
+	procCurrTask[argv]->taskStats =1;
 	asm("sti");
-	//if ((eax & 0x100) == 0) // 判读是否是AP
+	// if ((eax & 0x100) == 0) // 判读是否是AP
 	{
-		
-		printf("AP log =========%d init\r\n",argv);
+
+		printf("AP log =========%d init\r\n", argv);
 		spinlock(lockBuff[KERNEL_LOCK].plock);
 		initApic();
 		unlock(lockBuff[KERNEL_LOCK].plock);
 		processorinfo.processcontent[argv].id = argv;
 		processorinfo.processcontent[argv].apicAddr = getXapicAddr();
-		LOCAL_APIC *xapic_obj =(LOCAL_APIC *)(processorinfo.processcontent[argv].apicAddr);
-   		xapic_obj->LVT_Timer[0]=0x20082;
-    	xapic_obj->DivideConfiguration[0]=9;
-		//xapic_obj->InitialCount[0] = 0xffff;
-		printf("AP %d empty hlt\r\n",argv);
+		LOCAL_APIC *xapic_obj = (LOCAL_APIC *)(processorinfo.processcontent[argv].apicAddr);
+		xapic_obj->LVT_Timer[0] = 0x82;
+		xapic_obj->DivideConfiguration[0] = 9;
+		//xapic_obj->InitialCount[0] = 0xfffff;
+		spinlock(lockBuff[KERNEL_LOCK].plock);
+		aparg->logcpucount++;
+		unlock(lockBuff[KERNEL_LOCK].plock);
+		while(aparg->logcpucount<processorinfo.count);
+	//	xapic_obj->InitialCount[0] = 0xfffff;
 		while (1)
-		{	
-			asm("sti");
-			asm("hlt");
+		{
+			// asm("cli");
+			// printf("AP %d empty hlt\r\n", argv);
+			// asm("sti");
+			// uint32 waitap = 0xfffff;
+			// while (waitap--);
+				asm("sti");
+			    asm("hlt");
 		}
 	}
 }
@@ -387,8 +398,8 @@ void MPinit()
 #if X2APIC_ENABLE
 #else
 	printf("map 0x4b000:%d\r\n", mem4k_map(0x4b000, 0x4b000, MEM_UC, PAGE_RW));
-	read_ata_sectors(0x4b000, 144, 2);
-	uint32_t addr = 0x7000, size = 0x1000,temp=0;
+	//read_ata_sectors(0x4b000, 144, 2);
+	uint32_t addr = 0x7000, size = 0x1000, temp = 0;
 	mem_fix_type_set(addr, size, MEM_UC);
 
 	memset_s(aparg, 0, sizeof(AParg));
@@ -397,7 +408,7 @@ void MPinit()
 	aparg->gdt_base = 0xb000;
 	aparg->logcpucount = 1;
 
-	LOCAL_APIC *xapic_obj =(LOCAL_APIC *)getXapicAddr();
+	LOCAL_APIC *xapic_obj = (LOCAL_APIC *)getXapicAddr();
 	mem4k_map((uint32)xapic_obj, (uint32)xapic_obj, MEM_UC, PAGE_RW);
 
 	xapic_obj->ICR1[0] = 0;
@@ -407,31 +418,31 @@ void MPinit()
 	xapic_obj->ICR0[0] = 0xC464B; // 发送SIPI AP执行0x4b000处的代码
 
 	uint32 waitap = 0xffffffff;
-	while (waitap--);
-	memset_s(&processorinfo,0,sizeof(processorinfo));
+	while (waitap--)
+		;
+	memset_s(&processorinfo, 0, sizeof(processorinfo));
 	processorinfo.count = aparg->logcpucount;
-	processorinfo.processcontent[0].id =0;
+	processorinfo.processcontent[0].id = 0;
 	processorinfo.processcontent[0].apicAddr = getXapicAddr();
 
-	addr = xapicaddr, size = 0x1000*(aparg->logcpucount);
+	addr = xapicaddr, size = 0x1000 * (aparg->logcpucount);
 	temp = mem_fix_type_set(addr, size, MEM_UC);
 	printf("after 0x%x mem cache type %d temp=%d\r\n", addr, mem_cache_type_get(addr, size), temp);
 
 	initApic();
 
-	mainTask = allocate_memory(bspTask,processorinfo.count*sizeof(TaskCtrBlock *),PAGE_RW);
-	procCurrTask = allocate_memory(bspTask,processorinfo.count*sizeof(TaskCtrBlock *),PAGE_RW);
-	mainTask[0] = bspTask;
-	procCurrTask[0]=bspTask;
+	procCurrTask = allocate_memory(kernelData.taskList.tcb_Frist, processorinfo.count * sizeof(TaskCtrBlock *), PAGE_G | PAGE_RW);
+	procCurrTask[0] = kernelData.taskList.tcb_Frist;
+	procCurrTask[0]->taskStats =1;
 	TableSegmentItem tempSeg;
 	memset_s((char *)&tempSeg, 0, sizeof(TableSegmentItem));
-	for(int i=1;i<processorinfo.count;i++)
+	for (int i = 1; i < processorinfo.count; i++)
 	{
-		mainTask[i] = allocate_memory(bspTask,sizeof(TaskCtrBlock),PAGE_RW);
-		memset_s(mainTask[i],0,sizeof(TaskCtrBlock));
-		mainTask[i]->TssData.ioPermission = sizeof(TssHead) - 1;
-		mainTask[i]->TssData.cr3 = cr3_data();
-		tempSeg.segmentBaseAddr = &(bspTask->TssData);
+		procCurrTask[i] = allocate_memory(procCurrTask[0], sizeof(TaskCtrBlock), PAGE_G | PAGE_RW);
+		memset_s(procCurrTask[i], 0, sizeof(TaskCtrBlock));
+		procCurrTask[i]->TssData.ioPermission = sizeof(TssHead) - 1;
+		procCurrTask[i]->TssData.cr3 = cr3_data();
+		tempSeg.segmentBaseAddr = &(procCurrTask[i]->TssData);
 		tempSeg.segmentLimit = sizeof(TssHead) - 1;
 		tempSeg.G = 0;
 		tempSeg.D_B = 1;
@@ -439,11 +450,16 @@ void MPinit()
 		tempSeg.DPL = 0;
 		tempSeg.S = 0;
 		tempSeg.Type = TSSSEGTYPE;
-		mainTask[i]->tssSel = appendTableSegItem(&(kernelData.gdtInfo), &tempSeg);
+		procCurrTask[i]->tssSel = appendTableSegItem(&(kernelData.gdtInfo), &tempSeg);
+
+		kernelData.taskList.tcb_Last->next = procCurrTask[i];
+		procCurrTask[i]->next = kernelData.taskList.tcb_Frist;
+		kernelData.taskList.tcb_Last = procCurrTask[i];
+		kernelData.taskList.size++;
 	}
 	uint32 *stackinfo = (uint32 *)(0x7c00 + sizeof(AParg));
 	printf("processor count =%d\r\n", aparg->logcpucount);
-	
+
 	memset_s((char *)&tempSeg, 0, sizeof(TableSegmentItem));
 	tempSeg.segmentBaseAddr = 0;
 	tempSeg.G = 1;
@@ -454,23 +470,22 @@ void MPinit()
 	tempSeg.Type = DATASEG_RW_E;
 	for (int i = 0; i < aparg->logcpucount; i++)
 	{
-		char *stack = allocate_memory(bspTask, 4 * 4096, PAGE_RW);
+		char *stack = allocate_memory(procCurrTask[0], 4 * 4096, PAGE_RW);
 		tempSeg.segmentLimit = STACKLIMIT_G1(stack);
 		*stackinfo++ = (uint32)stack + 4 * 4096;
 		*stackinfo++ = appendTableSegItem(&(kernelData.gdtInfo), &tempSeg);
 	}
 	aparg->gdt_size = kernelData.gdtInfo.limit;
 	setgdtr(&(kernelData.gdtInfo));
-
-	waitap = 0xffff;
-	while (waitap--);
+	aparg->logcpucount = 1;
 	aparg->jumpok = 1;
+	while(aparg->logcpucount<processorinfo.count);
 #endif
 }
 
 int _start(void *argv)
 {
-	clearscreen();
+	//clearscreen();
 	memcpy_s((char *)&bootparam, (char *)argv, sizeof(BootParam));
 	kernelData.gdtInfo.base = bootparam.gdt_base;
 	kernelData.gdtInfo.limit = bootparam.gdt_size;
@@ -483,19 +498,20 @@ int _start(void *argv)
 	interrupt8259a_disable();
 	createInterruptGate(&kernelData);
 
-	bspTask = (TaskCtrBlock *)allocateVirtual4kPage(sizeof(TaskCtrBlock), &(bootparam.kernelAllocateNextAddr), PAGE_RW);
-	memset_s(bspTask, 0, sizeof(TaskCtrBlock));
-	
-	kernelData.taskList.tcb_Frist = bspTask;
-	kernelData.taskList.tcb_Last = bspTask;
+	TaskCtrBlock *tcbhead = (TaskCtrBlock *)allocateVirtual4kPage(sizeof(TaskCtrBlock), &(bootparam.kernelAllocateNextAddr), PAGE_RW);
+	memset_s(tcbhead, 0, sizeof(TaskCtrBlock));
+	tcbhead->next = tcbhead;
+	tcbhead->taskStats =1;
+	kernelData.taskList.tcb_Frist = tcbhead;
+	kernelData.taskList.tcb_Last = tcbhead;
 	kernelData.taskList.size = 1;
 	kernelData.nextTask = NULL;
-	bspTask->AllocateNextAddr = bootparam.kernelAllocateNextAddr;
-	bspTask->TssData.ioPermission = sizeof(TssHead) - 1;
-	bspTask->TssData.cr3 = cr3_data();
+	tcbhead->AllocateNextAddr = bootparam.kernelAllocateNextAddr;
+	tcbhead->TssData.ioPermission = sizeof(TssHead) - 1;
+	tcbhead->TssData.cr3 = cr3_data();
 	TableSegmentItem tempSeg;
 	memset_s((char *)&tempSeg, 0, sizeof(TableSegmentItem));
-	tempSeg.segmentBaseAddr = &(bspTask->TssData);
+	tempSeg.segmentBaseAddr = &(tcbhead->TssData);
 	tempSeg.segmentLimit = sizeof(TssHead) - 1;
 	tempSeg.G = 0;
 	tempSeg.D_B = 1;
@@ -503,15 +519,18 @@ int _start(void *argv)
 	tempSeg.DPL = 0;
 	tempSeg.S = 0;
 	tempSeg.Type = TSSSEGTYPE;
-	bspTask->tssSel = appendTableSegItem(&(kernelData.gdtInfo), &tempSeg);
+	tcbhead->tssSel = appendTableSegItem(&(kernelData.gdtInfo), &tempSeg);
 	setgdtr(&(kernelData.gdtInfo));
-	settr(bspTask->tssSel);
+	settr(tcbhead->tssSel);
 	createCallGate(&kernelData);
 	initLockBlock();
 	createLock(&(lockBuff[KERNEL_LOCK]));
 	createLock(&(lockBuff[PRINT_LOCK]));
 	createLock(&(lockBuff[MTRR_LOCK]));
+	createLock(&(lockBuff[UPDATE_GDT_CR3]));
 
+	initScreen();
+	
 	// 禁用8259a所有中断
 
 	// char number[32];
@@ -532,54 +551,61 @@ int _start(void *argv)
 	/*read_ata_sectors(buff,150,1);
 	buff[512] = 0;
 	puts("\r\n");
-	puts(buff);*/ 
+	puts(buff);*/
 	// callTss(kernelData.taskList.tcb_Last->tssSel);
 	// testfun();
 	check_cpu_features();
 	check_mtrr();
 	check_pat();
-	
+
 	uint32_t eax = 0;
 	printf("cr4: 0x%x\r\n", cr4_data());
 	eax = cr0_data();
 	printf("cr0_data: 0x%x\r\n", eax);
 	MPinit();
 	cacheMtrrMsrs();
-	uint32  waitap= 0xfffffff;
-	while (waitap--);
-	// 	uint32 count = 0;
-	// 	while (1)
-	// 	{
-	// 		printf("kernel process.....................%s %d\r\n", "count =", count++);
-	// 		// 给自身处理器发送82h号任务切换
-	// #if X2APIC_ENABLE
-	// 		eax = 0x82;
-	// 		edx = 0;
-	// 		wrmsr_fence(IA32_X2APIC_SELF_IPI, eax, edx);
-	// #else
-	// 		xapic_obj->ICR1[0] = 0;
-	// 		xapic_obj->ICR0[0] = 0x44082;
-	// #endif
-	// 	}
-
-
+	LOCAL_APIC *xapic_obj = (LOCAL_APIC *)getXapicAddr();
 	
-	LOCAL_APIC *xapic_obj =(LOCAL_APIC *)getXapicAddr();
-	//aparg->logcpucount =0;
-	aparg->logcpucount=0;
-	xapic_obj->ICR1[0]=0;
-    xapic_obj->ICR0[0]=0x84084;//更新mtrr
+	aparg->logcpucount = 0;
+	asm("mfence");
+	xapic_obj->ICR1[0] = 0;
+	xapic_obj->ICR0[0] = 0x84084; // 更新mtrr
 
 	// Apic timer task switch
-    xapic_obj->LVT_Timer[0]=0x20082;
-    xapic_obj->DivideConfiguration[0]=9;
+	xapic_obj->LVT_Timer[0] = 0x82;
+	xapic_obj->DivideConfiguration[0] = 9;
 
-	//createTask(&(kernelData.taskList),200,4);
-	//createTask(&(kernelData.taskList),250,4);
-	//xapic_obj->InitialCount[0] = 0xffff;
-	printf("BSP empty\r\n");
+	//spinlock(&(lockBuff[KERNEL_LOCK]));
+	//createTask(&(kernelData.taskList), 200, 4);
+	//unlock(&(lockBuff[KERNEL_LOCK]));
+	//spinlock(&(lockBuff[KERNEL_LOCK]));
+	//createTask(&(kernelData.taskList), 250, 4);
+	//unlock(&(lockBuff[KERNEL_LOCK]));
+	// xapic_obj->InitialCount[0] = 0xfffff;
+
+// 	uint32 count = 0;
+// 	while (1)
+// 	{
+// 		asm("cli");
+// 		printf("kernel process.....................%s %d\r\n", "count =", count++);
+// 		asm("sti");
+// 		uint32 waittime =0xfffff;
+// 		while(waittime--);
+// 		// 给自身处理器发送82h号任务切换
+// #if X2APIC_ENABLE
+// 		eax = 0x82;
+// 		edx = 0;
+// 		wrmsr_fence(IA32_X2APIC_SELF_IPI, eax, edx);
+// #else
+// 		//xapic_obj->ICR1[0] = 0;
+// 		//xapic_obj->ICR0[0] = 0x44082;
+// #endif
+// 	}
 	while (1)
-	{	
+	{
+		// printf("BSP empty\r\n");
+		// waitap= 0xfffff;
+	    // while (waitap--);
 		asm("sti");
 		asm("hlt");
 	}

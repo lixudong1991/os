@@ -1,16 +1,17 @@
 
 global exceptionCalls,general_interrupt_handler,interrupt_8259a_handler,interrupt_70_handler,interrupt_80_handler,interrupt_81_handler,interrupt_82_handler,interrupt_83_handler,interrupt_84_handler
-extern   kernelData,general_exeption_code,general_exeption_no_code,apicTimeOut,systemCall,apicError,updataGdt,processorMtrrSync
-; IA32_X2APIC_EOI equ 0x80B
-; IA32_X2APIC_ESR equ 0x828
-; IA32_X2APIC_INIT_COUNT equ 0x838
-; IA32_APIC_BASE_MSR equ 0x1B
+;global interrupt_85_handler
+extern   kernelData,general_exeption_code,general_exeption_no_code,apicTimeOut,systemCall,apicError,updataGdt,processorMtrrSync,sleepTimeOut
+IA32_X2APIC_EOI equ 0x80B
+IA32_X2APIC_ESR equ 0x828
+IA32_X2APIC_INIT_COUNT equ 0x838
+IA32_APIC_BASE_MSR equ 0x1B
 
-; XAPIC_ID_OFFSET  equ 0x20
-; XAPIC_LDR_OFFSET  equ 0xD0
-; XAPIC_InitialCount_OFFSET  equ 0x380
-; XAPIC_ErrStatus_OFFSET  equ 0x280
-; XAPIC_EOI_OFFSET  equ 0xB0
+XAPIC_ID_OFFSET  equ 0x20
+XAPIC_LDR_OFFSET  equ 0xD0
+XAPIC_InitialCount_OFFSET  equ 0x380
+XAPIC_ErrStatus_OFFSET  equ 0x280
+XAPIC_EOI_OFFSET  equ 0xB0
 general_exception0_handler:
 	push dword [esp]
 	push dword 0
@@ -204,16 +205,18 @@ interrupt_80_handler:
 interrupt_81_handler:
 	call apicError
 	iretd
-interrupt_82_handler:
-	call apicTimeOut
-	iretd
+ interrupt_82_handler:
+ 	call apicTimeOut
+ 	iretd
 interrupt_83_handler:
 	call updataGdt
 	iretd
 interrupt_84_handler:
 	call processorMtrrSync
 	iretd
-
+;interrupt_85_handler:
+;	call sleepTimeOut
+;	iretd
 ; x2ApicTimeOut:
 ;     push eax   
 ; 	push ecx 
@@ -376,7 +379,7 @@ interrupt_84_handler:
 ; 	pop edx
 ; 	pop ecx
 ; 	iretd
-; xApicTimeOut:
+; interrupt_82_handler:
 ;     push eax   
 ; 	push ecx 
 ; 	push edx
@@ -403,14 +406,17 @@ interrupt_84_handler:
 ; 	mov dword [esi+0x10],1
 ; 	cmp esi,[ecx+20]
 ; 	je xnoSetTimer
-; 	call getXapicAddr
+; 	call x_getXapicAddr
 ; 	mov dword [eax+XAPIC_InitialCount_OFFSET],0xffff ;task cpu time
 ; xnoSetTimer:
-; 	call xapicwriteEOI
+; 	call x_apicwriteEOI
 ; 	jmp far [esi+8]
 ; 	jmp xApicTimeOutret0
+; notfoundNext:
+; 	call x_getXapicAddr
+; 	mov dword [eax+XAPIC_InitialCount_OFFSET],0xffff ;task cpu time
 ; xApicTimeOutret:
-; 	call xapicwriteEOI
+; 	call x_apicwriteEOI
 ; xApicTimeOutret0:	
 ; 	pop esi
 ; 	pop edx
@@ -418,71 +424,11 @@ interrupt_84_handler:
 ;     pop eax  
 ; 	iretd
 
-; xApicTimeOut:
-;     push eax  
-; 	push ebx 
-; 	push ecx 
-; 	push edx
-; 	push esi		
-; 	mov ecx,[kernelLock+4]
-; 	push ecx
-; 	call spinlock
-; 	add esp,4
-;     mov ecx,kernelData
-; 	test dword [ecx+28],0xffffffff
-; 	je xApicTimeOutret
-; 	cmp dword [ecx+28],1
-; 	je xApicTimeOutret
-; 	mov esi,[ecx+32]
-; 	call getXapicId
-; 	mov ebx,eax
-; 	shl ebx,2
-; 	add ebx,procCurrTask
-; xApicTimeOutnexttask:
-; 	cmp esi,0
-; 	jne xApicTimeOutnexttask1
-; 	mov esi,[ecx+20]
-; 	mov esi,[esi]
-; xApicTimeOutnexttask1:
-; 	cmp [ebx],esi
-; 	je xApicTimeOutret
-; 	test dword [esi+0x10],0xffffffff
-; 	jz xApicTimeOutnexttask2
-; 	mov esi,[esi]
-; 	jmp xApicTimeOutnexttask
-; xApicTimeOutnexttask2:
-; 	mov eax,[ebx]
-; 	mov dword [eax+0x10],0
-; 	mov dword [esi+0x10],1
-; 	mov [ebx],esi
-; 	mov eax,[esi]
-; 	mov [ecx+32],eax
-; 	mov eax,[kernelLock+4]
-; 	push eax 
-; 	call unlock
-; 	add esp,4
-; 	call xapicwriteEOI
-; 	jmp far [esi+8]
-; 	jmp xApicTimeOutret0
-; xApicTimeOutret:
-; 	mov eax,[kernelLock+4]
-; 	push eax 
-; 	call unlock
-; 	add esp,4
-; 	call xapicwriteEOI
-; xApicTimeOutret0:	
-; 	pop esi
-; 	pop edx
-; 	pop ecx
-; 	pop ebx
-;     pop eax  
-; 	iretd
-
-; xapicwriteEOI:
-; 	call getXapicAddr
+; x_apicwriteEOI:
+; 	call x_getXapicAddr
 ; 	mov dword [eax+XAPIC_EOI_OFFSET],0
 ; 	ret
-; getXapicAddr:
+; x_getXapicAddr:
 ; 	push ecx
 ; 	push edx
 ; 	xor eax,eax
@@ -493,8 +439,8 @@ interrupt_84_handler:
 ; 	pop edx
 ; 	pop ecx
 ; 	ret
-; getXapicId:
-; 	call getXapicAddr
+; x_getXapicId:
+; 	call x_getXapicAddr
 ; 	mov eax,[eax+XAPIC_ID_OFFSET]
 ; 	shr eax,24
 ; 	ret

@@ -37,6 +37,7 @@ typedef struct DriveParametersPacket
 } DriveParametersPacket;
 
 #define MEMINFOMAXSIZE 60
+
 typedef struct BootParam
 {
 	uint32 entry;
@@ -53,12 +54,11 @@ typedef struct BootParam
 	uint16 memInfoSize;
 	MemInfo meminfo[MEMINFOMAXSIZE];
 	DriveParametersPacket diskParam;
-	uint32 bus;
-	uint32 slot;
-	uint32 vendor;
-	uint32 device;
-	uint32 bar5;
-	uint32 ReadAddress;
+	uint32 VGAmode;
+	uint16 VGAscrnx;
+	uint16 VGAscrny;
+	uint32 VGAram;
+	uint32 VGAramsize;
 } BootParam;
 
 typedef struct AParg
@@ -243,8 +243,11 @@ extern int wrmsrcall(uint32 msrid, uint32 eax, uint32 edx);
 extern int rdmsr_fence(uint32 msrid, uint32 *eax, uint32 *edx);
 extern int wrmsr_fence(uint32 msrid, uint32 eax, uint32 edx);
 
-extern uint32_t sysInLong(unsigned short port);
-extern void sysOutLong(unsigned short port, uint32_t val);
+extern uint32_t sysInLong(uint32_t port);
+extern void sysOutLong(uint32_t port, uint32_t val);
+extern char sysInChar(uint32_t port);
+extern void sysOutChar(uint32_t port, uint32_t val);
+
 
 void setBit(uint32 *addr, uint32 nr);
 void resetBit(uint32 *addr, uint32 nr);
@@ -333,6 +336,7 @@ enum Lock_ID
 	KERNEL_LOCK =0,
 	PRINT_LOCK,
 	MTRR_LOCK,
+	UPDATE_GDT_CR3,
 	LOCK_COUNT
 };
 
@@ -342,4 +346,5 @@ extern int spinlock(uint32 *lobj);
 extern int unlock(uint32 *lobj);
 void releaseLock(LockObj *lobj);
 extern LockObj lockBuff[LOCK_COUNT];
+
 #endif

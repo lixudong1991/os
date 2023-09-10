@@ -568,24 +568,67 @@ read_DriveParam:
 		pop ds
 		pop dx
 		ret
+
+setVGAPalete:
+		push dx
+		push ax
+		push bx
+		push ds
+		push cx
+		mov ax,0x0013
+		int 0x10
+		xor ax,ax
+		mov ds,ax
+
+		mov dx,0x03c8
+		out dx,al
+
+		mov cx,48
+		mov bx,0600h+table_rgb-osstart
+		mov dx,0x03c9
 		
+setVGAPalete1:
+		mov al,[bx]
+		shr al,2
+		out dx,al
+		inc bx
+		loop setVGAPalete1
+		pop cx
+		pop ds
+		pop bx
+		pop ax
+		pop dx
+		ret
+
 kernelSectionCount      equ      100    ;用户程序1+用户程序2+kernel的总扇区数
 kernelStartSection      equ      16     ;内核加载起始扇区
 kernelLoadAddr 			equ      0x3b00 ;内核加载内存起始地址
 kernelVirAddr			equ      0xc0000000
 startPhyPage 			equ      0x100
+
+apcodeSectionCount      equ      8
+apcodeStartSection      equ      144     ;ap加载起始扇区
+apLoadAddr 			    equ          0x4b00 ;ap加载内存起始地址
+
 stdos:  
-
-
+		call setVGAPalete  ;设置vga调色板 0-15号颜色
 		mov ax,kernelLoadAddr
 		mov es,ax 
-			
+		mov  word [0600h+readsectioncount-osstart],kernelSectionCount	
          ;以下读取程序的起始部分 
         xor di,di
         mov si,kernelStartSection            ;程序在硬盘上的起始逻辑扇区号 
         xor bx,bx                       ;加载到DS:0x0000处 
         call read_hard_disk_0
-	      
+	             ;以下读取ap程序的起始部分 
+		mov ax,apLoadAddr
+		mov es,ax 
+		mov word [0600h+readsectioncount-osstart],apcodeSectionCount
+        xor di,di
+        mov si,apcodeStartSection            ;程序在硬盘上的起始逻辑扇区号 
+        xor bx,bx                       ;加载到DS:0x0000处 
+        call read_hard_disk_0 
+
 		xor ax,ax
 		mov ds,ax
 		mov es,ax	
@@ -596,10 +639,10 @@ stdos:
 		jnb stdos0
 		add ah,0x30
 		mov [0600h+readDriveErrCode-osstart],ah
+		mov si,0600h+ readDriveErr -  osstart
 		mov dh,3
 		mov dl,20
 		mov cl,111b
-		mov si,0600h+ readDriveErr -  osstart
 		call showstr
 		hlt		
 stdos0:	
@@ -634,7 +677,7 @@ start32:
         mov ss,eax
 		mov esp,0x7000
 		
-		call checkAllBuses
+		;call checkAllBuses
 		
 		movzx ecx,word [0600h+gdt_size-osstart]
 		inc ecx
@@ -1355,80 +1398,80 @@ ReadWord:
 	
 
 	
-checkAllBuses:
-	push ebp
-	mov ebp,esp
-	sub esp,8
-	push ecx
-	push edx
-	mov dword [ebp-4],0
-	mov ecx,256
+; checkAllBuses:
+; 	push ebp
+; 	mov ebp,esp
+; 	sub esp,8
+; 	push ecx
+; 	push edx
+; 	mov dword [ebp-4],0
+; 	mov ecx,256
 	
-checkAllBuses0:
-	mov dword [ebp-8],0
-	push ecx
-	mov ecx,32
-checkAllBuses1:
-	push dword 0x00
-	push dword 0x00
-	push dword [ebp-8]
-	push dword [ebp-4]
-	call pciConfigReadWord
-	add esp,16
-	mov edx,eax
-	push dword 0x02
-	push dword 0x00
-	push dword [ebp-8]
-	push dword [ebp-4]
-	call pciConfigReadWord
-	add esp,16
-	cmp edx,0x8086
-	jnz checkAllBuses2
-	cmp eax,0x2922
-	jnz checkAllBuses2
-	pop ecx
-	jmp short checkAllBuses3
-checkAllBuses2:	
-	inc dword [ebp-8] 
-	loop checkAllBuses1
-	pop ecx
-	inc dword [ebp-4] 
-	loop checkAllBuses0
-	xor eax,eax
-	jmp short checkAllBusesRet
-checkAllBuses3:	
-	mov [0600h+vendor-osstart],edx
-	mov [0600h+device-osstart],eax
-	mov eax,[ebp-8]
-	mov [0600h+slot-osstart],eax
-	mov eax,[ebp-4]
-	mov [0600h+bus-osstart],eax	
-	push dword 0x3c
-	push dword 0x00
-	push dword [ebp-8]
-	push dword [ebp-4]
-	call ReadWord
-	add esp,16
-	mov [0600h+ReadAddress-osstart],eax
-	push dword 0x24
-	push dword 0x00
-	push dword [ebp-8]
-	push dword [ebp-4]
-	call ReadWord
-	add esp,16
-	mov [0600h+bar5-osstart],eax	
-checkAllBusesRet:
-	pop edx
-	pop ecx
-	leave
-	ret
+; checkAllBuses0:
+; 	mov dword [ebp-8],0
+; 	push ecx
+; 	mov ecx,32
+; checkAllBuses1:
+; 	push dword 0x00
+; 	push dword 0x00
+; 	push dword [ebp-8]
+; 	push dword [ebp-4]
+; 	call pciConfigReadWord
+; 	add esp,16
+; 	mov edx,eax
+; 	push dword 0x02
+; 	push dword 0x00
+; 	push dword [ebp-8]
+; 	push dword [ebp-4]
+; 	call pciConfigReadWord
+; 	add esp,16
+; 	cmp edx,0x8086
+; 	jnz checkAllBuses2
+; 	cmp eax,0x2922
+; 	jnz checkAllBuses2
+; 	pop ecx
+; 	jmp short checkAllBuses3
+; checkAllBuses2:	
+; 	inc dword [ebp-8] 
+; 	loop checkAllBuses1
+; 	pop ecx
+; 	inc dword [ebp-4] 
+; 	loop checkAllBuses0
+; 	xor eax,eax
+; 	jmp short checkAllBusesRet
+; checkAllBuses3:	
+; 	mov [0600h+vendor-osstart],edx
+; 	mov [0600h+device-osstart],eax
+; 	mov eax,[ebp-8]
+; 	mov [0600h+slot-osstart],eax
+; 	mov eax,[ebp-4]
+; 	mov [0600h+bus-osstart],eax	
+; 	push dword 0x3c
+; 	push dword 0x00
+; 	push dword [ebp-8]
+; 	push dword [ebp-4]
+; 	call ReadWord
+; 	add esp,16
+; 	mov [0600h+ReadAddress-osstart],eax
+; 	push dword 0x24
+; 	push dword 0x00
+; 	push dword [ebp-8]
+; 	push dword [ebp-4]
+; 	call ReadWord
+; 	add esp,16
+; 	mov [0600h+bar5-osstart],eax	
+; checkAllBusesRet:
+; 	pop edx
+; 	pop ecx
+; 	leave
+; 	ret
 	
 	
 
 	
 packet     		 db	10h             ;packet大小，16个字节
 reserved	 	 db 0
-count		 	 dw	kernelSectionCount		;读扇区
+readsectioncount	 dw	0		;读扇区
 bufferoff        dw	7e00h          ;读到内存7e00处，偏移地址
 bufferseg	 	 dw	0		;段地址
 blockNum	 	 dd	0               ;起始LBA块
@@ -1475,13 +1518,6 @@ Sectors dd 0
 		dd 0; // 磁盘总扇区数
 SectorSize dw 0 ; // 扇区尺寸 (以字节为单位) 
 
-bus dd 0
-slot dd 0
-vendor dd 0
-device dd 0
-bar5 dd 0
-ReadAddress dd 0
-
 prtlen dd 0
 dcr	 dw 0x1f7
 stLBA dd 0
@@ -1501,6 +1537,25 @@ meminfostr1 db 'AddressRangeReserved',0
 readDriveErr db 'read DriveParametersPacket:'
 readDriveErrCode db 0,0
 
+readVbeError db 'readVbeError',0
+
+
+table_rgb db 0x00, 0x00, 0x00  ;/* 0:黑 */
+db 0xff, 0x00, 0x00 ;/* 1:亮红 */
+db 0x00, 0xff, 0x00 ;/* 2:亮绿 */
+db 0xff, 0xff, 0x00 ;/* 3:亮黄 */
+db 0x00, 0x00, 0xff ;/* 4:亮蓝 */
+db 0xff, 0x00, 0xff ;/* 5:亮紫 */
+db 0x00, 0xff, 0xff ;/* 6:浅亮蓝 */
+db 0xff, 0xff, 0xff ;/* 7:白 */
+db 0xc6, 0xc6, 0xc6 ;/* 8:亮灰 */
+db 0x84, 0x00, 0x00 ;/* 9:暗红 */
+db 0x00, 0x84, 0x00 ;/* 10:暗绿 */
+db 0x84, 0x84, 0x00 ;/* 11:暗黄 */
+db 0x00, 0x00, 0x84 ;/* 12:暗青 */
+db 0x84, 0x00, 0x84 ;/* 13:暗紫 */
+db 0x00, 0x84, 0x84 ;/* 14:浅暗蓝 */
+db 0x84, 0x84, 0x84;/* 15:暗灰 */
 ;Elf32_Ehdr 
 ;e_ident times 16 db 0
 ;e_type  dw 0

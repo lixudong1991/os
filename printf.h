@@ -7,4 +7,5 @@ int printf(const char *fmt, ...);
 int putchar(int _Character);
 void puts(const char *str);
 
+
 #endif // ! _PRINT_F_HH_

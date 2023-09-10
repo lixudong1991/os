@@ -95,12 +95,6 @@ void initX2apic()
 	// edx =0;
 	// wrmsr_fence(IA32_X2APIC_INIT_COUNT,eax,edx);
 }
-uint32 getXapicAddr()
-{
-    uint32 eax = 0,edx = 0;
-    rdmsr_fence(IA32_APIC_BASE_MSR, &eax, &edx);
-    return (eax & 0xFFFFF000);
-}
 void initxapic()
 {
 	enablexApic();
@@ -109,8 +103,8 @@ void initxapic()
 	printf("map xapic addr 0x%x status %d\r\n", (uint32)xapic,stat);
 	printf("xapic siv =0x%x\r\n",xapic->SIV[0]);
 	xapic->SIV[0] |=0x100; //software enable xapic
-   printf("xapic id =0x%x\r\n",xapic->ID[0]);
-   printf("xapic Version =0x%x\r\n",xapic->Version[0]);
+	printf("xapic id =0x%x\r\n",xapic->ID[0]);
+	printf("xapic Version =0x%x\r\n",xapic->Version[0]);
 	printf("xapic LDR =0x%x\r\n",logicalID);
    //设置LDR,DFR
    xapic->LDR[0] = logicalID;
@@ -132,9 +126,7 @@ void initxapic()
    // xapic->ICR1[0]=0;
    // xapic->ICR0[0]=0x84080;
 
-   // // Apic timer task switch
-   // xapic->LVT_Timer[0]=0x82;
-   // xapic->DivideConfiguration[0]=9;
+
 }
 
 void initApic()
@@ -144,4 +136,10 @@ void initApic()
 #else
    initxapic();
 #endif
+}
+uint32 getXapicAddr()
+{
+   uint32 eax = 0, edx = 0;
+   rdmsr_fence(IA32_APIC_BASE_MSR, &eax, &edx);
+   return (eax&0xfffff000);
 }
