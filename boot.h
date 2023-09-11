@@ -282,14 +282,18 @@ extern uint32 freePhy4kPage(uint32 page);
 
 #define PAGE_ALL_PRIVILEG 4
 
+void kassert( int expression );
 char *allocateVirtual4kPage(uint32 size, uint32 *pAddr, uint32 prop);
 int mem4k_map(uint32 linearaddr,uint32 phyaddr,int memcachType,uint32 prop);
+void* kernel_malloc(uint32 size);
+void  kernel_free(void*);
+
 
 extern void memcpy_s(char *des, char *src, uint32 size);
 extern int memcmp_s(char *src1, char *src2, uint32 size);
 extern void *memset_s(void *s, int c, size_t count);
 extern char *strcpy_s(char *dest, const char *src);
-extern uint32 strlen_s(char *s);
+extern uint32 strlen_s(const char *s);
 int strncmp_s(const char *cs, const char *ct, uint32 count);
 int strcmp_s(const char *str1, const char *str2);
 char *hexstr32(char buff[9], uint32 val);
@@ -346,5 +350,6 @@ extern int spinlock(uint32 *lobj);
 extern int unlock(uint32 *lobj);
 void releaseLock(LockObj *lobj);
 extern LockObj lockBuff[LOCK_COUNT];
+
 
 #endif

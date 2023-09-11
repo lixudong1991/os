@@ -600,18 +600,22 @@ setVGAPalete1:
 		pop dx
 		ret
 
-kernelSectionCount      equ      100    ;用户程序1+用户程序2+kernel的总扇区数
+kernelSectionCount      equ      216    ;用户程序1+用户程序2+kernel的总扇区数
 kernelStartSection      equ      16     ;内核加载起始扇区
 kernelLoadAddr 			equ      0x3b00 ;内核加载内存起始地址
 kernelVirAddr			equ      0xc0000000
 startPhyPage 			equ      0x100
 
 apcodeSectionCount      equ      8
-apcodeStartSection      equ      144     ;ap加载起始扇区
-apLoadAddr 			    equ          0x4b00 ;ap加载内存起始地址
+apcodeStartSection      equ      232     ;ap加载起始扇区
+apLoadAddr 			    equ          0x5600 ;ap加载内存起始地址
+
+fontSectionCount      equ      232
+fontStartSection      equ      240     ;加载起始扇区
+fontLoadAddr 		  equ          0x5700 ;ap加载内存起始地址
 
 stdos:  
-		call setVGAPalete  ;设置vga调色板 0-15号颜色
+		;call setVGAPalete  ;设置vga调色板 0-15号颜色
 		mov ax,kernelLoadAddr
 		mov es,ax 
 		mov  word [0600h+readsectioncount-osstart],kernelSectionCount	
@@ -626,6 +630,14 @@ stdos:
 		mov word [0600h+readsectioncount-osstart],apcodeSectionCount
         xor di,di
         mov si,apcodeStartSection            ;程序在硬盘上的起始逻辑扇区号 
+        xor bx,bx                       ;加载到DS:0x0000处 
+        call read_hard_disk_0 
+
+		mov ax,fontLoadAddr
+		mov es,ax 
+		mov word [0600h+readsectioncount-osstart],fontSectionCount
+        xor di,di
+        mov si,fontStartSection            ;程序在硬盘上的起始逻辑扇区号 
         xor bx,bx                       ;加载到DS:0x0000处 
         call read_hard_disk_0 
 

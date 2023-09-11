@@ -1,6 +1,12 @@
 #include "screen.h"
 #include "boot.h"
 #include "memcachectl.h"
+
+#define STB_TRUETYPE_IMPLEMENTATION
+#include "stb_truetype.h"
+
+#define FONT_START_MEM   0x57000
+#define FONT_FILE_SIZE   0x1D000
 // static unsigned char table_rgb[16 * 3] = {
 //     0x00, 0x00, 0x00, /* 0:黑 */
 //     0xff, 0x00, 0x00, /* 1:亮红 */
@@ -41,4 +47,21 @@ void initScreen()
     }
     mem_fix_type_set(0xa0000, 0x10000, MEM_UC);
     memset_s(0xa0000, 15, 0x10000);
+}
+
+
+void fontInit()
+{
+    for (uint32 size = 0; size < FONT_FILE_SIZE; size += 0x1000)
+    {
+        mem4k_map(FONT_START_MEM + size, FONT_START_MEM + size, MEM_UC, PAGE_RW);
+    }
+    mem_fix_type_set(FONT_START_MEM, FONT_FILE_SIZE, MEM_UC);  
+    /* 初始化字体 */
+    stbtt_fontinfo info;
+    if (!stbtt_InitFont(&info, FONT_START_MEM, 0))
+    {
+        printf("stb init font failed\r\n");
+    }
+
 }

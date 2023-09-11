@@ -4,4 +4,5 @@
 #include "stdint.h"
 
 void initScreen();
+void fontInit();
 #endif

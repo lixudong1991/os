@@ -3,7 +3,7 @@
 #define ALLOC_ALIGN 4
 #define START_PHY_MEM_PAGE  0x100
 extern BootParam bootparam;
-
+extern KernelData kernelData;
 char *allocate_memory(TaskCtrBlock *task, uint32 size, uint32 prop)
 {
 
@@ -108,4 +108,17 @@ int mem4k_map(uint32 linearaddr, uint32 phyaddr, int memcachType, uint32 prop)
 	}		
 	resetcr3();
 	return TRUE;
+}
+
+void* kernel_malloc(uint32 size)
+{
+	return allocate_memory(kernelData.taskList.tcb_Frist,size,PAGE_RW);
+}
+void  kernel_free(void* p)
+{
+
+}
+void kassert( int expression )
+{
+	
 }

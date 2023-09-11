@@ -397,7 +397,7 @@ void MPinit()
 {
 #if X2APIC_ENABLE
 #else
-	printf("map 0x4b000:%d\r\n", mem4k_map(0x4b000, 0x4b000, MEM_UC, PAGE_RW));
+	printf("map 0x56000:%d\r\n", mem4k_map(0x56000, 0x56000, MEM_UC, PAGE_RW));
 	//read_ata_sectors(0x4b000, 144, 2);
 	uint32_t addr = 0x7000, size = 0x1000, temp = 0;
 	mem_fix_type_set(addr, size, MEM_UC);
@@ -415,7 +415,7 @@ void MPinit()
 	xapic_obj->ICR0[0] = 0xC4500; // 发送Init
 
 	xapic_obj->ICR1[0] = 0;
-	xapic_obj->ICR0[0] = 0xC464B; // 发送SIPI AP执行0x4b000处的代码
+	xapic_obj->ICR0[0] = 0xC4656; // 发送SIPI AP执行0x56000处的代码
 
 	uint32 waitap = 0xffffffff;
 	while (waitap--)
@@ -530,7 +530,7 @@ int _start(void *argv)
 	createLock(&(lockBuff[UPDATE_GDT_CR3]));
 
 	initScreen();
-	
+	fontInit();
 	// 禁用8259a所有中断
 
 	// char number[32];
