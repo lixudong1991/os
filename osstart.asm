@@ -602,44 +602,44 @@ setVGAPalete1:
 
 kernelSectionCount      equ      216    ;用户程序1+用户程序2+kernel的总扇区数
 kernelStartSection      equ      16     ;内核加载起始扇区
-kernelLoadAddr 			equ      0x3b00 ;内核加载内存起始地址
+kernelLoadAddr 			equ      0x3b000 ;内核加载内存起始地址
 kernelVirAddr			equ      0xc0000000
 startPhyPage 			equ      0x100
 
 apcodeSectionCount      equ      8
 apcodeStartSection      equ      232     ;ap加载起始扇区
-apLoadAddr 			    equ          0x5600 ;ap加载内存起始地址
+apLoadAddr 			    equ          0x56000 ;ap加载内存起始地址
 
 fontSectionCount      equ      232
 fontStartSection      equ      240     ;加载起始扇区
-fontLoadAddr 		  equ          0x5700 ;ap加载内存起始地址
+fontLoadAddr 		  equ          0x57000 ;ap加载内存起始地址
 
 stdos:  
-		;call setVGAPalete  ;设置vga调色板 0-15号颜色
-		mov ax,kernelLoadAddr
-		mov es,ax 
-		mov  word [0600h+readsectioncount-osstart],kernelSectionCount	
-         ;以下读取程序的起始部分 
-        xor di,di
-        mov si,kernelStartSection            ;程序在硬盘上的起始逻辑扇区号 
-        xor bx,bx                       ;加载到DS:0x0000处 
-        call read_hard_disk_0
-	             ;以下读取ap程序的起始部分 
-		mov ax,apLoadAddr
-		mov es,ax 
-		mov word [0600h+readsectioncount-osstart],apcodeSectionCount
-        xor di,di
-        mov si,apcodeStartSection            ;程序在硬盘上的起始逻辑扇区号 
-        xor bx,bx                       ;加载到DS:0x0000处 
-        call read_hard_disk_0 
+		call setVGAPalete  ;设置vga调色板 0-15号颜色
+		; mov ax,kernelLoadAddr
+		; mov es,ax 
+		; mov  word [0600h+readsectioncount-osstart],kernelSectionCount	
+        ;  ;以下读取程序的起始部分 
+        ; xor di,di
+        ; mov si,kernelStartSection            ;程序在硬盘上的起始逻辑扇区号 
+        ; xor bx,bx                       ;加载到DS:0x0000处 
+        ; call read_hard_disk_0
+	    ;          ;以下读取ap程序的起始部分 
+		; mov ax,apLoadAddr
+		; mov es,ax 
+		; mov word [0600h+readsectioncount-osstart],apcodeSectionCount
+        ; xor di,di
+        ; mov si,apcodeStartSection            ;程序在硬盘上的起始逻辑扇区号 
+        ; xor bx,bx                       ;加载到DS:0x0000处 
+        ; call read_hard_disk_0 
 
-		mov ax,fontLoadAddr
-		mov es,ax 
-		mov word [0600h+readsectioncount-osstart],fontSectionCount
-        xor di,di
-        mov si,fontStartSection            ;程序在硬盘上的起始逻辑扇区号 
-        xor bx,bx                       ;加载到DS:0x0000处 
-        call read_hard_disk_0 
+		; mov ax,fontLoadAddr
+		; mov es,ax 
+		; mov word [0600h+readsectioncount-osstart],fontSectionCount
+        ; xor di,di
+        ; mov si,fontStartSection            ;程序在硬盘上的起始逻辑扇区号 
+        ; xor bx,bx                       ;加载到DS:0x0000处 
+        ; call read_hard_disk_0 
 
 		xor ax,ax
 		mov ds,ax
@@ -689,8 +689,26 @@ start32:
         mov ss,eax
 		mov esp,0x7000
 		
+		mov esi,0600h+prtlen-osstart
+		mov eax,[0600h+Sectors-osstart]
+		mov [esi],eax
+
+		mov ebx,kernelSectionCount
+		mov edi,kernelLoadAddr
+		mov ebp,kernelStartSection
+		call read_ata_st
+
+		mov ebx,apcodeSectionCount
+		mov edi,apLoadAddr
+		mov ebp,apcodeStartSection
+		call read_ata_st
+
+		mov ebx,fontSectionCount
+		mov edi,fontLoadAddr
+		mov ebp,fontStartSection
+		call read_ata_st
+
 		;call checkAllBuses
-		
 		movzx ecx,word [0600h+gdt_size-osstart]
 		inc ecx
 		mov esi,0600h+gdt_table-osstart
@@ -781,8 +799,8 @@ stdos3:	mov [ebx],edx
 		push 0600h+proEntry-osstart
 		xor edx,edx
 		mov eax,kernelLoadAddr
-		mov ecx,0x10
-		mul ecx
+		; mov ecx,0x10
+		; mul ecx
 		push eax
 		call loadElf
 		add esp,8
@@ -1057,6 +1075,7 @@ loadSeg0:
 		pop eax
 		pop ebp
 		ret
+
 
 		
 ; do a singletasking PIO ATA read

@@ -83,7 +83,7 @@ read_ata_sectors:
 	mov ebx,[ebp+0x10]
 	mov edi,[ebp+0x8]
 	mov esi,prtlen
-	mov eax,[bootparam+656]
+	mov eax,[bootparam+1258]
 	mov [esi],eax
 	mov ebp,[ebp+0xc]
 	mov eax,ebx

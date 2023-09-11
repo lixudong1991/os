@@ -32,7 +32,7 @@ typedef struct DriveParametersPacket
 	uint32 Cylinders;		// 磁盘柱面数
 	uint32 Heads;			// 磁盘磁头数
 	uint32 SectorsPerTrack; // 每磁道扇区数
-	uint32 Sectors;			// 磁盘总扇区数
+	uint64 Sectors;			// 磁盘总扇区数
 	uint16 SectorSize;		// 扇区尺寸 (以字节为单位)
 } DriveParametersPacket;
 
@@ -54,11 +54,6 @@ typedef struct BootParam
 	uint16 memInfoSize;
 	MemInfo meminfo[MEMINFOMAXSIZE];
 	DriveParametersPacket diskParam;
-	uint32 VGAmode;
-	uint16 VGAscrnx;
-	uint16 VGAscrny;
-	uint32 VGAram;
-	uint32 VGAramsize;
 } BootParam;
 
 typedef struct AParg

@@ -11,4 +11,6 @@ double      ceil(double);
 double      acos(double);
 double      fabs(double);
 double      pow(double, double);
+
+float       roundf(float);
 #endif

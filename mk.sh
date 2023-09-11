@@ -28,3 +28,26 @@ nasm -f elf32 syslib.asm -o syslib.o
 i686-elf-gcc  -c main.c -o main.o -ffreestanding
 i686-elf-gcc main.o syslib.o -o a.out -nostdlib -ffreestanding -lgcc
 cat diskdata.txt >> a.out
+
+
+
+__cos.o
+__math_invalid.o
+__math_oflow.o
+__math_uflow.o
+__math_xflow.o
+__rem_pio2.o
+__rem_pio2_large.o
+__sin.o
+acos.o
+ceil.o
+cos.o
+exp_data.o
+fabs.o
+floor.o
+fmod.o
+pow.o
+pow_data.o
+scalbn.o
+sqrt.o
+roundf.o
