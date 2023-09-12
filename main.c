@@ -7,6 +7,7 @@
 #include "cpufeature.h"
 #include "memcachectl.h"
 #include "screen.h"
+#include "acpi.h"
 #define STACKLIMIT_G1(a) ((((uint32)(a)) - 1) >> 12) // gdt 表项粒度为1的段界限
 
 #define LOCK_START 0x1000
@@ -292,11 +293,11 @@ void createTask(TcbList *taskList, int taskStartSection, int SectionCount)
 	*(uint32 *)0xFFFFEFF8 = 0;
 	memset_s(0xfffff004, 0, 0xBF8);
 	*(uint32 *)0xFFFFFFF8 = 0;
-	//resetcr3();
-	//setgdtr(&(kernelData.gdtInfo));
+	// resetcr3();
+	// setgdtr(&(kernelData.gdtInfo));
 	sti_s();
 	LOCAL_APIC *xapic_obj = (LOCAL_APIC *)getXapicAddr();
-	aparg->logcpucount =0;
+	aparg->logcpucount = 0;
 	asm("mfence");
 	xapic_obj->ICR1[0] = 0;
 	xapic_obj->ICR0[0] = 0x84083; // 更新gdt,cr3
@@ -361,7 +362,7 @@ void APproc(uint32 argv)
 	setidtr(&(kernelData.idtInfo));
 	setgdtr(&(kernelData.gdtInfo));
 	settr(procCurrTask[argv]->tssSel);
-	procCurrTask[argv]->taskStats =1;
+	procCurrTask[argv]->taskStats = 1;
 	asm("sti");
 	// if ((eax & 0x100) == 0) // 判读是否是AP
 	{
@@ -375,12 +376,13 @@ void APproc(uint32 argv)
 		LOCAL_APIC *xapic_obj = (LOCAL_APIC *)(processorinfo.processcontent[argv].apicAddr);
 		xapic_obj->LVT_Timer[0] = 0x82;
 		xapic_obj->DivideConfiguration[0] = 9;
-		//xapic_obj->InitialCount[0] = 0xfffff;
+		// xapic_obj->InitialCount[0] = 0xfffff;
 		spinlock(lockBuff[KERNEL_LOCK].plock);
 		aparg->logcpucount++;
 		unlock(lockBuff[KERNEL_LOCK].plock);
-		while(aparg->logcpucount<processorinfo.count);
-	//	xapic_obj->InitialCount[0] = 0xfffff;
+		while (aparg->logcpucount < processorinfo.count)
+			;
+		//	xapic_obj->InitialCount[0] = 0xfffff;
 		while (1)
 		{
 			// asm("cli");
@@ -388,8 +390,8 @@ void APproc(uint32 argv)
 			// asm("sti");
 			// uint32 waitap = 0xfffff;
 			// while (waitap--);
-				asm("sti");
-			    asm("hlt");
+			asm("sti");
+			asm("hlt");
 		}
 	}
 }
@@ -398,7 +400,7 @@ void MPinit()
 #if X2APIC_ENABLE
 #else
 	printf("map 0x56000:%d\r\n", mem4k_map(0x56000, 0x56000, MEM_UC, PAGE_RW));
-	//read_ata_sectors(0x4b000, 144, 2);
+	// read_ata_sectors(0x4b000, 144, 2);
 	uint32_t addr = 0x7000, size = 0x1000, temp = 0;
 	mem_fix_type_set(addr, size, MEM_UC);
 
@@ -433,7 +435,7 @@ void MPinit()
 
 	procCurrTask = allocate_memory(kernelData.taskList.tcb_Frist, processorinfo.count * sizeof(TaskCtrBlock *), PAGE_G | PAGE_RW);
 	procCurrTask[0] = kernelData.taskList.tcb_Frist;
-	procCurrTask[0]->taskStats =1;
+	procCurrTask[0]->taskStats = 1;
 	TableSegmentItem tempSeg;
 	memset_s((char *)&tempSeg, 0, sizeof(TableSegmentItem));
 	for (int i = 1; i < processorinfo.count; i++)
@@ -479,13 +481,14 @@ void MPinit()
 	setgdtr(&(kernelData.gdtInfo));
 	aparg->logcpucount = 1;
 	aparg->jumpok = 1;
-	while(aparg->logcpucount<processorinfo.count);
+	while (aparg->logcpucount < processorinfo.count)
+		;
 #endif
 }
 
 int _start(void *argv)
 {
-	//clearscreen();
+	// clearscreen();
 	memcpy_s((char *)&bootparam, (char *)argv, sizeof(BootParam));
 	kernelData.gdtInfo.base = bootparam.gdt_base;
 	kernelData.gdtInfo.limit = bootparam.gdt_size;
@@ -501,7 +504,7 @@ int _start(void *argv)
 	TaskCtrBlock *tcbhead = (TaskCtrBlock *)allocateVirtual4kPage(sizeof(TaskCtrBlock), &(bootparam.kernelAllocateNextAddr), PAGE_RW);
 	memset_s(tcbhead, 0, sizeof(TaskCtrBlock));
 	tcbhead->next = tcbhead;
-	tcbhead->taskStats =1;
+	tcbhead->taskStats = 1;
 	kernelData.taskList.tcb_Frist = tcbhead;
 	kernelData.taskList.tcb_Last = tcbhead;
 	kernelData.taskList.size = 1;
@@ -529,8 +532,9 @@ int _start(void *argv)
 	createLock(&(lockBuff[MTRR_LOCK]));
 	createLock(&(lockBuff[UPDATE_GDT_CR3]));
 
-	initScreen();
-	fontInit();
+	// initScreen();
+	// fontInit();
+
 	// 禁用8259a所有中断
 
 	// char number[32];
@@ -565,7 +569,7 @@ int _start(void *argv)
 	MPinit();
 	cacheMtrrMsrs();
 	LOCAL_APIC *xapic_obj = (LOCAL_APIC *)getXapicAddr();
-	
+
 	aparg->logcpucount = 0;
 	asm("mfence");
 	xapic_obj->ICR1[0] = 0;
@@ -575,37 +579,101 @@ int _start(void *argv)
 	xapic_obj->LVT_Timer[0] = 0x82;
 	xapic_obj->DivideConfiguration[0] = 9;
 
-	//spinlock(&(lockBuff[KERNEL_LOCK]));
-	//createTask(&(kernelData.taskList), 200, 4);
-	//unlock(&(lockBuff[KERNEL_LOCK]));
-	//spinlock(&(lockBuff[KERNEL_LOCK]));
-	//createTask(&(kernelData.taskList), 250, 4);
-	//unlock(&(lockBuff[KERNEL_LOCK]));
-	// xapic_obj->InitialCount[0] = 0xfffff;
+	// spinlock(&(lockBuff[KERNEL_LOCK]));
+	// createTask(&(kernelData.taskList), 200, 4);
+	// unlock(&(lockBuff[KERNEL_LOCK]));
+	// spinlock(&(lockBuff[KERNEL_LOCK]));
+	// createTask(&(kernelData.taskList), 250, 4);
+	// unlock(&(lockBuff[KERNEL_LOCK]));
+	//  xapic_obj->InitialCount[0] = 0xfffff;
 
-// 	uint32 count = 0;
-// 	while (1)
-// 	{
-// 		asm("cli");
-// 		printf("kernel process.....................%s %d\r\n", "count =", count++);
-// 		asm("sti");
-// 		uint32 waittime =0xfffff;
-// 		while(waittime--);
-// 		// 给自身处理器发送82h号任务切换
-// #if X2APIC_ENABLE
-// 		eax = 0x82;
-// 		edx = 0;
-// 		wrmsr_fence(IA32_X2APIC_SELF_IPI, eax, edx);
-// #else
-// 		//xapic_obj->ICR1[0] = 0;
-// 		//xapic_obj->ICR0[0] = 0x44082;
-// #endif
-// 	}
+	// 	uint32 count = 0;
+	// 	while (1)
+	// 	{
+	// 		asm("cli");
+	// 		printf("kernel process.....................%s %d\r\n", "count =", count++);
+	// 		asm("sti");
+	// 		uint32 waittime =0xfffff;
+	// 		while(waittime--);
+	// 		// 给自身处理器发送82h号任务切换
+	// #if X2APIC_ENABLE
+	// 		eax = 0x82;
+	// 		edx = 0;
+	// 		wrmsr_fence(IA32_X2APIC_SELF_IPI, eax, edx);
+	// #else
+	// 		//xapic_obj->ICR1[0] = 0;
+	// 		//xapic_obj->ICR0[0] = 0x44082;
+	// #endif
+	// 	}
+	char *rsdpaddr = findRSDPAddr();
+	char rsign[9] = {0};
+	if (rsdpaddr)
+	{
+		printf("RSDP addr:0x%x\r\n", rsdpaddr);
+		RSDPStruct *prsdp = rsdpaddr;
+		memcpy_s(rsign, prsdp->Signature, 8);
+		printf("RSDP Signature:%s\r\n", rsign);
+		// printf("RSDP Checksum:%x\r\n",prsdp->Checksum);
+		memcpy_s(rsign, prsdp->OEMID, 6);
+		rsign[6] = 0;
+		printf("RSDP OEMID:%s\r\n", rsign);
+		printf("RSDP Revision:%x\r\n", prsdp->Revision);
+		// printf("RSDP RsdtAddress:%x\r\n",prsdp->RsdtAddress);
+		if (prsdp->Revision == 2)
+		{
+			uint32_t eax = 0, mapaddr = 0;
+			eax = (uint32_t) & (prsdp->XsdtAddress);
+			printf("RSDP XsdtAddress:%x %x\r\n", *(uint32 *)(eax + 4), *(uint32 *)eax);
+			// printf("RSDP Extended Checksum:%x\r\n",prsdp->ExtendedChecksum);
+			SysDtHead *pxsdt = (uint32_t)(prsdp->XsdtAddress);
+			mapaddr = pxsdt;
+			mapaddr &= 0xfffff000;
+			mem4k_map(mapaddr, mapaddr, MEM_UC, PAGE_G | PAGE_RW);
+			mem4k_map(mapaddr + 0x1000, mapaddr + 0x1000, MEM_UC, PAGE_G | PAGE_RW);
+			memcpy_s(rsign, pxsdt->Signature, 4);
+			rsign[4] = 0;
+			printf("XSDT Signature:%s\r\n", rsign);
+			printf("XSDT Length:%x\r\n", pxsdt->Length);
+			printf("XSDT Revision:%x\r\n", pxsdt->Revision);
+			memcpy_s(rsign, pxsdt->OEMID, 6);
+			rsign[6] = 0;
+			printf("XSDT OEMID:%s\r\n", rsign);
+			memcpy_s(rsign, pxsdt->OEM_TABLE_ID, 8);
+			rsign[8] = 0;
+			printf("XSDT OEM Table ID:%s\r\n", rsign);
+			uint64 *acpitable = (uint32_t)(prsdp->XsdtAddress) + sizeof(SysDtHead);
+			int tablecount = (pxsdt->Length - sizeof(SysDtHead)) / 8;
+			SysDtHead *ptable = NULL;
+			uint32_t fadtaddr = 0, mcfgaddr = 0;
+			for (int tableindex = 0; tableindex < tablecount; tableindex++)
+			{
+				ptable = (uint32_t)(acpitable[tableindex]);
+				mem4k_map((uint32_t)(acpitable[tableindex]) & 0xfffff000, (uint32_t)(acpitable[tableindex]) & 0xfffff000, MEM_UC, PAGE_G | PAGE_RW);
+				rsign[0] = ptable->Signature[0];
+				rsign[1] = ptable->Signature[1];
+				rsign[2] = ptable->Signature[2];
+				rsign[3] = ptable->Signature[3];
+				rsign[4] = 0;
+				printf("%s ", rsign);
+				if (ptable->Signature[0] == 'F' && ptable->Signature[1] == 'A' && ptable->Signature[2] == 'C' && ptable->Signature[3] == 'P')
+					fadtaddr = ptable;
+				else if (ptable->Signature[0] == 'M' && ptable->Signature[1] == 'C' && ptable->Signature[2] == 'F' && ptable->Signature[3] == 'G')
+				{
+					mcfgaddr = ptable;
+				}
+			}
+			printf("\r\n");
+			printf("FADT IAPC_BOOT_ARCH: %x\r\n", *(uint16_t *)(fadtaddr+109));
+			printf("MCFG addr: %x\r\n", mcfgaddr);
+		}
+	}
+	else
+		printf("not find RSDP\r\n");
 	while (1)
 	{
 		// printf("BSP empty\r\n");
 		// waitap= 0xfffff;
-	    // while (waitap--);
+		// while (waitap--);
 		asm("sti");
 		asm("hlt");
 	}
