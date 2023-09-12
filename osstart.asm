@@ -615,7 +615,7 @@ fontStartSection      equ      240     ;加载起始扇区
 fontLoadAddr 		  equ          0x57000 ;ap加载内存起始地址
 
 stdos:  
-		call setVGAPalete  ;设置vga调色板 0-15号颜色
+		;call setVGAPalete  ;设置vga调色板 0-15号颜色
 		; mov ax,kernelLoadAddr
 		; mov es,ax 
 		; mov  word [0600h+readsectioncount-osstart],kernelSectionCount	

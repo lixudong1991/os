@@ -65,14 +65,14 @@ void fontInit()
     else
         printf("stb init font success\r\n");
 
-    char word[] ="STBFONT";    
+    char word[] ="STBfont";    
     /* 创建位图 */
     int bitmap_w = 320; /* 位图的宽 */
     int bitmap_h = 200; /* 位图的高 */
-    char *bitmap = 0xa0000;//kernel_malloc(bitmap_w * bitmap_h);
+    char *bitmap = kernel_malloc(bitmap_w * bitmap_h);
     memset_s(bitmap,0,320*200);
     /* 计算字体缩放 */
-    float pixels = 64.0;                                    /* 字体大小（字号） */
+    float pixels = 12.0;                                    /* 字体大小（字号） */
     float scale = stbtt_ScaleForPixelHeight(&info, pixels); /* scale = pixels / (ascent - descent) */
 
     /**
@@ -125,5 +125,5 @@ void fontInit()
         x += roundf(kern * scale);
     }
 
-   // memcpy_s(0xa0000,bitmap,320*200);
+    memcpy_s(0xa0000,bitmap,320*200);
 }
