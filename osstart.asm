@@ -532,22 +532,40 @@ setDescriptor:
 		ret 8	
 	
 ;-------------------------------------------------------------------------------
-read_hard_disk_0:                        ;从硬盘读取一个逻辑扇区
+read_hard_disk_0:                        ;从硬盘读取ax个逻辑扇区
        push ax                                  ;输入：DI:SI=起始逻辑扇区号
-	   push ds									; ES:BX=目标缓冲区地址
+	   push ds									; ES=目标缓冲区段地址	   											
 	   push si
 	   push dx
+	   push cx
+	   mov cx,ax 
 	   xor ax,ax
 	   mov ds,ax
-	   mov [0600h+bufferoff-osstart],bx
+	   mov word [0600h+bufferoff-osstart],0
 	   mov ax,es
 	   mov [0600h+bufferseg-osstart],ax
 	   mov [0600h+blockNum-osstart],si
 	   mov [0600h+blockNum-osstart+2],di
+
+nextread64sec:
+	   mov word [0600h+readsectioncount-osstart],64
+	   cmp cx,64
+	   ja read_hard_disk_max64
+	   mov [0600h+readsectioncount-osstart],cx
+read_hard_disk_max64:
 	   mov ah,42h
 	   mov dl,80h
 	   mov si,0600h+packet-osstart
 	   int 13h
+	   jb read_hard_disk_0_ret
+	   sub cx,[0600h+readsectioncount-osstart]
+	   add word [0600h+bufferseg-osstart],0x800
+	   mov word [0600h+bufferoff-osstart],0
+	   add dword [0600h+blockNum-osstart],64
+	   cmp cx,0
+	   jne nextread64sec
+read_hard_disk_0_ret:	
+	   pop cx
 	   pop dx
 	   pop si
 	   pop ds
@@ -602,45 +620,55 @@ setVGAPalete1:
 
 kernelSectionCount      equ      216    ;用户程序1+用户程序2+kernel的总扇区数
 kernelStartSection      equ      16     ;内核加载起始扇区
-kernelLoadAddr 			equ      0x3b000 ;内核加载内存起始地址
+kernelLoadSeg 			equ      0x3b00 ;内核加载内存起始地址
 kernelVirAddr			equ      0xc0000000
 startPhyPage 			equ      0x100
 
 apcodeSectionCount      equ      8
 apcodeStartSection      equ      232     ;ap加载起始扇区
-apLoadAddr 			    equ          0x56000 ;ap加载内存起始地址
+apLoadSeg 			    equ      0x5600 ;ap加载内存起始地址
+
 
 fontSectionCount      equ      232
 fontStartSection      equ      240     ;加载起始扇区
-fontLoadAddr 		  equ          0x57000 ;ap加载内存起始地址
+fontLoadSeg		  	  equ      0x5700 ;ap加载内存起始地址
+
 
 stdos:  
 		;call setVGAPalete  ;设置vga调色板 0-15号颜色
-		; mov ax,kernelLoadAddr
-		; mov es,ax 
-		; mov  word [0600h+readsectioncount-osstart],kernelSectionCount	
-        ;  ;以下读取程序的起始部分 
-        ; xor di,di
-        ; mov si,kernelStartSection            ;程序在硬盘上的起始逻辑扇区号 
-        ; xor bx,bx                       ;加载到DS:0x0000处 
-        ; call read_hard_disk_0
-	    ;          ;以下读取ap程序的起始部分 
-		; mov ax,apLoadAddr
-		; mov es,ax 
-		; mov word [0600h+readsectioncount-osstart],apcodeSectionCount
-        ; xor di,di
-        ; mov si,apcodeStartSection            ;程序在硬盘上的起始逻辑扇区号 
-        ; xor bx,bx                       ;加载到DS:0x0000处 
-        ; call read_hard_disk_0 
+		cli
 
-		; mov ax,fontLoadAddr
-		; mov es,ax 
-		; mov word [0600h+readsectioncount-osstart],fontSectionCount
-        ; xor di,di
-        ; mov si,fontStartSection            ;程序在硬盘上的起始逻辑扇区号 
-        ; xor bx,bx                       ;加载到DS:0x0000处 
-        ; call read_hard_disk_0 
-
+		mov ah,0x41
+		mov bx,0x55AA
+		mov dl,0x80
+		int 0x13
+		mov ah,4
+		jb readKDataErr
+		;加载kernel
+		mov ax,kernelLoadSeg
+		mov es,ax
+		mov di,0
+		mov si,kernelStartSection
+		mov ax,kernelSectionCount
+		call read_hard_disk_0
+		jb readKDataErr
+		;加载apcode
+		mov ax,apLoadSeg
+		mov es,ax
+		mov di,0
+		mov si,apcodeStartSection
+		mov ax,apcodeSectionCount
+		call read_hard_disk_0
+		jb readKDataErr
+		;加载字体数据
+		mov ax,fontLoadSeg
+		mov es,ax
+		mov di,0
+		mov si,fontStartSection
+		mov ax,fontSectionCount
+		call read_hard_disk_0
+		jb readKDataErr
+		
 		xor ax,ax
 		mov ds,ax
 		mov es,ax	
@@ -649,6 +677,8 @@ stdos:
 			
 		call read_DriveParam
 		jnb stdos0
+
+readKDataErr:
 		add ah,0x30
 		mov [0600h+readDriveErrCode-osstart],ah
 		mov si,0600h+ readDriveErr -  osstart
@@ -688,25 +718,6 @@ start32:
         mov eax,0000000000011_000B         ;加载堆栈段选择子
         mov ss,eax
 		mov esp,0x7000
-		
-		mov esi,0600h+prtlen-osstart
-		mov eax,[0600h+Sectors-osstart]
-		mov [esi],eax
-
-		mov ebx,kernelSectionCount
-		mov edi,kernelLoadAddr
-		mov ebp,kernelStartSection
-		call read_ata_st
-
-		mov ebx,apcodeSectionCount
-		mov edi,apLoadAddr
-		mov ebp,apcodeStartSection
-		call read_ata_st
-
-		mov ebx,fontSectionCount
-		mov edi,fontLoadAddr
-		mov ebp,fontStartSection
-		call read_ata_st
 
 		;call checkAllBuses
 		movzx ecx,word [0600h+gdt_size-osstart]
@@ -798,7 +809,8 @@ stdos3:	mov [ebx],edx
 			
 		push 0600h+proEntry-osstart
 		xor edx,edx
-		mov eax,kernelLoadAddr
+		mov eax,kernelLoadSeg
+		shl eax,4
 		; mov ecx,0x10
 		; mul ecx
 		push eax
@@ -1565,11 +1577,10 @@ hexstrnum  db '0123456789ABCDEF'
 meminfoerrstr db 'getMemInfo err',0
 meminfostr db 'AddressRangeMemory',0
 meminfostr1 db 'AddressRangeReserved',0
-readDriveErr db 'read DriveParametersPacket:'
+readDriveErr db 'int13 Extensions not support:'
 readDriveErrCode db 0,0
 
-readVbeError db 'readVbeError',0
-
+readInt13Error db 'int13 Extensions not support',0
 
 table_rgb db 0x00, 0x00, 0x00  ;/* 0:黑 */
 db 0xff, 0x00, 0x00 ;/* 1:亮红 */
