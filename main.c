@@ -644,7 +644,7 @@ int _start(void *argv)
 			uint64 *acpitable = (uint32_t)(prsdp->XsdtAddress) + sizeof(SysDtHead);
 			int tablecount = (pxsdt->Length - sizeof(SysDtHead)) / 8;
 			SysDtHead *ptable = NULL;
-			uint32_t fadtaddr = 0, mcfgaddr = 0;
+			uint32_t fadtaddr = 0, mcfgaddr = 0,madtaddr=0;
 			for (int tableindex = 0; tableindex < tablecount; tableindex++)
 			{
 				ptable = (uint32_t)(acpitable[tableindex]);
@@ -660,11 +660,17 @@ int _start(void *argv)
 				else if (ptable->Signature[0] == 'M' && ptable->Signature[1] == 'C' && ptable->Signature[2] == 'F' && ptable->Signature[3] == 'G')
 				{
 					mcfgaddr = ptable;
+				}else if(ptable->Signature[0] == 'A' && ptable->Signature[1] == 'P' && ptable->Signature[2] == 'I' && ptable->Signature[3] == 'C')
+				{
+					madtaddr = ptable;
 				}
+
 			}
 			printf("\r\n");
 			printf("FADT IAPC_BOOT_ARCH: %x\r\n", *(uint16_t *)(fadtaddr+109));
 			printf("MCFG addr: %x\r\n", mcfgaddr);
+			printf("MADT addr: %x\r\n", madtaddr);
+			readMADTInfo(madtaddr);
 		}
 	}
 	else

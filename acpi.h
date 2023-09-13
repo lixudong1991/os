@@ -35,6 +35,7 @@ typedef struct SysDtHead
 
 char *findRSDPAddr();
 
+void readMADTInfo(uint32 madtaddr);
 
 
 #endif
