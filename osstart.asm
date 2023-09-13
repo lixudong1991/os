@@ -548,6 +548,7 @@ read_hard_disk_0:                        ;从硬盘读取ax个逻辑扇区
 	   mov [0600h+blockNum-osstart+2],di
 
 nextread64sec:
+	   push cx
 	   mov word [0600h+readsectioncount-osstart],64
 	   cmp cx,64
 	   ja read_hard_disk_max64
@@ -558,6 +559,7 @@ read_hard_disk_max64:
 	   mov si,0600h+packet-osstart
 	   int 13h
 	   jb read_hard_disk_0_ret
+	   pop cx
 	   sub cx,[0600h+readsectioncount-osstart]
 	   add word [0600h+bufferseg-osstart],0x800
 	   mov word [0600h+bufferoff-osstart],0
@@ -668,7 +670,7 @@ stdos:
 		mov ax,fontSectionCount
 		call read_hard_disk_0
 		jb readKDataErr
-		
+
 		xor ax,ax
 		mov ds,ax
 		mov es,ax	

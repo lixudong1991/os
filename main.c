@@ -532,7 +532,7 @@ int _start(void *argv)
 	createLock(&(lockBuff[MTRR_LOCK]));
 	createLock(&(lockBuff[UPDATE_GDT_CR3]));
 
-	// initScreen();
+	//initScreen();
 	// fontInit();
 
 	// 禁用8259a所有中断
