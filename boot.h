@@ -169,7 +169,7 @@ typedef struct ProgramHead
 	uint32 saltCount;
 } ProgramHead;
 
-#pragma pack(4)
+#pragma pack()
 
 #define DATASEG_R 0
 #define DATASEG_RW 2

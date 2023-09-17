@@ -6,6 +6,7 @@
 
 
 #define KEY_BUFF_ADDR  0x6000
+#define KEY_BUFF_SIZE  0xc00
 #define AP_ARG_ADDR  0x6C00
 
 #define AP_CODE_ADDR 0x60000

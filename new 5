@@ -1,0 +1,82 @@
+0x01	F9 pressed			0x03	F5 pressed
+0x04	F3 pressed	0x05	F1 pressed	0x06	F2 pressed	0x07	F12 pressed
+0x09	F10 pressed	0x0A	F8 pressed	0x0B	F6 pressed
+0x0C	F4 pressed	0x0D	tab pressed		
+0x11	left alt pressed	0x12	left shift pressed		
+0x14	left control pressed	
+
+scanSet2Map[0x0E]='`';//(back tick) pressed	
+scanSet2Map[0x15]='Q';//pressed			
+scanSet2Map[0x1A]='Z';//pressed	
+scanSet2Map[0x1C]='A';//pressed				
+scanSet2Map[0x21]='C';//pressed		
+scanSet2Map[0x24]='E';//pressed				
+scanSet2Map[0x29]=' ';//pressed		
+scanSet2Map[0x2C]='T';//pressed				
+scanSet2Map[0x31]='N';//pressed		
+scanSet2Map[0x34]='G';//pressed				
+scanSet2Map[0x3A]='M';//pressed	
+scanSet2Map[0x3C]='U';//pressed			
+scanSet2Map[0x41]=',';//pressed		
+scanSet2Map[0x44]='O';//pressed				
+scanSet2Map[0x49]='.';//pressed		
+scanSet2Map[0x4C]=';';//pressed				
+scanSet2Map[0x52]='\''; //pressed		
+scanSet2Map[0x54]='[';//pressed					
+scanSet2Map[0x5B]=']';//pressed
+scanSet2Map[0x5D]='\';//pressed
+scanSet2Map[0x55]='=';//pressed
+scanSet2Map[0x4E]='-';//pressed
+scanSet2Map[0x4D]='P';//pressed
+scanSet2Map[0x4A]='/';//pressed
+scanSet2Map[0x4B]='L';//pressed
+scanSet2Map[0x45]='0';//(zero) pressed
+scanSet2Map[0x46]='9';//pressed
+scanSet2Map[0x42]='K';//pressed
+scanSet2Map[0x43]='I';//pressed
+scanSet2Map[0x3E]='8';//pressed	
+scanSet2Map[0x36]='6';//pressed
+scanSet2Map[0x3D]='7';//pressed
+scanSet2Map[0x3B]='J';//pressed
+scanSet2Map[0x35]='Y';//pressed
+scanSet2Map[0x32]='B';//pressed
+scanSet2Map[0x33]='H';//pressed
+scanSet2Map[0x2D]='R';//pressed
+scanSet2Map[0x2E]='5';//pressed
+scanSet2Map[0x2A]='V';//pressed
+scanSet2Map[0x2B]='F';//pressed
+scanSet2Map[0x25]='4';//pressed
+scanSet2Map[0x26]='3';//pressed
+scanSet2Map[0x16]='1';//pressed
+scanSet2Map[0x1B]='S';//pressed
+scanSet2Map[0x1D]='W';//pressed
+scanSet2Map[0x1E]='2';//pressed
+scanSet2Map[0x22]='X';//pressed
+scanSet2Map[0x23]='D';//pressed
+						
+0x69	(keypad) 1 pressed	
+0x6C	(keypad) 7 pressed						
+0x70	(keypad) 0 pressed		
+0x72	(keypad) 2 pressed	
+0x74	(keypad) 6 pressed		
+0x7D	(keypad) 9 pressed  
+0x79	(keypad) + pressed  
+0x6B	(keypad) 4 pressed
+0x7A	(keypad) 3 pressed
+0x71	(keypad) . pressed
+0x73	(keypad) 5 pressed
+0x75	(keypad) 8 pressed
+0x7C	(keypad) * pressed
+0x7B	(keypad) - pressed
+
+
+
+0x77	NumberLock pressed
+0x76	escape pressed	
+0x78	F11 pressed			
+0x7E	ScrollLock pressed		
+0x83	F7 pressed 
+0x58	CapsLock pressed	
+0x5A	enter pressed
+0x59	right shift pressed		
+0x66	backspace pressed

@@ -622,7 +622,7 @@ int _start(void *argv)
 	xapic_obj->ICR1[0] = 0;
 	xapic_obj->ICR0[0] = 0x84083; // 更新gdt,cr3
 
-	printf("ps2Controllinit =%d\r\n",ps2Controllerinit());
+	printf("ps2Deviceinit =%d\r\n",ps2DeviceInit());
 
 	while (1)
 	{
