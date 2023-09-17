@@ -1,4 +1,4 @@
-apargstart       equ  0x7c00
+apargstart       equ  0x6c00
 mainentry        equ  0
 jumpok           equ  4
 gdt_size         equ  6
@@ -8,7 +8,7 @@ logcpucount      equ  16
 logcpuesp        equ  20
 
 cr3_data         equ  0x8018
-loadAddr         equ  0x56000  ;kernel =0x3b000 大小为216个扇区 所以AP代码从0x3b000+216*521开始 ap代码在232扇区
+loadAddr         equ  0x60000  ;kernel =0x3b000 大小为296个扇区 所以AP代码从0x3b000+296*521开始 ap代码在312扇区
 IA32_MTRR_DEF_TYPE_MSR equ 0x2FF
 
 

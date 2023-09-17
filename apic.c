@@ -3,8 +3,8 @@
 #include "cpufeature.h"
 #include "memcachectl.h"
 #include "printf.h"
-
-volatile uint32 xapicaddr = 0x80000;
+#include "osdataPhyAddr.h"
+volatile uint32 xapicaddr = XAPIC_START_ADDR;
 volatile uint32 logicalID = 1;
 
 int enablingx2APIC()
@@ -99,7 +99,7 @@ void initxapic()
 {
 	enablexApic();
    LOCAL_APIC *xapic = (LOCAL_APIC *)getXapicAddr();
-   int stat = mem4k_map((uint32)xapic, (uint32)xapic, MEM_UC, PAGE_RW);
+   int stat = mem4k_map((uint32)xapic, (uint32)xapic, MEM_UC,PAGE_G|PAGE_RW);
 	printf("map xapic addr 0x%x status %d\r\n", (uint32)xapic,stat);
 	printf("xapic siv =0x%x\r\n",xapic->SIV[0]);
 	xapic->SIV[0] |=0x100; //software enable xapic

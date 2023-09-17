@@ -133,4 +133,5 @@ extern volatile uint32 logicalID;
 
 uint32 getXapicAddr();
 void initApic();
+
 #endif

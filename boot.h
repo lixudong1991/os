@@ -45,7 +45,7 @@ typedef struct BootParam
 	uint32 vir_end;
 	uint32 phy_cs;
 	uint32 phy_ds;
-	uint16 gdtempty;
+	uint16 EBDAseg;
 	uint16 gdt_size;
 	uint32 gdt_base;
 	uint32 pageStatusAddr;
@@ -345,6 +345,5 @@ extern int spinlock(uint32 *lobj);
 extern int unlock(uint32 *lobj);
 void releaseLock(LockObj *lobj);
 extern LockObj lockBuff[LOCK_COUNT];
-
 
 #endif

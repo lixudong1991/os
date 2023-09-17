@@ -1,5 +1,5 @@
 
-global exceptionCalls,general_interrupt_handler,interrupt_8259a_handler,interrupt_70_handler,interrupt_80_handler,interrupt_81_handler,interrupt_82_handler,interrupt_83_handler,interrupt_84_handler
+global exceptionCalls,general_interrupt_handler,interrupt_27_handler,interrupt_28_handler,interrupt_8259a_handler,interrupt_70_handler,interrupt_80_handler,interrupt_81_handler,interrupt_82_handler,interrupt_83_handler,interrupt_84_handler
 ;global interrupt_85_handler
 extern   kernelData,general_exeption_code,general_exeption_no_code,apicTimeOut,systemCall,apicError,updataGdt,processorMtrrSync,sleepTimeOut
 IA32_X2APIC_EOI equ 0x80B
@@ -72,73 +72,73 @@ general_exception9_handler:
 	call general_exeption_no_code
 	add esp,8
 	hlt
-general_exception10_handler:
+general_exceptiona_handler:
 	mov eax,[esp]
 	mov ebx,[esp+4]
 	push ebx
 	push eax
-	push dword 10
+	push dword 0xa
 	call general_exeption_code
 	add esp,12
+	hlt
+general_exceptionb_handler:
+	mov eax,[esp]
+	mov ebx,[esp+4]
+	push ebx
+	push eax
+	push dword 0xb
+	call general_exeption_code
+	add esp,12
+	hlt
+general_exceptionc_handler:
+	mov eax,[esp]
+	mov ebx,[esp+4]
+	push ebx
+	push eax
+	push dword 0xc
+	call general_exeption_code
+	add esp,12
+	hlt
+general_exceptiond_handler:
+    mov eax,[esp]
+	mov ebx,[esp+4]
+	push ebx
+	push eax
+	push dword 0xd
+	call general_exeption_code
+	add esp,12
+	hlt
+general_exceptione_handler:
+    mov eax,[esp]
+	mov ebx,[esp+4]
+	push ebx
+	push eax
+	push dword 0xe
+	call general_exeption_code
+	add esp,12
+	hlt
+general_exceptionf_handler:
+	push dword 0xf
+	call general_exeption_no_code
+	add esp,4
+	hlt
+general_exception10_handler:
+	push dword 0x10
+	call general_exeption_no_code
+	add esp,4
 	hlt
 general_exception11_handler:
-	mov eax,[esp]
-	mov ebx,[esp+4]
-	push ebx
-	push eax
-	push dword 11
-	call general_exeption_code
-	add esp,12
+	push dword 0x11
+	call general_exeption_no_code
+	add esp,4
 	hlt
 general_exception12_handler:
-	mov eax,[esp]
-	mov ebx,[esp+4]
-	push ebx
-	push eax
-	push dword 12
-	call general_exeption_code
-	add esp,12
+	push dword 0x12
+	call general_exeption_no_code
+	add esp,4
 	hlt
 general_exception13_handler:
-    mov eax,[esp]
-	mov ebx,[esp+4]
-	push ebx
-	push eax
-	push dword 13
-	call general_exeption_code
-	add esp,12
-	hlt
-general_exception14_handler:
-    mov eax,[esp]
-	mov ebx,[esp+4]
-	push ebx
-	push eax
-	push dword 14
-	call general_exeption_code
-	add esp,12
-	hlt
-general_exception15_handler:
-	push dword 15
-	call general_exeption_no_code
-	add esp,4
-	hlt
-general_exception16_handler:
-	push dword 16
-	call general_exeption_no_code
-	add esp,4
-	hlt
-general_exception17_handler:
-	push dword 17
-	call general_exeption_no_code
-	add esp,4
-	hlt
-general_exception18_handler:
-	push dword 18
-	call general_exeption_no_code
-	add esp,4
-	hlt
-general_exception19_handler:
-	push dword 19
+	push dword 0x13
 	call general_exeption_no_code
 	add esp,4
 	hlt
@@ -154,6 +154,30 @@ interrupt_8259a_handler:
     pop eax        
     iretd
 
+interrupt_27_handler:
+	push eax
+	xor eax,eax
+	in al,0x60
+	push dword 0
+	push eax
+	push dword 0x27
+	call general_exeption_code
+	add esp,12
+	pop eax
+	call x_apicwriteEOI
+	iretd
+interrupt_28_handler:
+	push eax
+	xor eax,eax
+	in al,0x60
+	push dword 0
+	push eax
+	push dword 0x28
+	call general_exeption_code
+	add esp,12
+	pop eax
+	call x_apicwriteEOI
+	iretd
 interrupt_70_handler:
     push eax   
 	push ebx 
@@ -424,21 +448,21 @@ interrupt_84_handler:
 ;     pop eax  
 ; 	iretd
 
-; x_apicwriteEOI:
-; 	call x_getXapicAddr
-; 	mov dword [eax+XAPIC_EOI_OFFSET],0
-; 	ret
-; x_getXapicAddr:
-; 	push ecx
-; 	push edx
-; 	xor eax,eax
-; 	xor edx,edx
-; 	mov ecx,IA32_APIC_BASE_MSR
-; 	rdmsr
-; 	and eax,0xFFFFF000
-; 	pop edx
-; 	pop ecx
-; 	ret
+x_apicwriteEOI:
+	call x_getXapicAddr
+	mov dword [eax+XAPIC_EOI_OFFSET],0
+	ret
+x_getXapicAddr:
+	push ecx
+	push edx
+	xor eax,eax
+	xor edx,edx
+	mov ecx,IA32_APIC_BASE_MSR
+	rdmsr
+	and eax,0xFFFFF000
+	pop edx
+	pop ecx
+	ret
 ; x_getXapicId:
 ; 	call x_getXapicAddr
 ; 	mov eax,[eax+XAPIC_ID_OFFSET]
@@ -447,5 +471,5 @@ interrupt_84_handler:
 				 
 exceptionCalls   dd  general_exception0_handler,general_exception1_handler,general_exception2_handler,general_exception3_handler,general_exception4_handler
 				 dd  general_exception5_handler,general_exception6_handler,general_exception7_handler,general_exception8_handler,general_exception9_handler
-				 dd  general_exception10_handler,general_exception11_handler,general_exception12_handler,general_exception13_handler,general_exception14_handler
-				 dd  general_exception15_handler,general_exception16_handler,general_exception17_handler,general_exception18_handler,general_exception19_handler		
+				 dd  general_exceptiona_handler,general_exceptionb_handler,general_exceptionc_handler,general_exceptiond_handler,general_exceptione_handler
+				 dd  general_exceptionf_handler,general_exception10_handler,general_exception11_handler,general_exception12_handler,general_exception13_handler		

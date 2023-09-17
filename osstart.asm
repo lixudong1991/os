@@ -620,25 +620,27 @@ setVGAPalete1:
 		pop dx
 		ret
 
-kernelSectionCount      equ      216    ;用户程序1+用户程序2+kernel的总扇区数
+kernelSectionCount      equ      296    ;用户程序1+用户程序2+kernel的总扇区数
 kernelStartSection      equ      16     ;内核加载起始扇区
 kernelLoadSeg 			equ      0x3b00 ;内核加载内存起始地址
 kernelVirAddr			equ      0xc0000000
 startPhyPage 			equ      0x100
 
 apcodeSectionCount      equ      8
-apcodeStartSection      equ      232     ;ap加载起始扇区
-apLoadSeg 			    equ      0x5600 ;ap加载内存起始地址
+apcodeStartSection      equ      312     ;ap加载起始扇区
+apLoadSeg 			    equ      0x6000 ;ap加载内存起始地址
 
 
 fontSectionCount      equ      232
-fontStartSection      equ      240     ;加载起始扇区
-fontLoadSeg		  	  equ      0x5700 ;ap加载内存起始地址
+fontStartSection      equ      320     ;加载起始扇区
+fontLoadSeg		  	  equ      0x6100 ;ap加载内存起始地址
 
 
 stdos:  
 		;call setVGAPalete  ;设置vga调色板 0-15号颜色
 		cli
+		mov ax,[0x40E]
+		mov [0600h+EBDAseg-osstart],ax
 
 		mov ah,0x41
 		mov bx,0x55AA
@@ -682,13 +684,15 @@ stdos:
 
 readKDataErr:
 		add ah,0x30
-		mov [0600h+readDriveErrCode-osstart],ah
+		add al,0x30
+		mov [0600h+readDriveErrCode-osstart],ax
 		mov si,0600h+ readDriveErr -  osstart
 		mov dh,3
 		mov dl,20
 		mov cl,111b
 		call showstr
-		hlt		
+hltt:	hlt	
+		jmp	hltt
 stdos0:	
 		mov  eax,[0600h+Sectors-osstart]	
 		mov  [0600h+prtlen-osstart],eax				
@@ -1539,7 +1543,7 @@ vir_base dd 0xffffffff
 vir_end  dd 0
 phy_cs	 dd 0x8
 phy_ds	 dd 0000000000010_000B
-gdtempty dw 0
+EBDAseg dw 0
 gdt_size dw 39
 gdt_base dd 0600h+gdt_table-osstart     ;GDT的物理地址 
 pageStatus    dd kernelVirAddr+0x10000
@@ -1563,6 +1567,7 @@ Sectors dd 0
 		dd 0; // 磁盘总扇区数
 SectorSize dw 0 ; // 扇区尺寸 (以字节为单位) 
 
+
 prtlen dd 0
 dcr	 dw 0x1f7
 stLBA dd 0
@@ -1580,7 +1585,7 @@ meminfoerrstr db 'getMemInfo err',0
 meminfostr db 'AddressRangeMemory',0
 meminfostr1 db 'AddressRangeReserved',0
 readDriveErr db 'int13 Extensions not support:'
-readDriveErrCode db 0,0
+readDriveErrCode db 0,0,0,0
 
 readInt13Error db 'int13 Extensions not support',0
 

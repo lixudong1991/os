@@ -4,6 +4,9 @@
 
 extern uint32 exceptionCalls[20]; //前20个中断向量
 
+extern void interrupt_27_handler();
+extern void interrupt_28_handler();
+
 extern void interrupt_70_handler();
 extern void interrupt_8259a_handler();  
 extern void interrupt_80_handler();

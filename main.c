@@ -1,4 +1,5 @@
 #include "boot.h"
+#include "osdataPhyAddr.h"
 #include "syscall.h"
 #include "interruptGate.h"
 #include "elf.h"
@@ -8,14 +9,15 @@
 #include "memcachectl.h"
 #include "screen.h"
 #include "acpi.h"
+#include "ioapic.h"
+#include "ps2device.h"
 #define STACKLIMIT_G1(a) ((((uint32)(a)) - 1) >> 12) // gdt 表项粒度为1的段界限
 
-#define LOCK_START 0x1000
 
 BootParam bootparam;
 KernelData kernelData;
 LockBlock *lockblock = NULL;
-AParg *aparg = (AParg *)0x7c00;
+AParg *aparg = (AParg *)AP_ARG_ADDR;
 ProcessorInfo processorinfo;
 TaskCtrBlock **procCurrTask;
 LockObj lockBuff[LOCK_COUNT];
@@ -125,11 +127,20 @@ static void createInterruptGate(KernelData *kdata)
 		item.segAddr = exceptionCalls[i];
 		appendTableGateItem(&(kdata->idtInfo), &item);
 	}
+	item.segAddr = general_interrupt_handler;
 	for (; i < 0x20; i++)
 		appendTableGateItem(&(kdata->idtInfo), &item);
+
 	item.segAddr = interrupt_8259a_handler;
 	for (; i < 0x27; i++)
 		appendTableGateItem(&(kdata->idtInfo), &item);
+
+	item.segAddr = 	interrupt_27_handler; //IRQ1 中断
+	appendTableGateItem(&(kdata->idtInfo), &item);
+	i++;
+	item.segAddr = 	interrupt_28_handler; //IRQ12 中断
+	appendTableGateItem(&(kdata->idtInfo), &item);
+	i++;
 	item.segAddr = general_interrupt_handler;
 	for (; i < 0x70; i++)
 		appendTableGateItem(&(kdata->idtInfo), &item);
@@ -312,7 +323,7 @@ void testfun()
 */
 void initLockBlock()
 {
-	uint32_t addr = LOCK_START, size = 0x1000;
+	uint32_t addr = LOCK_START, size = LOCK_SIZE;
 	mem_fix_type_set(addr, size, MEM_UC);
 	lockblock = LOCK_START;
 	memset_s(lockblock, 0, size);
@@ -399,9 +410,9 @@ void MPinit()
 {
 #if X2APIC_ENABLE
 #else
-	printf("map 0x56000:%d\r\n", mem4k_map(0x56000, 0x56000, MEM_UC, PAGE_RW));
+	printf("map apcode %x :%d\r\n", AP_CODE_ADDR,mem4k_map(AP_CODE_ADDR, AP_CODE_ADDR, MEM_WB, PAGE_G|PAGE_R));
 	// read_ata_sectors(0x4b000, 144, 2);
-	uint32_t addr = 0x7000, size = 0x1000, temp = 0;
+	uint32_t addr = AP_ARG_ADDR&0xfffff000, size = 0x1000, temp = 0;
 	mem_fix_type_set(addr, size, MEM_UC);
 
 	memset_s(aparg, 0, sizeof(AParg));
@@ -417,7 +428,7 @@ void MPinit()
 	xapic_obj->ICR0[0] = 0xC4500; // 发送Init
 
 	xapic_obj->ICR1[0] = 0;
-	xapic_obj->ICR0[0] = 0xC4656; // 发送SIPI AP执行0x56000处的代码
+	xapic_obj->ICR0[0] = 0xC4660; // 发送SIPI AP执行0x60000处的代码
 
 	uint32 waitap = 0xffffffff;
 	while (waitap--)
@@ -459,7 +470,7 @@ void MPinit()
 		kernelData.taskList.tcb_Last = procCurrTask[i];
 		kernelData.taskList.size++;
 	}
-	uint32 *stackinfo = (uint32 *)(0x7c00 + sizeof(AParg));
+	uint32 *stackinfo = (uint32 *)(AP_ARG_ADDR + sizeof(AParg));
 	printf("processor count =%d\r\n", aparg->logcpucount);
 
 	memset_s((char *)&tempSeg, 0, sizeof(TableSegmentItem));
@@ -532,8 +543,8 @@ int _start(void *argv)
 	createLock(&(lockBuff[MTRR_LOCK]));
 	createLock(&(lockBuff[UPDATE_GDT_CR3]));
 
-	//initScreen();
-	// fontInit();
+	// initScreen();
+	//  fontInit();
 
 	// 禁用8259a所有中断
 
@@ -605,76 +616,14 @@ int _start(void *argv)
 	// 		//xapic_obj->ICR0[0] = 0x44082;
 	// #endif
 	// 	}
-	char *rsdpaddr = findRSDPAddr();
-	char rsign[9] = {0};
-	if (rsdpaddr)
-	{
-		printf("RSDP addr:0x%x\r\n", rsdpaddr);
-		RSDPStruct *prsdp = rsdpaddr;
-		memcpy_s(rsign, prsdp->Signature, 8);
-		printf("RSDP Signature:%s\r\n", rsign);
-		// printf("RSDP Checksum:%x\r\n",prsdp->Checksum);
-		memcpy_s(rsign, prsdp->OEMID, 6);
-		rsign[6] = 0;
-		printf("RSDP OEMID:%s\r\n", rsign);
-		printf("RSDP Revision:%x\r\n", prsdp->Revision);
-		// printf("RSDP RsdtAddress:%x\r\n",prsdp->RsdtAddress);
-		if (prsdp->Revision == 2)
-		{
-			uint32_t eax = 0, mapaddr = 0;
-			eax = (uint32_t) & (prsdp->XsdtAddress);
-			printf("RSDP XsdtAddress:%x %x\r\n", *(uint32 *)(eax + 4), *(uint32 *)eax);
-			// printf("RSDP Extended Checksum:%x\r\n",prsdp->ExtendedChecksum);
-			SysDtHead *pxsdt = (uint32_t)(prsdp->XsdtAddress);
-			mapaddr = pxsdt;
-			mapaddr &= 0xfffff000;
-			mem4k_map(mapaddr, mapaddr, MEM_UC, PAGE_G | PAGE_RW);
-			mem4k_map(mapaddr + 0x1000, mapaddr + 0x1000, MEM_UC, PAGE_G | PAGE_RW);
-			memcpy_s(rsign, pxsdt->Signature, 4);
-			rsign[4] = 0;
-			printf("XSDT Signature:%s\r\n", rsign);
-			printf("XSDT Length:%x\r\n", pxsdt->Length);
-			printf("XSDT Revision:%x\r\n", pxsdt->Revision);
-			memcpy_s(rsign, pxsdt->OEMID, 6);
-			rsign[6] = 0;
-			printf("XSDT OEMID:%s\r\n", rsign);
-			memcpy_s(rsign, pxsdt->OEM_TABLE_ID, 8);
-			rsign[8] = 0;
-			printf("XSDT OEM Table ID:%s\r\n", rsign);
-			uint64 *acpitable = (uint32_t)(prsdp->XsdtAddress) + sizeof(SysDtHead);
-			int tablecount = (pxsdt->Length - sizeof(SysDtHead)) / 8;
-			SysDtHead *ptable = NULL;
-			uint32_t fadtaddr = 0, mcfgaddr = 0,madtaddr=0;
-			for (int tableindex = 0; tableindex < tablecount; tableindex++)
-			{
-				ptable = (uint32_t)(acpitable[tableindex]);
-				mem4k_map((uint32_t)(acpitable[tableindex]) & 0xfffff000, (uint32_t)(acpitable[tableindex]) & 0xfffff000, MEM_UC, PAGE_G | PAGE_RW);
-				rsign[0] = ptable->Signature[0];
-				rsign[1] = ptable->Signature[1];
-				rsign[2] = ptable->Signature[2];
-				rsign[3] = ptable->Signature[3];
-				rsign[4] = 0;
-				printf("%s ", rsign);
-				if (ptable->Signature[0] == 'F' && ptable->Signature[1] == 'A' && ptable->Signature[2] == 'C' && ptable->Signature[3] == 'P')
-					fadtaddr = ptable;
-				else if (ptable->Signature[0] == 'M' && ptable->Signature[1] == 'C' && ptable->Signature[2] == 'F' && ptable->Signature[3] == 'G')
-				{
-					mcfgaddr = ptable;
-				}else if(ptable->Signature[0] == 'A' && ptable->Signature[1] == 'P' && ptable->Signature[2] == 'I' && ptable->Signature[3] == 'C')
-				{
-					madtaddr = ptable;
-				}
 
-			}
-			printf("\r\n");
-			printf("FADT IAPC_BOOT_ARCH: %x\r\n", *(uint16_t *)(fadtaddr+109));
-			printf("MCFG addr: %x\r\n", mcfgaddr);
-			printf("MADT addr: %x\r\n", madtaddr);
-			readMADTInfo(madtaddr);
-		}
-	}
-	else
-		printf("not find RSDP\r\n");
+	initAcpiTable();
+    initIoApic();
+	xapic_obj->ICR1[0] = 0;
+	xapic_obj->ICR0[0] = 0x84083; // 更新gdt,cr3
+
+	printf("ps2Controllinit =%d\r\n",ps2Controllerinit());
+
 	while (1)
 	{
 		// printf("BSP empty\r\n");
