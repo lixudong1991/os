@@ -16,76 +16,68 @@
 0x66	backspace pressed
 
 
-scanSet2Map[0x5A]='\n';//	enter pressed
-scanSet2Map[0x0D]=0x9;	//tab pressed	
-scanSet2Map[0x0E]='`';//(back tick) pressed	
-scanSet2Map[0x15]='Q';//pressed			
-scanSet2Map[0x1A]='Z';//pressed	
-scanSet2Map[0x1C]='A';//pressed				
-scanSet2Map[0x21]='C';//pressed		
-scanSet2Map[0x24]='E';//pressed				
-scanSet2Map[0x29]=' ';//pressed		
-scanSet2Map[0x2C]='T';//pressed				
-scanSet2Map[0x31]='N';//pressed		
-scanSet2Map[0x34]='G';//pressed				
-scanSet2Map[0x3A]='M';//pressed	
-scanSet2Map[0x3C]='U';//pressed			
-scanSet2Map[0x41]=',';//pressed		
-scanSet2Map[0x44]='O';//pressed				
-scanSet2Map[0x49]='.';//pressed		
-scanSet2Map[0x4C]=';';//pressed				
-scanSet2Map[0x52]='\''; //pressed		
-scanSet2Map[0x54]='[';//pressed					
-scanSet2Map[0x5B]=']';//pressed
-scanSet2Map[0x5D]='\';//pressed
-scanSet2Map[0x55]='=';//pressed
-scanSet2Map[0x4E]='-';//pressed
-scanSet2Map[0x4D]='P';//pressed
-scanSet2Map[0x4A]='/';//pressed
-scanSet2Map[0x4B]='L';//pressed
-scanSet2Map[0x45]='0';//(zero) pressed
-scanSet2Map[0x46]='9';//pressed
-scanSet2Map[0x42]='K';//pressed
-scanSet2Map[0x43]='I';//pressed
-scanSet2Map[0x3E]='8';//pressed
-scanSet2Map[0x36]='6';//pressed
-scanSet2Map[0x3D]='7';//pressed
-scanSet2Map[0x3B]='J';//pressed
-scanSet2Map[0x35]='Y';//pressed
-scanSet2Map[0x32]='B';//pressed
-scanSet2Map[0x33]='H';//pressed
-scanSet2Map[0x2D]='R';//pressed
-scanSet2Map[0x2E]='5';//pressed
-scanSet2Map[0x2A]='V';//pressed
-scanSet2Map[0x2B]='F';//pressed
-scanSet2Map[0x25]='4';//pressed
-scanSet2Map[0x26]='3';//pressed
-scanSet2Map[0x16]='1';//pressed
-scanSet2Map[0x1B]='S';//pressed
-scanSet2Map[0x1D]='W';//pressed
-scanSet2Map[0x1E]='2';//pressed
-scanSet2Map[0x22]='X';//pressed
-scanSet2Map[0x23]='D';//pressed
-						
-scanSet2Map[0x69]='1';//(keypad)  pressed
-scanSet2Map[0x6C]='7';//(keypad)  pressed
-scanSet2Map[0x70]='0';//(keypad)  pressed
-scanSet2Map[0x72]='2';//(keypad)  pressed
-scanSet2Map[0x74]='6';//(keypad)  pressed
-scanSet2Map[0x7D]='9';//(keypad)  pressed
-scanSet2Map[0x79]='+';//(keypad)  pressed
-scanSet2Map[0x6B]='4';//(keypad)  pressed
-scanSet2Map[0x7A]='3';//(keypad)  pressed
-scanSet2Map[0x71]='.';//(keypad)  pressed
-scanSet2Map[0x73]='5';//(keypad)  pressed
-scanSet2Map[0x75]='8';//(keypad)  pressed
-scanSet2Map[0x7C]='*';//(keypad)  pressed
-scanSet2Map[0x7B]='-';//(keypad)  pressed
-
-
-
-
-
-
-
-
+    scanSet2Map[0x5A] |= ((uint16_t)'\n')<<8; //	enter pressed
+    scanSet2Map[0x0D] |= ((uint16_t)0x9)<<8;  // tab pressed
+    scanSet2Map[0x15] |= ((uint16_t)'q')<<8;  // pressed
+    scanSet2Map[0x1A] |= ((uint16_t)'z')<<8;  // pressed
+    scanSet2Map[0x1C] |= ((uint16_t)'a')<<8;  // pressed
+    scanSet2Map[0x21] |= ((uint16_t)'c')<<8;  // pressed
+    scanSet2Map[0x24] |= ((uint16_t)'e')<<8;  // pressed
+    scanSet2Map[0x29] |= ((uint16_t)' ')<<8;  // pressed
+    scanSet2Map[0x2C] |= ((uint16_t)'t')<<8;  // pressed
+    scanSet2Map[0x31] |= ((uint16_t)'n')<<8;  // pressed
+    scanSet2Map[0x34] |= ((uint16_t)'g')<<8;  // pressed
+    scanSet2Map[0x3A] |= ((uint16_t)'m')<<8;  // pressed
+    scanSet2Map[0x3C] |= ((uint16_t)'u')<<8;  // pressed
+    scanSet2Map[0x44] |= ((uint16_t)'o')<<8;  // pressed
+    scanSet2Map[0x4D] |= ((uint16_t)'p')<<8;  // pressed
+    scanSet2Map[0x4B] |= ((uint16_t)'l')<<8;  // pressed
+    scanSet2Map[0x42] |= ((uint16_t)'k')<<8;  // pressed
+    scanSet2Map[0x43] |= ((uint16_t)'i')<<8;  // pressed
+    scanSet2Map[0x3B] |= ((uint16_t)'j')<<8;  // pressed
+    scanSet2Map[0x35] |= ((uint16_t)'y')<<8;  // pressed
+    scanSet2Map[0x32] |= ((uint16_t)'b')<<8;  // pressed
+    scanSet2Map[0x33] |= ((uint16_t)'h')<<8;  // pressed
+    scanSet2Map[0x2D] |= ((uint16_t)'r')<<8;  // pressed
+    scanSet2Map[0x2A] |= ((uint16_t)'v')<<8;  // pressed
+    scanSet2Map[0x2B] |= ((uint16_t)'f')<<8;  // pressed
+    scanSet2Map[0x1B] |= ((uint16_t)'s')<<8;  // pressed
+    scanSet2Map[0x1D] |= ((uint16_t)'w')<<8;  // pressed
+    scanSet2Map[0x22] |= ((uint16_t)'x')<<8;  // pressed
+    scanSet2Map[0x23] |= ((uint16_t)'d')<<8;  // pressed
+    scanSet2Map[0x69] |= ((uint16_t)'1')<<8;  //(keypad)  pressed
+    scanSet2Map[0x6C] |= ((uint16_t)'7')<<8;  //(keypad)  pressed
+    scanSet2Map[0x70] |= ((uint16_t)'0')<<8;  //(keypad)  pressed
+    scanSet2Map[0x72] |= ((uint16_t)'2')<<8;  //(keypad)  pressed
+    scanSet2Map[0x74] |= ((uint16_t)'6')<<8;  //(keypad)  pressed
+    scanSet2Map[0x7D] |= ((uint16_t)'9')<<8;  //(keypad)  pressed
+    scanSet2Map[0x79] |= ((uint16_t)'+')<<8;  //(keypad)  pressed
+    scanSet2Map[0x6B] |= ((uint16_t)'4')<<8;  //(keypad)  pressed
+    scanSet2Map[0x7A] |= ((uint16_t)'3')<<8;  //(keypad)  pressed
+    scanSet2Map[0x71] |= ((uint16_t)'.')<<8;  //(keypad)  pressed
+    scanSet2Map[0x73] |= ((uint16_t)'5')<<8;  //(keypad)  pressed
+    scanSet2Map[0x75] |= ((uint16_t)'8')<<8;  //(keypad)  pressed
+    scanSet2Map[0x7C] |= ((uint16_t)'*')<<8;  //(keypad)  pressed
+    scanSet2Map[0x7B] |= ((uint16_t)'-')<<8;  //(keypad)  pressed
+    scanSet2Map[0x0E] |= ((uint16_t)'~')<<8;  //(back tick) pressed
+	scanSet2Map[0x16] |= ((uint16_t)'!')<<8;  // pressed
+	scanSet2Map[0x1E] |= ((uint16_t)'@')<<8;  // pressed
+	scanSet2Map[0x26] |= ((uint16_t)'#')<<8;  // pressed
+	scanSet2Map[0x25] |= ((uint16_t)'$')<<8;  // pressed
+    scanSet2Map[0x2E] |= ((uint16_t)'%')<<8;  // pressed
+    scanSet2Map[0x36] |= ((uint16_t)'^')<<8;  // pressed
+    scanSet2Map[0x3D] |= ((uint16_t)'&')<<8;  // pressed
+	scanSet2Map[0x3E] |= ((uint16_t)'*')<<8;  // pressed
+    scanSet2Map[0x46] |= ((uint16_t)'(')<<8;  // pressed
+	scanSet2Map[0x45] |= ((uint16_t)')')<<8;  //(zero) pressed
+	scanSet2Map[0x4E] |= ((uint16_t)'_')<<8;  // pressed
+	scanSet2Map[0x55] |= ((uint16_t)'+')<<8;  // pressed
+	scanSet2Map[0x54] |= ((uint16_t)'{')<<8;  // pressed
+	scanSet2Map[0x5B] |= ((uint16_t)'}')<<8;  // pressed
+	scanSet2Map[0x5D] |= ((uint16_t)'|')<<8; // pressed
+	scanSet2Map[0x4C] |= ((uint16_t)':')<<8;  // pressed
+	scanSet2Map[0x52] |= ((uint16_t)'"')<<8; // pressed
+	scanSet2Map[0x41] |= ((uint16_t)'<')<<8;  // pressed
+	scanSet2Map[0x49] |= ((uint16_t)'>')<<8;  // pressed
+	scanSet2Map[0x4A] |= ((uint16_t)'?')<<8;  // pressed
+	

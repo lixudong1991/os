@@ -230,7 +230,7 @@ void initAcpiTable()
     memset_s(Madt_IOAPIC,0,sizeof(IoApicEntry *)*MAX_IOAPIC_COUNT);
     printf("Madt_LOCALAPIC %d\r\n",sizeof(LocalApicEntry *));
     memset_s(Madt_LOCALAPIC,0,MAX_LOAPIC_COUNT*sizeof(LocalApicEntry *));
-#if 0	
+#if 1	
 	
 	for (int i = 0; i < bootparam.memInfoSize; i++)
 	{

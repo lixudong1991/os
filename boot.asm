@@ -3,6 +3,7 @@ global setgdtr,setldtr,settr,cs_data,ds_data,ss_data,fs_data,gs_data,cpuidcall,r
 global _monitor,_mwait,cr0_data,set_cr0data,cr4_data,set_cr4data,pre_mtrr_change,post_mtrr_change,spinlock,unlock,sysInChar,sysOutChar
 pageStatusOffset equ 28
 IA32_MTRR_DEF_TYPE_MSR equ 0x2FF
+extern bootparam
 setgdtr:
 	push ebx
 	mov ebx,[esp+8]
@@ -664,6 +665,4 @@ interrupt8259a_disable:
     out 0xa1,al                        ;ICW4:非总线缓冲，全嵌套，正常EOI
 	pop eax
 	ret	
-
-
 
