@@ -1,6 +1,7 @@
 #include "ps2device.h"
 #include "osdataPhyAddr.h"
 #include "boot.h"
+#include "printf.h"
 extern uint32 ps2Controllerinit();
 
 enum VariousKeyIndex
@@ -10,7 +11,8 @@ enum VariousKeyIndex
     NUMBERLOCK_INDEX,
     SHIFT_INDEX,
     ALT_INDEX,
-    CONTROL_INDEX
+    CONTROL_INDEX,
+    ENTER_PRESS
 };
 
 #pragma pack(1)
@@ -20,7 +22,8 @@ typedef struct KeyBoardStruct
     uint32_t ps2ScanIndex;
     uint32_t ps2KeyCodeBuffIndex;
     uint32_t ps2KeyCodeBuffRec;
-    uint32_t Various[11]; // CapsLock, ScrollLock, NumberLock,shift, alt, control
+    uint32_t Various[10]; // CapsLock, ScrollLock, NumberLock,shift, alt, control
+    uint32_t getcharIndex;
     uint8_t ps2KeyCodeBuff[KEY_BUFF_SIZE - 64];
 } KeyBoardStruct;
 #pragma pack()
@@ -31,6 +34,7 @@ uint32 ps2DeviceInit()
 {
     uint32 ret = ps2Controllerinit();
     memset_s(pkeyBoardStruct, 0, sizeof(KeyBoardStruct));
+    pkeyBoardStruct->Various[ENTER_PRESS] = 1;
     scanSet2Map = kernel_malloc(320);
     memset_s(scanSet2Map, 0, 320);
 
@@ -211,6 +215,10 @@ void ps2KeyInterruptProc(uint32_t code)
             }
             else
             {
+                if (pkeyBoardStruct->ps2KeyCodeBuffIndex == KEY_BUFF_SIZE - 64)
+                    pkeyBoardStruct->ps2KeyCodeBuffIndex = 0;
+                if (pkeyBoardStruct->Various[ENTER_PRESS])
+                    return;
                 if (c >= 'a' && c <= 'z')
                 {
                     if (pkeyBoardStruct->Various[CAPSLOCK_INDEX])
@@ -229,6 +237,8 @@ void ps2KeyInterruptProc(uint32_t code)
                 }
                 else
                 {
+                    if (c == '\n')
+                        pkeyBoardStruct->Various[ENTER_PRESS] = 1;
                     if (pkeyBoardStruct->Various[SHIFT_INDEX])
                     {
                         pkeyBoardStruct->ps2KeyCodeBuff[pkeyBoardStruct->ps2KeyCodeBuffIndex] = (uint8_t)(scanSet2Map[code] >> 8);
@@ -236,7 +246,7 @@ void ps2KeyInterruptProc(uint32_t code)
                     else
                         pkeyBoardStruct->ps2KeyCodeBuff[pkeyBoardStruct->ps2KeyCodeBuffIndex] = c;
                 }
-                printf("%c",pkeyBoardStruct->ps2KeyCodeBuff[pkeyBoardStruct->ps2KeyCodeBuffIndex]);
+                putchar(pkeyBoardStruct->ps2KeyCodeBuff[pkeyBoardStruct->ps2KeyCodeBuffIndex]);
                 pkeyBoardStruct->ps2KeyCodeBuffIndex++;
             }
         }
@@ -251,8 +261,10 @@ void ps2KeyInterruptProc(uint32_t code)
             break;
         case 0x5ae0:
         {
+            if (pkeyBoardStruct->ps2KeyCodeBuffIndex == KEY_BUFF_SIZE - 64)
+                pkeyBoardStruct->ps2KeyCodeBuffIndex = 0;
             pkeyBoardStruct->ps2KeyCodeBuff[pkeyBoardStruct->ps2KeyCodeBuffIndex] = '\n';
-            printf("%c",pkeyBoardStruct->ps2KeyCodeBuff[pkeyBoardStruct->ps2KeyCodeBuffIndex]);
+            putchar(pkeyBoardStruct->ps2KeyCodeBuff[pkeyBoardStruct->ps2KeyCodeBuffIndex]);
             pkeyBoardStruct->ps2KeyCodeBuffIndex++;
             pkeyBoardStruct->ps2ScanIndex = 0;
         }
@@ -266,8 +278,10 @@ void ps2KeyInterruptProc(uint32_t code)
         break;
         case 0x4ae0:
         {
+            if (pkeyBoardStruct->ps2KeyCodeBuffIndex == KEY_BUFF_SIZE - 64)
+                pkeyBoardStruct->ps2KeyCodeBuffIndex = 0;
             pkeyBoardStruct->ps2KeyCodeBuff[pkeyBoardStruct->ps2KeyCodeBuffIndex] = '/';
-            printf("%c",pkeyBoardStruct->ps2KeyCodeBuff[pkeyBoardStruct->ps2KeyCodeBuffIndex]);
+            putchar(pkeyBoardStruct->ps2KeyCodeBuff[pkeyBoardStruct->ps2KeyCodeBuffIndex]);
             pkeyBoardStruct->ps2KeyCodeBuffIndex++;
             pkeyBoardStruct->ps2ScanIndex = 0;
         }
@@ -281,4 +295,50 @@ void ps2KeyInterruptProc(uint32_t code)
     {
         pkeyBoardStruct->ps2ScanIndex = 0;
     }
+}
+
+uint32 getchar()
+{
+    while (1)
+    {
+        if (pkeyBoardStruct->Various[ENTER_PRESS])
+        {
+            if (pkeyBoardStruct->ps2KeyCodeBuffIndex != 0)
+            {
+                if (pkeyBoardStruct->getcharIndex < pkeyBoardStruct->ps2KeyCodeBuffIndex)
+                {
+                    return pkeyBoardStruct->ps2KeyCodeBuff[pkeyBoardStruct->getcharIndex++];
+                }
+                else
+                {
+                    pkeyBoardStruct->getcharIndex = 0;
+                    pkeyBoardStruct->ps2KeyCodeBuffIndex = 0;
+                    pkeyBoardStruct->Various[ENTER_PRESS] = 0;
+                }
+            }
+            else
+            {
+                pkeyBoardStruct->getcharIndex = 0;
+                pkeyBoardStruct->Various[ENTER_PRESS] = 0;
+            }
+               
+        }
+            
+        asm("sti");
+        asm("hlt");
+    }
+
+}
+int fgets(char* s, int size)
+{
+    char c = 0;
+    int len = 0;
+    do
+    {
+        c =(char)getchar();
+        s[len] = c;
+        len++;
+    } while (c != '\n'&& len<(size-1));
+    s[len] = 0;
+    return len;
 }

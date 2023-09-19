@@ -12,4 +12,4 @@ $(prom): $(obj)
 $(D_OBJ)/%.o: %.c $(deps)
 	$(cc) -c $< -o $@ -ffreestanding
 clean:
-	rm -rf $(obj) $(prom)
+	rm -rf $(obj) $(prom) $(asmobj)

@@ -9,7 +9,7 @@ void check_cpu_features()
 {
 	uint32_t eax = 0, ebx = 0, ecx = 0, edx = 0;
 	cpuidcall(1, &eax, &ebx, &ecx, &edx);
-	printf("cpuid[1] EAX:0x%x EBX:0x%x ECX:0x%x EDX:0x%x\r\n", eax, ebx, ecx, edx);
+	printf("cpuid[1] EAX:0x%x EBX:0x%x ECX:0x%x EDX:0x%x\n", eax, ebx, ecx, edx);
 	if (edx & (1 << 25))
 		cpufeatures[cpu_support_sse] = 1;
 	if (edx & (1 << 26))
@@ -35,7 +35,7 @@ void check_cpu_features()
 
 	if (edx & CPUID_SUPPORT_EDX_PAT)
 		cpufeatures[cpu_support_pat] = 1;
-	printf("support: SSE=%d, SSE2=%d, SSE3=%d, SSSE3=%d, FXSAVE/FXRSTOR=%d, CLFLUSH=%d, apic =%d, x2apic =%d, tscdeadline =%d, mtrr =%d\r\n, PAT= %d\r\n",
+	printf("support: SSE=%d, SSE2=%d, SSE3=%d, SSSE3=%d, FXSAVE/FXRSTOR=%d, CLFLUSH=%d, apic =%d, x2apic =%d, tscdeadline =%d, mtrr =%d\n, PAT= %d\n",
 		   cpufeatures[cpu_support_sse],
 		   cpufeatures[cpu_support_sse2],
 		   cpufeatures[cpu_support_sse3],
@@ -47,10 +47,10 @@ void check_cpu_features()
 		   cpufeatures[cpu_support_tscdeadline],
 		   cpufeatures[cpu_support_mtrr],
 		   cpufeatures[cpu_support_pat]);
-	printf("support:monitor/mwait = %d\r\n", cpufeatures[cpu_support_monitor_mwait]);
+	printf("support:monitor/mwait = %d\n", cpufeatures[cpu_support_monitor_mwait]);
 	if (cpufeatures[cpu_support_monitor_mwait])
 	{
 		cpuidcall(5, &eax, &ebx, &ecx, &edx);
-		printf("cpuid[5] EAX:0x%x EBX:0x%x smallsize:0x%x largestsize:0x%x\r\n", eax, ebx, ecx & 0x0000ffff, edx & 0x0000ffff);
+		printf("cpuid[5] EAX:0x%x EBX:0x%x smallsize:0x%x largestsize:0x%x\n", eax, ebx, ecx & 0x0000ffff, edx & 0x0000ffff);
 	}
 }

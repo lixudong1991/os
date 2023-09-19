@@ -22,7 +22,7 @@ void check_pat()
     if (cpufeatures[cpu_support_pat])
     {
         rdmsrcall(IA32_PAT_MSR, &eax, &edx);
-        printf("pat eax:0x%x edx:0x%x\r\n", eax, edx);
+        printf("pat eax:0x%x edx:0x%x\n", eax, edx);
     }
 }
 void check_mtrr()
@@ -32,15 +32,15 @@ void check_mtrr()
     {
         eax = edx = 0;
         rdmsrcall(IA32_MTRRCAP_MSR, &eax, &edx);
-        printf("mtrr fix range %s,WC memory %s, SMRR %s, variable rang count:%d\r\n", vall_str(eax & (1 << 8)), vall_str(eax & (1 << 10)), vall_str(eax & (1 << 11)), eax & 0xff);
+        printf("mtrr fix range %s,WC memory %s, SMRR %s, variable rang count:%d\n", vall_str(eax & (1 << 8)), vall_str(eax & (1 << 10)), vall_str(eax & (1 << 11)), eax & 0xff);
         uint32_t vcnt = eax & 0xff;
         eax = edx = 0;
         rdmsrcall(IA32_MTRR_DEF_TYPE_MSR, &eax, &edx);
         uint32 mtrrenable = eax & (1 << 11);
         uint32 fixenable = eax & (1 << 10);
-        printf(" MTRR %s, Fixed-range %s, Default mem Type = %d\r\n", val_str(mtrrenable), val_str(fixenable), eax & 0xff);
+        printf(" MTRR %s, Fixed-range %s, Default mem Type = %d\n", val_str(mtrrenable), val_str(fixenable), eax & 0xff);
         cpuidcall(0x80000008, &eax, &ebx, &ecx, &edx);
-        printf("MAXPHYADDR: eax=0x%x\r\n", eax);
+        printf("MAXPHYADDR: eax=0x%x\n", eax);
 
         mtrrmsrinfo.variableMsrCount = vcnt;
         mtrrmsrinfo.fixMsr[0].msrid = IA32_MTRR_FIX64K_00000_MSR;
@@ -249,7 +249,7 @@ int get_4kmem_cache_type(uint32 base)
             // edx1 = (uint32_t)&phybase;
             // edx = (uint32_t)&phymask;
             //  eax1= (uint32_t)&lbase;
-            //  printf("index =%d basel:0x%x 0x%x maskl:0x%x 0x%x addl:0x%x 0x%x\r\n",i, *(uint32 *)edx1, *(uint32 *)(edx1 + 4), *(uint32 *)edx, *(uint32 *)(edx + 4),*(uint32 *)eax1, *(uint32 *)(eax1 + 4));
+            //  printf("index =%d basel:0x%x 0x%x maskl:0x%x 0x%x addl:0x%x 0x%x\n",i, *(uint32 *)edx1, *(uint32 *)(edx1 + 4), *(uint32 *)edx, *(uint32 *)(edx + 4),*(uint32 *)eax1, *(uint32 *)(eax1 + 4));
             return (eax & 0xff);
         }
     }
@@ -340,7 +340,7 @@ int mem_variable_type_set(int msrId, uint32 base, uint32 size, int type)
         eax = (uint32_t)&phybase;
         edx = (uint32_t)&phymask;
         eax1 = 0;
-        // printf("eax:0x%x edx:0x%x eax1:0x%x edx1:0x%x\r\n",*(uint32*)eax,*(uint32*)(eax+4),*(uint32*)edx,*(uint32*)(edx+4));
+        // printf("eax:0x%x edx:0x%x eax1:0x%x edx1:0x%x\n",*(uint32*)eax,*(uint32*)(eax+4),*(uint32*)edx,*(uint32*)(edx+4));
         for (; index < maxindex; index++)
         {
             if (!eax1)
@@ -352,7 +352,7 @@ int mem_variable_type_set(int msrId, uint32 base, uint32 size, int type)
                 phymask |= (((uint64)1) << index);
         }
         phymask |= (((uint64)1) << 11);
-        // printf("eax:0x%x edx:0x%x eax1:0x%x edx1:0x%x\r\n", *(uint32 *)eax, *(uint32 *)(eax + 4), *(uint32 *)edx, *(uint32 *)(edx + 4));
+        // printf("eax:0x%x edx:0x%x eax1:0x%x edx1:0x%x\n", *(uint32 *)eax, *(uint32 *)(eax + 4), *(uint32 *)edx, *(uint32 *)(edx + 4));
         asm("cli");
         uint32 cr4data = pre_mtrr_change();
         wrmsr_fence(IA32_MTRR_PHYSBASE_ADDR(msrId), *(uint32 *)eax, *(uint32 *)(eax + 4));
@@ -371,7 +371,7 @@ void cacheMtrrMsrs()
     {
         rdmsrcall(IA32_MTRR_PHYSBASE_ADDR(i), &(mtrrmsrinfo.variableData[i].baselow), &(mtrrmsrinfo.variableData[i].basehigh));
         rdmsrcall(IA32_MTRR_PHYSMASK_ADDR(i), &(mtrrmsrinfo.variableData[i].masklow), &(mtrrmsrinfo.variableData[i].maskhign));
-        printf("variable range %d:physbase = 0x%x 0x%x  physmask = 0x%x 0x%x\r\n", i, mtrrmsrinfo.variableData[i].basehigh,
+        printf("variable range %d:physbase = 0x%x 0x%x  physmask = 0x%x 0x%x\n", i, mtrrmsrinfo.variableData[i].basehigh,
                mtrrmsrinfo.variableData[i].baselow, mtrrmsrinfo.variableData[i].maskhign, mtrrmsrinfo.variableData[i].masklow);
     }
 

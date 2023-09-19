@@ -5,5 +5,8 @@
 extern void wait60PortToread();
 extern void wait60_64PortTowirte();
 uint32 ps2DeviceInit();
+
+uint32 getchar();
+int fgets(char* s, int size);
 #endif
 

@@ -291,6 +291,8 @@ extern char *strcpy_s(char *dest, const char *src);
 extern uint32 strlen_s(const char *s);
 int strncmp_s(const char *cs, const char *ct, uint32 count);
 int strcmp_s(const char *str1, const char *str2);
+uint32 strnlen(const char *s, uint32 maxlen);
+
 char *hexstr32(char buff[9], uint32 val);
 char *hexstr64(char buff[17], uint64 val);
 

@@ -30,7 +30,7 @@ void initIoApic()
     {
         uint32_t ioapicaddr = Madt_IOAPIC[index]->IO_APIC_Address;
         mem4k_map(ioapicaddr&0xfffff000,ioapicaddr&0xfffff000,MEM_UC,PAGE_RW|PAGE_G);
-        printf("ioapic id=0x%x IOAPICVER=0x%x IOAPICARB=0x%x \r\n",read_ioapic_register(ioapicaddr,IOAPICID),
+        printf("ioapic id=0x%x IOAPICVER=0x%x IOAPICARB=0x%x \n",read_ioapic_register(ioapicaddr,IOAPICID),
         read_ioapic_register(ioapicaddr,IOAPICVER),read_ioapic_register(ioapicaddr,IOAPICARB));
     }
     

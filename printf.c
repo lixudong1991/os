@@ -333,29 +333,23 @@ int putchar(int _Character)
 {
 	uint32 pos = getcursor();
 	char c = (char)_Character;
-	if (c == 0x0d)
+	if (c == 0x0a)
 	{
 		pos = pos / 80 * 80;
+		pos += 80;
 	}
 	else
 	{
-		if (c == 0x0a)
-		{
-			pos += 80;
-		}
-		else
-		{
-			*(char *)(0xb8000 + pos * 2) = c;
-			pos++;
-		}
-		if (pos > 1999)
-		{
-			pos = 1920;
-			memcpy_s((char *)0xb8000, (char *)0xb80a0, 3840);
-			short *pchar = (short *)(0xb8000 + 3840);
-			for (int i = 0; i < 80; i++)
-				*pchar++ = 0x0720;
-		}
+		*(char *)(0xb8000 + pos * 2) = c;
+		pos++;
+	}
+	if (pos > 1999)
+	{
+		pos = 1920;
+		memcpy_s((char *)0xb8000, (char *)0xb80a0, 3840);
+		short *pchar = (short *)(0xb8000 + 3840);
+		for (int i = 0; i < 80; i++)
+			*pchar++ = 0x0720;
 	}
 	setcursor(pos);
 }
@@ -365,5 +359,28 @@ void puts(const char *str)
 	char *pstr = str;
 	while (*pstr != 0)
 		putchar(*pstr++);
-	unlock(lockBuff[PRINT_LOCK].plock);	
+	unlock(lockBuff[PRINT_LOCK].plock);
+}
+int putcharPos(int _Character, int pos)
+{
+	char c = (char)_Character;
+	if (c == 0x0a)
+	{
+		pos = pos / 80 * 80;
+		pos += 80;
+	}
+	else
+	{
+		*(char*)(0xb8000 + pos * 2) = c;
+		pos++;
+	}
+	if (pos > 1999)
+	{
+		pos = 1920;
+		memcpy_s((char*)0xb8000, (char*)0xb80a0, 3840);
+		short* pchar = (short*)(0xb8000 + 3840);
+		for (int i = 0; i < 80; i++)
+			*pchar++ = 0x0720;
+	}
+	setcursor(pos);
 }

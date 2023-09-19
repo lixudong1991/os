@@ -6,6 +6,6 @@ int sprintf(char *buf, const char *fmt, ...);
 int printf(const char *fmt, ...);
 int putchar(int _Character);
 void puts(const char *str);
-
+int putcharPos(int _Character, int pos);
 
 #endif // ! _PRINT_F_HH_

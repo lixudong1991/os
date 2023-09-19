@@ -378,7 +378,7 @@ void APproc(uint32 argv)
 	// if ((eax & 0x100) == 0) // 判读是否是AP
 	{
 
-		printf("AP log =========%d init\r\n", argv);
+		printf("AP log =========%d init\n", argv);
 		spinlock(lockBuff[KERNEL_LOCK].plock);
 		initApic();
 		unlock(lockBuff[KERNEL_LOCK].plock);
@@ -397,7 +397,7 @@ void APproc(uint32 argv)
 		while (1)
 		{
 			// asm("cli");
-			// printf("AP %d empty hlt\r\n", argv);
+			// printf("AP %d empty hlt\n", argv);
 			// asm("sti");
 			// uint32 waitap = 0xfffff;
 			// while (waitap--);
@@ -410,7 +410,7 @@ void MPinit()
 {
 #if X2APIC_ENABLE
 #else
-	printf("map apcode %x :%d\r\n", AP_CODE_ADDR,mem4k_map(AP_CODE_ADDR, AP_CODE_ADDR, MEM_WB, PAGE_G|PAGE_R));
+	printf("map apcode %x :%d\n", AP_CODE_ADDR,mem4k_map(AP_CODE_ADDR, AP_CODE_ADDR, MEM_WB, PAGE_G|PAGE_R));
 	// read_ata_sectors(0x4b000, 144, 2);
 	uint32_t addr = AP_ARG_ADDR&0xfffff000, size = 0x1000, temp = 0;
 	mem_fix_type_set(addr, size, MEM_UC);
@@ -440,7 +440,7 @@ void MPinit()
 
 	addr = xapicaddr, size = 0x1000 * (aparg->logcpucount);
 	temp = mem_fix_type_set(addr, size, MEM_UC);
-	printf("after 0x%x mem cache type %d temp=%d\r\n", addr, mem_cache_type_get(addr, size), temp);
+	printf("after 0x%x mem cache type %d temp=%d\n", addr, mem_cache_type_get(addr, size), temp);
 
 	initApic();
 
@@ -471,7 +471,7 @@ void MPinit()
 		kernelData.taskList.size++;
 	}
 	uint32 *stackinfo = (uint32 *)(AP_ARG_ADDR + sizeof(AParg));
-	printf("processor count =%d\r\n", aparg->logcpucount);
+	printf("processor count =%d\n", aparg->logcpucount);
 
 	memset_s((char *)&tempSeg, 0, sizeof(TableSegmentItem));
 	tempSeg.segmentBaseAddr = 0;
@@ -549,23 +549,23 @@ int _start(void *argv)
 	// 禁用8259a所有中断
 
 	// char number[32];
-	// puts("\r\nbus:");
+	// puts("\nbus:");
 	// puts(hexstr32(number, bootparam.bus));
-	// puts("\r\nslot:");
+	// puts("\nslot:");
 	// puts(hexstr32(number, bootparam.slot));
-	// puts("\r\nvendor:");
+	// puts("\nvendor:");
 	// puts(hexstr32(number, bootparam.vendor));
-	// puts("\r\ndevice:");
+	// puts("\ndevice:");
 	// puts(hexstr32(number, bootparam.device));
-	// puts("\r\nbar5:");
+	// puts("\nbar5:");
 	// puts(hexstr32(number, bootparam.bar5));
-	// puts("\r\nReadAddress:");
+	// puts("\nReadAddress:");
 	// puts(hexstr32(number, bootparam.ReadAddress));
 
 	// char* buff = allocateVirtual4kPage(1,(char**)&(bootparam.kernelAllocateNextAddr),   PAGE_RW);
 	/*read_ata_sectors(buff,150,1);
 	buff[512] = 0;
-	puts("\r\n");
+	puts("\n");
 	puts(buff);*/
 	// callTss(kernelData.taskList.tcb_Last->tssSel);
 	// testfun();
@@ -574,9 +574,9 @@ int _start(void *argv)
 	check_pat();
 
 	uint32_t eax = 0;
-	printf("cr4: 0x%x\r\n", cr4_data());
+	printf("cr4: 0x%x\n", cr4_data());
 	eax = cr0_data();
-	printf("cr0_data: 0x%x\r\n", eax);
+	printf("cr0_data: 0x%x\n", eax);
 	MPinit();
 	cacheMtrrMsrs();
 	LOCAL_APIC *xapic_obj = (LOCAL_APIC *)getXapicAddr();
@@ -602,7 +602,7 @@ int _start(void *argv)
 	// 	while (1)
 	// 	{
 	// 		asm("cli");
-	// 		printf("kernel process.....................%s %d\r\n", "count =", count++);
+	// 		printf("kernel process.....................%s %d\n", "count =", count++);
 	// 		asm("sti");
 	// 		uint32 waittime =0xfffff;
 	// 		while(waittime--);
@@ -622,11 +622,19 @@ int _start(void *argv)
 	xapic_obj->ICR1[0] = 0;
 	xapic_obj->ICR0[0] = 0x84083; // 更新gdt,cr3
 
-	printf("ps2Deviceinit =%d\r\n",ps2DeviceInit());
-
+	printf("ps2Deviceinit =%d\n",ps2DeviceInit());
+	//printf("support:monitor/mwait = %d\n", cpufeatures[cpu_support_monitor_mwait]);
+	char inputbuff[1024] = { 0 };
 	while (1)
 	{
-		// printf("BSP empty\r\n");
+		printf("$");
+		int len=fgets(inputbuff, 1024);
+		inputbuff[len - 1] = 0;
+		printf("buff =%s\n", inputbuff);	
+	}
+	while (1)
+	{
+		// printf("BSP empty\n");
 		// waitap= 0xfffff;
 		// while (waitap--);
 		asm("sti");
@@ -637,6 +645,6 @@ int _start(void *argv)
 void TerminateProgram(uint32 retval)
 {
 	char num[16];
-	puts("\r\nUserProgram Exit code:");
+	puts("\nUserProgram Exit code:");
 	puts(hexstr32(num, retval));
 }

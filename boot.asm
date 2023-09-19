@@ -575,19 +575,24 @@ post_mtrr_change:
 
 spinlock:
 	push ebx
-	mov ebx,[esp+8]
-spin_lock:
-	mov eax,1
-    xchg  eax,[ebx]
-    test eax,eax
-    jnz   spin_lock
+	mov ebx,[esp+8]	
+Spin_Lock:
+	CMP dword [ebx], 0 ;Check if lock is free
+	JE Get_Lock
+	PAUSE ;Short delay
+	JMP Spin_Lock
+Get_Lock:
+	MOV EAX, 1
+	XCHG EAX, [ebx] ;Try to get lock
+	CMP EAX, 0 ;Test if successful
+	JNE Spin_Lock
 	pop ebx
 	ret
+
 unlock:
 	push ebx
 	mov ebx,[esp+8]
-	mov   eax,0
-    xchg  eax, [ebx]
+	mov dword [ebx],0
 	pop ebx
 	ret
 

@@ -52,17 +52,17 @@ void initX2apic()
 {
 	uint32_t eax = 0, ebx = 0, ecx = 0, edx = 0;
 	rdmsrcall(IA32_APIC_BASE_MSR, &eax, &edx);
-	printf("before enable x2apic msr: low 32:0x%x high 32:%x\r\n", eax, edx);
+	printf("before enable x2apic msr: low 32:0x%x high 32:%x\n", eax, edx);
 	enablingx2APIC();
 	eax = edx = 0;
 	rdmsrcall(IA32_APIC_BASE_MSR, &eax, &edx);
-	printf("after enable x2apic msr: low 32:0x%x high 32:%x\r\n", eax, edx);
+	printf("after enable x2apic msr: low 32:0x%x high 32:%x\n", eax, edx);
 	rdmsrcall(IA32_X2APIC_APICID, &eax, &edx);
-	printf("Local x2APIC ID:.0x%x\r\n", eax);
+	printf("Local x2APIC ID:.0x%x\n", eax);
 	rdmsrcall(IA32_X2APIC_VERSION, &eax, &edx);
-	printf("Local x2APIC Version:0x%x\r\n", eax);
+	printf("Local x2APIC Version:0x%x\n", eax);
 	rdmsrcall(IA32_X2APIC_LDR, &eax, &edx); // Logical x2APIC ID = [(x2APIC ID[19:4] « 16) | (1 « x2APIC ID[3:0])]
-	printf("Logical Destination:0x%x\r\n", eax);
+	printf("Logical Destination:0x%x\n", eax);
 
 	// rtc_8259a_enable();
 
@@ -100,12 +100,12 @@ void initxapic()
 	enablexApic();
    LOCAL_APIC *xapic = (LOCAL_APIC *)getXapicAddr();
    int stat = mem4k_map((uint32)xapic, (uint32)xapic, MEM_UC,PAGE_G|PAGE_RW);
-	printf("map xapic addr 0x%x status %d\r\n", (uint32)xapic,stat);
-	printf("xapic siv =0x%x\r\n",xapic->SIV[0]);
+	printf("map xapic addr 0x%x status %d\n", (uint32)xapic,stat);
+	printf("xapic siv =0x%x\n",xapic->SIV[0]);
 	xapic->SIV[0] |=0x100; //software enable xapic
-	printf("xapic id =0x%x\r\n",xapic->ID[0]);
-	printf("xapic Version =0x%x\r\n",xapic->Version[0]);
-	printf("xapic LDR =0x%x\r\n",logicalID);
+	printf("xapic id =0x%x\n",xapic->ID[0]);
+	printf("xapic Version =0x%x\n",xapic->Version[0]);
+	printf("xapic LDR =0x%x\n",logicalID);
    //设置LDR,DFR
    xapic->LDR[0] = logicalID;
    xapic->DFR[0] = 0xF0000000; //DFR设置为 平坦模式

@@ -60,10 +60,10 @@ void fontInit()
     stbtt_fontinfo info;
     if (!stbtt_InitFont(&info, FONT_START_MEM, 0))
     {
-        printf("stb init font failed\r\n");
+        printf("stb init font failed\n");
     }
     else
-        printf("stb init font success\r\n");
+        printf("stb init font success\n");
 
     char word[] ="STBfont";    
     /* 创建位图 */

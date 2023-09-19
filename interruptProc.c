@@ -10,13 +10,13 @@ extern ProcessorInfo processorinfo;
 extern AParg *aparg;
 int general_exeption_no_code(uint32 eno,uint32 addr)
 {
-    printf("********Exception in 0x%x %d encounted********\r\n",addr, eno);
+    printf("********Exception in 0x%x %d encounted********\n",addr, eno);
     return 0;
 }
 
 int general_exeption_code(uint32 eno, uint32 code,uint32 addr)
 {
-    printf("********Exception  %d in 0x%x  code: 0x%x********\r\n", eno,addr, code);
+    printf("********Exception  %d in 0x%x  code: 0x%x********\n", eno,addr, code);
     return 0;
 }
 static void xapicwriteEOI()
@@ -34,14 +34,14 @@ static void local_x2apic_error_handling()
     wrmsr_fence(IA32_X2APIC_ESR, 0, 0);
     rdmsr_fence(IA32_X2APIC_ESR, &eax, &edx);
     rdmsr_fence(IA32_X2APIC_APICID, &x2id, &empty);
-    printf("x2apic error: x2apicid =0x%x code =0x%x\r\n", x2id, eax);
+    printf("x2apic error: x2apicid =0x%x code =0x%x\n", x2id, eax);
     x2apicwriteEOI();
 }
 static void local_xapic_error_handling()
 {
     LOCAL_APIC *apic = (LOCAL_APIC *)getXapicAddr();
     apic->ErrStatus[0] = 0;
-    printf("xapic error: apicid =0x%x code =0x%x\r\n", apic->ID[0], apic->ErrStatus[0]);
+    printf("xapic error: apicid =0x%x code =0x%x\n", apic->ID[0], apic->ErrStatus[0]);
     xapicwriteEOI();
 }
 
@@ -71,14 +71,14 @@ static void xApicTimeOut()
         nextTask = nextTask->next;
         unlock(lockBuff[KERNEL_LOCK].plock);
     }
-    printf("xApicTimeOut first:0x%x  current:0x%x  next:0x%x\r\n",kernelData.taskList.tcb_Frist,procCurrTask[apid],nextTask);
+    printf("xApicTimeOut first:0x%x  current:0x%x  next:0x%x\n",kernelData.taskList.tcb_Frist,procCurrTask[apid],nextTask);
     if(nextTask!=procCurrTask[apid])
     {
         procCurrTask[apid]->taskStats =0;
         procCurrTask[apid] = nextTask;
         if(nextTask != kernelData.taskList.tcb_Frist)
             apic->InitialCount[0] = 0xfffff;
-        printf("jump 0x%x\r\n",nextTask);
+        printf("jump 0x%x\n",nextTask);
         xapicwriteEOI();
         callTss(&(nextTask->AllocateNextAddr));
     }
@@ -94,9 +94,9 @@ void systemCall()
 #if X2APIC_ENABLE
     uint32 x2id = 0, empty = 0;
     rdmsr_fence(IA32_X2APIC_APICID, &x2id, &empty);
-    printf("system call x2apicid:0x%x\r\n", x2id);
+    printf("system call x2apicid:0x%x\n", x2id);
 #else
-    printf("system call apicid:0x%x\r\n", ((LOCAL_APIC *)getXapicAddr())->ID[0]);
+    printf("system call apicid:0x%x\n", ((LOCAL_APIC *)getXapicAddr())->ID[0]);
 #endif
 }
 void apicError()
@@ -129,7 +129,7 @@ void updataGdt()
 	aparg->logcpucount--;
 	unlock(lockBuff[UPDATE_GDT_CR3].plock);
 	while(aparg->logcpucount>0);
-    printf("updataGdt apicid:0x%x\r\n", ((LOCAL_APIC *)getXapicAddr())->ID[0]);
+    printf("updataGdt apicid:0x%x\n", ((LOCAL_APIC *)getXapicAddr())->ID[0]);
     xapicwriteEOI();
 }
 
@@ -144,6 +144,6 @@ void processorMtrrSync()
 	aparg->logcpucount--;
 	unlock(lockBuff[MTRR_LOCK].plock);
 	while(aparg->logcpucount>0);
-    printf("processorMtrrSync apicid:0x%x\r\n", ((LOCAL_APIC *)getXapicAddr())->ID[0]);
+    printf("processorMtrrSync apicid:0x%x\n", ((LOCAL_APIC *)getXapicAddr())->ID[0]);
     xapicwriteEOI();
 }
