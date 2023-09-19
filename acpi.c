@@ -5,8 +5,8 @@
 uint32_t *AcpiTableAddrs;
 IoApicEntry **Madt_IOAPIC;
 LocalApicEntry **Madt_LOCALAPIC;
-uint8_t Madt_LOCALAPIC_count=0;
-uint8_t Madt_IOAPIC_count=0;
+uint8_t Madt_LOCALAPIC_count = 0;
+uint8_t Madt_IOAPIC_count = 0;
 extern BootParam bootparam;
 static void getnext_KMP(const char *dest, int next[], int len)
 {
@@ -122,7 +122,7 @@ void readMADTInfo(uint32 madtaddr)
         {
             LocalApicEntry *loapic = pentry + eindex;
             printf("Loapic: ACPI Processor UID=%d APICID=%d Flags=%d\n", loapic->ACPI_Processor_UID, loapic->APIC_ID, loapic->Flags);
-            Madt_LOCALAPIC[Madt_LOCALAPIC_count]=loapic;
+            Madt_LOCALAPIC[Madt_LOCALAPIC_count] = loapic;
             Madt_LOCALAPIC_count++;
         }
         break;
@@ -131,14 +131,14 @@ void readMADTInfo(uint32 madtaddr)
             IoApicEntry *ioapic = pentry + eindex;
             printf("IOapic: IOAPIC_ID=%d I/O_APIC_Address=0x%x GlobalSystemInterruptBase=%d\n",
                    ioapic->IO_APIC_ID, ioapic->IO_APIC_Address, ioapic->Global_System_Interrupt_Base);
-            Madt_IOAPIC[Madt_IOAPIC_count]=ioapic;
-            Madt_IOAPIC_count++;   
+            Madt_IOAPIC[Madt_IOAPIC_count] = ioapic;
+            Madt_IOAPIC_count++;
         }
         case 2:
         {
             IntSourceOverride *isoverr = pentry + eindex;
-             printf(": Interrupt Source Override:BUS=%d SOURCE=%d GlobalSystemInterrupt=%d Flags=%d\n",
-                   isoverr->Bus,isoverr->Source, isoverr->G_Sys_int,isoverr->Flags);
+            printf(": Interrupt Source Override:BUS=%d SOURCE=%d GlobalSystemInterrupt=%d Flags=%d\n",
+                   isoverr->Bus, isoverr->Source, isoverr->G_Sys_int, isoverr->Flags);
         }
         break;
         default:
@@ -147,9 +147,38 @@ void readMADTInfo(uint32 madtaddr)
         eindex += pentry[eindex + 1];
     }
 }
+
+void readMCFGInfo(uint32 mcfgaddr)
+{
+    char sign[9] = {0};
+    SysDtHead *pmcfg = mcfgaddr;
+    mem4k_map(mcfgaddr & 0xfffff000, mcfgaddr & 0xfffff000, MEM_UC, PAGE_G | PAGE_R);
+    mem4k_map((mcfgaddr + pmcfg->Length - 1) & 0xfffff000, (mcfgaddr + pmcfg->Length - 1) & 0xfffff000, MEM_UC, PAGE_G | PAGE_R);
+    sign[0] = pmcfg->Signature[0];
+    sign[1] = pmcfg->Signature[1];
+    sign[2] = pmcfg->Signature[2];
+    sign[3] = pmcfg->Signature[3];
+    sign[4] = 0;
+    printf("mcfg:sign=%s len=%d revision=%d oemrevison =%d ", sign, pmcfg->Length, pmcfg->Revision, pmcfg->OEM_Revision);
+    memcpy_s(sign, pmcfg->OEMID, 6);
+    sign[6] = 0;
+    printf("mcfg OEMID:%s ", sign);
+    memcpy_s(sign, pmcfg->OEM_TABLE_ID, 8);
+    sign[8] = 0;
+    printf("mcfg OEM Table ID:%s\n", sign);
+    pciConfigSpaceBaseAddr *space = (pciConfigSpaceBaseAddr *)(mcfgaddr+44);
+    uint32 spacecount=(pmcfg->Length-44)/sizeof(pciConfigSpaceBaseAddr);
+    for(int i=0;i<spacecount;i++)
+    {
+        printf("pci space %d: configBaseaddr=%x PCIsegGroup=%d StartPCIBUS=%d EndPCIBUS=%d\n",i,(uint32_t)(space->BaseAddr),space->PciSegGroup,space->StartPCIbus,
+        space->EndPCIbus);
+        space++;
+    }
+
+}
 void readAcpiTable(RSDPStruct *prsdp)
 {
-    AcpiTableAddrs[RSDP]=prsdp;
+    AcpiTableAddrs[RSDP] = prsdp;
     char rsign[9] = {0};
     printf("RSDP addr:0x%x\n", prsdp);
     memcpy_s(rsign, prsdp->Signature, 8);
@@ -162,7 +191,7 @@ void readAcpiTable(RSDPStruct *prsdp)
     // printf("RSDP RsdtAddress:%x\n",prsdp->RsdtAddress);
     if (prsdp->Revision == 2)
     {
-        AcpiTableAddrs[XSDT]=(uint32_t)(prsdp->XsdtAddress);
+        AcpiTableAddrs[XSDT] = (uint32_t)(prsdp->XsdtAddress);
         uint32_t eax = 0, mapaddr = 0;
         eax = (uint32_t) & (prsdp->XsdtAddress);
         printf("RSDP XsdtAddress:%x %x\n", *(uint32 *)(eax + 4), *(uint32 *)eax);
@@ -212,24 +241,25 @@ void readAcpiTable(RSDPStruct *prsdp)
         printf("FADT IAPC_BOOT_ARCH: %x\n", *(uint16_t *)(fadtaddr + 109));
         printf("MCFG addr: %x\n", mcfgaddr);
         printf("MADT addr: %x\n", madtaddr);
-        AcpiTableAddrs[FADT]=(uint32_t)(fadtaddr);
-        AcpiTableAddrs[MCFG]=(uint32_t)(mcfgaddr);
-        AcpiTableAddrs[MADT]=(uint32_t)(madtaddr);
+        AcpiTableAddrs[FADT] = (uint32_t)(fadtaddr);
+        AcpiTableAddrs[MCFG] = (uint32_t)(mcfgaddr);
+        AcpiTableAddrs[MADT] = (uint32_t)(madtaddr);
         readMADTInfo(madtaddr);
+        readMCFGInfo(mcfgaddr);
     }
 }
 
 void initAcpiTable()
 {
-	char *rsdpaddr = NULL;
-    AcpiTableAddrs = kernel_malloc(ACPITYPECOUNT*sizeof(uint32));
-    Madt_IOAPIC = kernel_malloc(MAX_IOAPIC_COUNT*sizeof(IoApicEntry *));
-    Madt_LOCALAPIC = kernel_malloc(MAX_LOAPIC_COUNT*sizeof(LocalApicEntry *));
-    memset_s(AcpiTableAddrs,0,ACPITYPECOUNT*sizeof(uint32));
-    printf("Madt_IOAPIC %d\n",sizeof(IoApicEntry *));
-    memset_s(Madt_IOAPIC,0,sizeof(IoApicEntry *)*MAX_IOAPIC_COUNT);
-    printf("Madt_LOCALAPIC %d\n",sizeof(LocalApicEntry *));
-    memset_s(Madt_LOCALAPIC,0,MAX_LOAPIC_COUNT*sizeof(LocalApicEntry *));
+    char *rsdpaddr = NULL;
+    AcpiTableAddrs = kernel_malloc(ACPITYPECOUNT * sizeof(uint32));
+    Madt_IOAPIC = kernel_malloc(MAX_IOAPIC_COUNT * sizeof(IoApicEntry *));
+    Madt_LOCALAPIC = kernel_malloc(MAX_LOAPIC_COUNT * sizeof(LocalApicEntry *));
+    memset_s(AcpiTableAddrs, 0, ACPITYPECOUNT * sizeof(uint32));
+    printf("Madt_IOAPIC %d\n", sizeof(IoApicEntry *));
+    memset_s(Madt_IOAPIC, 0, sizeof(IoApicEntry *) * MAX_IOAPIC_COUNT);
+    printf("Madt_LOCALAPIC %d\n", sizeof(LocalApicEntry *));
+    memset_s(Madt_LOCALAPIC, 0, MAX_LOAPIC_COUNT * sizeof(LocalApicEntry *));
 #if 0
 	
 	for (int i = 0; i < bootparam.memInfoSize; i++)
@@ -242,13 +272,12 @@ void initAcpiTable()
 		}
 	}
 #else
-	rsdpaddr = findRSDPAddr(0xe0000,0x100000);
+    rsdpaddr = findRSDPAddr(0xe0000, 0x100000);
 #endif
-	if (rsdpaddr)
-	{
-		readAcpiTable(rsdpaddr);
-	}
-	else
-		printf("not find RSDP\n");
-
+    if (rsdpaddr)
+    {
+        readAcpiTable(rsdpaddr);
+    }
+    else
+        printf("not find RSDP\n");
 }

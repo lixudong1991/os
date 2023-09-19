@@ -361,26 +361,13 @@ void puts(const char *str)
 		putchar(*pstr++);
 	unlock(lockBuff[PRINT_LOCK].plock);
 }
-int putcharPos(int _Character, int pos)
+void clearChars(int count)
 {
-	char c = (char)_Character;
-	if (c == 0x0a)
+	uint32 pos = getcursor();
+
+	for(int start=pos-count;start<pos;start++)
 	{
-		pos = pos / 80 * 80;
-		pos += 80;
+		*(char*)(0xb8000 + start * 2) = 0x20;
 	}
-	else
-	{
-		*(char*)(0xb8000 + pos * 2) = c;
-		pos++;
-	}
-	if (pos > 1999)
-	{
-		pos = 1920;
-		memcpy_s((char*)0xb8000, (char*)0xb80a0, 3840);
-		short* pchar = (short*)(0xb8000 + 3840);
-		for (int i = 0; i < 80; i++)
-			*pchar++ = 0x0720;
-	}
-	setcursor(pos);
+	setcursor(pos-count);
 }

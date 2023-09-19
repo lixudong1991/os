@@ -209,6 +209,16 @@ void ps2KeyInterruptProc(uint32_t code)
                 {
                 }
                 break;
+                case 0x66:
+                {
+                    if (pkeyBoardStruct->ps2KeyCodeBuffIndex > 0)
+                    {
+                        pkeyBoardStruct->ps2KeyCodeBuffIndex--;
+                        pkeyBoardStruct->ps2KeyCodeBuff[pkeyBoardStruct->ps2KeyCodeBuffIndex] = 0;
+                        clearChars(1);
+                    }
+                }
+                break;
                 default:
                     break;
                 }
@@ -321,24 +331,22 @@ uint32 getchar()
                 pkeyBoardStruct->getcharIndex = 0;
                 pkeyBoardStruct->Various[ENTER_PRESS] = 0;
             }
-               
         }
-            
+
         asm("sti");
         asm("hlt");
     }
-
 }
-int fgets(char* s, int size)
+int fgets(char *s, int size)
 {
     char c = 0;
     int len = 0;
     do
     {
-        c =(char)getchar();
+        c = (char)getchar();
         s[len] = c;
         len++;
-    } while (c != '\n'&& len<(size-1));
+    } while (c != '\n' && len < (size - 1));
     s[len] = 0;
     return len;
 }

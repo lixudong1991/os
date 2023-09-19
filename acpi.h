@@ -56,6 +56,14 @@ typedef struct IntSourceOverride {
     uint16_t Flags;
 }IntSourceOverride;
 
+typedef struct pciConfigSpaceBaseAddr{
+    uint64_t BaseAddr;
+    uint16_t PciSegGroup;
+    uint8_t StartPCIbus;
+    uint8_t EndPCIbus;
+    uint32_t reserved;
+}pciConfigSpaceBaseAddr;
+
 #pragma pack()
 
 void initAcpiTable();
