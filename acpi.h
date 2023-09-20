@@ -103,9 +103,13 @@ ACPITYPECOUNT
 
 #define MAX_IOAPIC_COUNT 32
 #define MAX_LOAPIC_COUNT 32
+#define MAX_MCFG_PCICONFIG_COUNT 8
+
 extern uint32_t *AcpiTableAddrs;
 extern IoApicEntry **Madt_IOAPIC;
 extern LocalApicEntry **Madt_LOCALAPIC;
 extern uint8_t Madt_LOCALAPIC_count;
 extern uint8_t Madt_IOAPIC_count;
+
+extern pciConfigSpaceBaseAddr **mcfgPciConfigSpace;
 #endif

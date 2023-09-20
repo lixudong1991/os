@@ -5,6 +5,7 @@
 uint32_t *AcpiTableAddrs;
 IoApicEntry **Madt_IOAPIC;
 LocalApicEntry **Madt_LOCALAPIC;
+pciConfigSpaceBaseAddr **mcfgPciConfigSpace;
 uint8_t Madt_LOCALAPIC_count = 0;
 uint8_t Madt_IOAPIC_count = 0;
 extern BootParam bootparam;
@@ -172,6 +173,7 @@ void readMCFGInfo(uint32 mcfgaddr)
     {
         printf("pci space %d: configBaseaddr=%x PCIsegGroup=%d StartPCIBUS=%d EndPCIBUS=%d\n",i,(uint32_t)(space->BaseAddr),space->PciSegGroup,space->StartPCIbus,
         space->EndPCIbus);
+        mcfgPciConfigSpace[i] = space;
         space++;
     }
 
@@ -255,11 +257,12 @@ void initAcpiTable()
     AcpiTableAddrs = kernel_malloc(ACPITYPECOUNT * sizeof(uint32));
     Madt_IOAPIC = kernel_malloc(MAX_IOAPIC_COUNT * sizeof(IoApicEntry *));
     Madt_LOCALAPIC = kernel_malloc(MAX_LOAPIC_COUNT * sizeof(LocalApicEntry *));
+    mcfgPciConfigSpace = kernel_malloc(MAX_MCFG_PCICONFIG_COUNT * sizeof(pciConfigSpaceBaseAddr *));
     memset_s(AcpiTableAddrs, 0, ACPITYPECOUNT * sizeof(uint32));
-    printf("Madt_IOAPIC %d\n", sizeof(IoApicEntry *));
     memset_s(Madt_IOAPIC, 0, sizeof(IoApicEntry *) * MAX_IOAPIC_COUNT);
-    printf("Madt_LOCALAPIC %d\n", sizeof(LocalApicEntry *));
     memset_s(Madt_LOCALAPIC, 0, MAX_LOAPIC_COUNT * sizeof(LocalApicEntry *));
+    memset_s(mcfgPciConfigSpace, 0, MAX_MCFG_PCICONFIG_COUNT * sizeof(pciConfigSpaceBaseAddr *));
+
 #if 0
 	
 	for (int i = 0; i < bootparam.memInfoSize; i++)

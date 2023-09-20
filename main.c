@@ -11,6 +11,7 @@
 #include "acpi.h"
 #include "ioapic.h"
 #include "ps2device.h"
+#include "pcie.h"
 #define STACKLIMIT_G1(a) ((((uint32)(a)) - 1) >> 12) // gdt 表项粒度为1的段界限
 
 
@@ -619,18 +620,24 @@ int _start(void *argv)
 
 	initAcpiTable();
     initIoApic();
+	checkPciDevice();
 	xapic_obj->ICR1[0] = 0;
 	xapic_obj->ICR0[0] = 0x84083; // 更新gdt,cr3
-
+	asm("cli");
 	printf("ps2Deviceinit =%d\n",ps2DeviceInit());
+	asm("sti");
 	//printf("support:monitor/mwait = %d\n", cpufeatures[cpu_support_monitor_mwait]);
 	char inputbuff[1024] = { 0 };
 	while (1)
 	{
+		asm("cli");
 		printf("$");
+		asm("sti");
 		int len=fgets(inputbuff, 1024);
 		inputbuff[len - 1] = 0;
+		asm("cli");
 		printf("buff =%s\n", inputbuff);	
+		asm("sti");
 	}
 	while (1)
 	{

@@ -580,6 +580,7 @@ Spin_Lock:
 	CMP dword [ebx], 0 ;Check if lock is free
 	JE Get_Lock
 	PAUSE ;Short delay
+	;mov word [0xb8000],0x0740
 	JMP Spin_Lock
 Get_Lock:
 	MOV EAX, 1

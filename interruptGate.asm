@@ -14,64 +14,44 @@ XAPIC_ErrStatus_OFFSET  equ 0x280
 XAPIC_EOI_OFFSET  equ 0xB0
 
 general_exception0_handler:
-	push dword [esp]
-	push dword 0
-	call general_exeption_no_code
-	add esp,8
+	mov word [0xb8000],0x0740
+	mov word [0xb8002],0x0730
 	hlt
 general_exception1_handler:
-	push dword [esp]
-	push dword 1
-	call general_exeption_no_code
-	add esp,8
+	mov word [0xb8000],0x0740
+	mov word [0xb8002],0x0731
 	hlt
 general_exception2_handler:
-	push dword [esp]
-	push dword 2
-	call general_exeption_no_code
-	add esp,8
+	mov word [0xb8000],0x0740
+	mov word [0xb8002],0x0732
 	hlt
 general_exception3_handler:
-	push dword [esp]
-	push dword 3
-	call general_exeption_no_code
-	add esp,8
+	mov word [0xb8000],0x0740
+	mov word [0xb8002],0x0733
 	hlt
 general_exception4_handler:
-	push dword [esp]
-	push dword 4
-	call general_exeption_no_code
-	add esp,8
+	mov word [0xb8000],0x0740
+	mov word [0xb8002],0x0734
 	hlt
 general_exception5_handler:
-	push dword [esp]
-	push dword 5
-	call general_exeption_no_code
-	add esp,8
+	mov word [0xb8000],0x0740
+	mov word [0xb8002],0x0735
 	hlt
 general_exception6_handler:
-	push dword [esp]
-	push dword 6
-	call general_exeption_no_code
-	add esp,8
+	mov word [0xb8000],0x0740
+	mov word [0xb8002],0x0736
 	hlt
 general_exception7_handler:
-	push dword [esp]
-	push dword 7
-	call general_exeption_no_code
-	add esp,8
+	mov word [0xb8000],0x0740
+	mov word [0xb8002],0x0737
 	hlt
 general_exception8_handler:
-	push dword [esp]
-	push dword 8
-	call general_exeption_no_code
-	add esp,8
+	mov word [0xb8000],0x0740
+	mov word [0xb8002],0x0738
 	hlt
 general_exception9_handler:
-	push dword [esp]
-	push dword 9
-	call general_exeption_no_code
-	add esp,8
+	mov word [0xb8000],0x0740
+	mov word [0xb8002],0x0739
 	hlt
 general_exceptiona_handler:
 	mov eax,[esp]
