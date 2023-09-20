@@ -1,7 +1,5 @@
 #include "boot.h"
 
-extern int read_sectors_max_256(char *des, int startSector, int count);
-
 int read_sectors(char *des, int startSector, int count)
 {
 	int sum = count;

@@ -17,7 +17,22 @@ typedef struct PciDeviceConfigHead
     uint8_t  HeaderType;
     uint8_t  BIST;
 }PciDeviceConfigHead;
-#pragma pack()
-void checkPciDevice();
 
+
+#pragma pack()
+
+#define MAX_PCIE_CONFIG_PAGE_COUNT 256
+
+typedef struct PcieConfigInfo
+{
+    uint8_t bus;
+    uint8_t device;
+    uint8_t function;
+    uint8_t reserve;
+    PciDeviceConfigHead *pConfigPage;
+}PcieConfigInfo;
+
+void checkPciDevice();
+extern PcieConfigInfo  *pcieConfigInfos;
+extern uint32 pcieConfigInfoCount;
 #endif

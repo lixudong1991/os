@@ -122,3 +122,27 @@ void kassert( int expression )
 {
 	
 }
+int mem4k_unmap(uint32 linearaddr)
+{
+if ((linearaddr & 0x0fff))
+		return FALSE;
+	uint32 startaddr = linearaddr;
+	uint32 pageDiraddr = startaddr >> 22;
+	pageDiraddr = pageDiraddr << 2;
+	uint32 *ppageDiraddr = (uint32 *)(0xfffff000 + pageDiraddr);
+	asm("mfence");
+	uint32 tableaddr = *ppageDiraddr;
+	if ((tableaddr & 1) != 1)
+		return TRUE;
+		
+	uint32 pageAddr = (startaddr & 0x3FF000) >> 12;
+	pageAddr = pageAddr << 2;
+	uint32 *pagePhyAddr = (uint32 *)((0xffc00000 | (pageDiraddr << 10)) + pageAddr);
+	asm("mfence");
+	uint32 phyaddr =*pagePhyAddr;
+	*pagePhyAddr = 0;
+	freePhy4kPage(phyaddr);
+	resetcr3();
+	return TRUE;
+	
+}

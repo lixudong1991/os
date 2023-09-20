@@ -280,6 +280,8 @@ extern uint32 freePhy4kPage(uint32 page);
 void kassert( int expression );
 char *allocateVirtual4kPage(uint32 size, uint32 *pAddr, uint32 prop);
 int mem4k_map(uint32 linearaddr,uint32 phyaddr,int memcachType,uint32 prop);
+int mem4k_unmap(uint32 linearaddr);
+
 void* kernel_malloc(uint32 size);
 void  kernel_free(void*);
 
@@ -295,10 +297,6 @@ uint32 strnlen(const char *s, uint32 maxlen);
 
 char *hexstr32(char buff[9], uint32 val);
 char *hexstr64(char buff[17], uint64 val);
-
-int read_sectors(char *des, int startSector, int count);
-
-int read_ata_sectors(char *des, int startSector, int count);
 
 uint16 appendTableSegItem(Tableinfo *info, TableSegmentItem *item);
 BOOL getTableSegItem(Tableinfo *info, TableSegmentItem *item, uint16 SegSelect);
