@@ -280,7 +280,7 @@ extern uint32 freePhy4kPage(uint32 page);
 void kassert( int expression );
 char *allocateVirtual4kPage(uint32 size, uint32 *pAddr, uint32 prop);
 int mem4k_map(uint32 linearaddr,uint32 phyaddr,int memcachType,uint32 prop);
-int mem4k_unmap(uint32 linearaddr);
+int mem4k_unmap(uint32 linearaddr,int isFreePhyPage);
 
 void* kernel_malloc(uint32 size);
 void  kernel_free(void*);

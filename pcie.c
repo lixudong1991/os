@@ -63,7 +63,7 @@ void checkDevice(uint8_t bus, uint8_t device)
     vendorID = phead->VendorID;
     if (vendorID == 0xFFFF)
     {
-        mem4k_unmap(((uint32_t)phead) & 0xfffff000);
+        mem4k_unmap(((uint32_t)phead) & 0xfffff000,FALSE);
         return; // Device doesn't exist
     }
     deviceID = phead->deviceID;

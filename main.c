@@ -618,14 +618,15 @@ int _start(void *argv)
 	// 		//xapic_obj->ICR0[0] = 0x44082;
 	// #endif
 	// 	}
-
+	asm("cli");
 	initAcpiTable();
     initIoApic();
 	checkPciDevice();
+	initAHCI();
+	asm("sti");
 	xapic_obj->ICR1[0] = 0;
 	xapic_obj->ICR0[0] = 0x84083; // 更新gdt,cr3
 	asm("cli");
-	initAHCI();
 	printf("ps2Deviceinit =%d\n",ps2DeviceInit());
 	asm("sti");
 	//printf("support:monitor/mwait = %d\n", cpufeatures[cpu_support_monitor_mwait]);

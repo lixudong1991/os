@@ -1,7 +1,7 @@
 #include "boot.h"
 #include "memcachectl.h"
 #define ALLOC_ALIGN 4
-#define START_PHY_MEM_PAGE  0x100
+#define START_PHY_MEM_PAGE 0x100
 extern BootParam bootparam;
 extern KernelData kernelData;
 char *allocate_memory(TaskCtrBlock *task, uint32 size, uint32 prop)
@@ -101,30 +101,28 @@ int mem4k_map(uint32 linearaddr, uint32 phyaddr, int memcachType, uint32 prop)
 
 	asm("mfence");
 	(*pagePhyAddr) |= prop;
-	if(memcachType>=0||memcachType<8)
+	if (memcachType >= 0 || memcachType < 8)
 	{
 		asm("mfence");
-		(*pagePhyAddr) |=mem_type_map_pat[memcachType];
-	}		
+		(*pagePhyAddr) |= mem_type_map_pat[memcachType];
+	}
 	resetcr3();
 	return TRUE;
 }
 
-void* kernel_malloc(uint32 size)
+void *kernel_malloc(uint32 size)
 {
-	return allocate_memory(kernelData.taskList.tcb_Frist,size,PAGE_RW);
+	return allocate_memory(kernelData.taskList.tcb_Frist, size, PAGE_RW);
 }
-void  kernel_free(void* p)
+void kernel_free(void *p)
 {
-
 }
-void kassert( int expression )
+void kassert(int expression)
 {
-	
 }
-int mem4k_unmap(uint32 linearaddr)
+int mem4k_unmap(uint32 linearaddr, int isFreePhyPage)
 {
-if ((linearaddr & 0x0fff))
+	if ((linearaddr & 0x0fff))
 		return FALSE;
 	uint32 startaddr = linearaddr;
 	uint32 pageDiraddr = startaddr >> 22;
@@ -134,15 +132,15 @@ if ((linearaddr & 0x0fff))
 	uint32 tableaddr = *ppageDiraddr;
 	if ((tableaddr & 1) != 1)
 		return TRUE;
-		
+
 	uint32 pageAddr = (startaddr & 0x3FF000) >> 12;
 	pageAddr = pageAddr << 2;
 	uint32 *pagePhyAddr = (uint32 *)((0xffc00000 | (pageDiraddr << 10)) + pageAddr);
 	asm("mfence");
-	uint32 phyaddr =*pagePhyAddr;
+	uint32 phyaddr = *pagePhyAddr;
 	*pagePhyAddr = 0;
-	freePhy4kPage(phyaddr);
+	if (isFreePhyPage)
+		freePhy4kPage(phyaddr);
 	resetcr3();
 	return TRUE;
-	
 }

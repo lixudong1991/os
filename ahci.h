@@ -22,7 +22,8 @@ typedef volatile struct tagHBA_PORT
     DWORD   ci;     // 0x38, command issue
     DWORD   sntf;       // 0x3C, SATA notification (SCR4:SNotification)
     DWORD   fbs;        // 0x40, FIS-based switch control
-    DWORD   rsv1[11];   // 0x44 ~ 0x6F, Reserved
+    DWORD   devslp;     //0x44
+    DWORD   rsv1[10];   // 0x48 ~ 0x6F, Reserved
     DWORD   vendor[4];  // 0x70 ~ 0x7F, vendor specific
 } HBA_PORT;
 
@@ -67,5 +68,8 @@ typedef volatile struct tagHBA_MEM
 
 void initAHCI();
 
+#define HBA_PORT_COUNT 32
 extern HBA_MEM *pHbaMem;
+extern uint32_t portSataDev;
+
 #endif
