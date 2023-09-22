@@ -66,6 +66,7 @@ typedef volatile struct tagHBA_MEM
 #define HBA_PORT_DET_PRESENT 3
 #define HBA_PORT_IPM_ACTIVE 1
 
+
 void initAHCI();
 
 #define HBA_PORT_COUNT 32
