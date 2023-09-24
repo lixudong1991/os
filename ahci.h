@@ -3,6 +3,176 @@
 #include "stdint.h"
 
 #pragma pack(1)
+
+typedef enum
+{
+    FIS_TYPE_REG_H2D    = 0x27, // Register FIS - host to device
+    FIS_TYPE_REG_D2H    = 0x34, // Register FIS - device to host
+    FIS_TYPE_DMA_ACT    = 0x39, // DMA activate FIS - device to host
+    FIS_TYPE_DMA_SETUP  = 0x41, // DMA setup FIS - bidirectional
+    FIS_TYPE_DATA       = 0x46, // Data FIS - bidirectional
+    FIS_TYPE_BIST       = 0x58, // BIST activate FIS - bidirectional
+    FIS_TYPE_PIO_SETUP  = 0x5F, // PIO setup FIS - device to host
+    FIS_TYPE_DEV_BITS   = 0xA1, // Set device bits FIS - device to host
+} FIS_TYPE;
+
+
+
+typedef struct tagFIS_REG_H2D
+{
+    // DWORD 0
+    BYTE    fis_type;   // FIS_TYPE_REG_H2D
+ 
+    BYTE    pmport:4;   // Port multiplier
+    BYTE    rsv0:3;     // Reserved
+    BYTE    c:1;        // 1: Command, 0: Control
+ 
+    BYTE    command;    // Command register
+    BYTE    featurel;   // Feature register, 7:0
+ 
+    // DWORD 1
+    BYTE    lba0;       // LBA low register, 7:0
+    BYTE    lba1;       // LBA mid register, 15:8
+    BYTE    lba2;       // LBA high register, 23:16
+    BYTE    device;     // Device register
+ 
+    // DWORD 2
+    BYTE    lba3;       // LBA register, 31:24
+    BYTE    lba4;       // LBA register, 39:32
+    BYTE    lba5;       // LBA register, 47:40
+    BYTE    featureh;   // Feature register, 15:8
+ 
+    // DWORD 3
+    BYTE    countl;     // Count register, 7:0
+    BYTE    counth;     // Count register, 15:8
+    BYTE    icc;        // Isochronous command completion
+    BYTE    control;    // Control register
+ 
+    // DWORD 4
+    BYTE    rsv1[4];    // Reserved
+} FIS_REG_H2D;
+
+
+typedef struct tagFIS_REG_D2H
+{
+    // DWORD 0
+    BYTE    fis_type;    // FIS_TYPE_REG_D2H
+ 
+    BYTE    pmport:4;    // Port multiplier
+    BYTE    rsv0:2;      // Reserved
+    BYTE    i:1;         // Interrupt bit
+    BYTE    rsv1:1;      // Reserved
+ 
+    BYTE    status;      // Status register
+    BYTE    error;       // Error register
+ 
+    // DWORD 1
+    BYTE    lba0;        // LBA low register, 7:0
+    BYTE    lba1;        // LBA mid register, 15:8
+    BYTE    lba2;        // LBA high register, 23:16
+    BYTE    device;      // Device register
+ 
+    // DWORD 2
+    BYTE    lba3;        // LBA register, 31:24
+    BYTE    lba4;        // LBA register, 39:32
+    BYTE    lba5;        // LBA register, 47:40
+    BYTE    rsv2;        // Reserved
+ 
+    // DWORD 3
+    BYTE    countl;      // Count register, 7:0
+    BYTE    counth;      // Count register, 15:8
+    BYTE    rsv3[2];     // Reserved
+ 
+    // DWORD 4
+    BYTE    rsv4[4];     // Reserved
+} FIS_REG_D2H;
+
+
+typedef struct tagFIS_DATA
+{
+    // DWORD 0
+    BYTE    fis_type;   // FIS_TYPE_DATA
+ 
+    BYTE    pmport:4;   // Port multiplier
+    BYTE    rsv0:4;     // Reserved
+ 
+    BYTE    rsv1[2];    // Reserved
+ 
+    // DWORD 1 ~ N
+    DWORD   data[1];    // Payload
+} FIS_DATA;
+
+
+typedef struct tagFIS_PIO_SETUP
+{
+    // DWORD 0
+    BYTE    fis_type;   // FIS_TYPE_PIO_SETUP
+ 
+    BYTE    pmport:4;   // Port multiplier
+    BYTE    rsv0:1;     // Reserved
+    BYTE    d:1;        // Data transfer direction, 1 - device to host
+    BYTE    i:1;        // Interrupt bit
+    BYTE    rsv1:1;
+ 
+    BYTE    status;     // Status register
+    BYTE    error;      // Error register
+ 
+    // DWORD 1
+    BYTE    lba0;       // LBA low register, 7:0
+    BYTE    lba1;       // LBA mid register, 15:8
+    BYTE    lba2;       // LBA high register, 23:16
+    BYTE    device;     // Device register
+ 
+    // DWORD 2
+    BYTE    lba3;       // LBA register, 31:24
+    BYTE    lba4;       // LBA register, 39:32
+    BYTE    lba5;       // LBA register, 47:40
+    BYTE    rsv2;       // Reserved
+ 
+    // DWORD 3
+    BYTE    countl;     // Count register, 7:0
+    BYTE    counth;     // Count register, 15:8
+    BYTE    rsv3;       // Reserved
+    BYTE    e_status;   // New value of status register
+ 
+    // DWORD 4
+    WORD    tc;     // Transfer count
+    BYTE    rsv4[2];    // Reserved
+} FIS_PIO_SETUP;
+
+
+
+typedef struct tagFIS_DMA_SETUP
+{
+    // DWORD 0
+    BYTE    fis_type;   // FIS_TYPE_DMA_SETUP
+ 
+    BYTE    pmport:4;   // Port multiplier
+    BYTE    rsv0:1;     // Reserved
+    BYTE    d:1;        // Data transfer direction, 1 - device to host
+    BYTE    i:1;        // Interrupt bit
+    BYTE    a:1;            // Auto-activate. Specifies if DMA Activate FIS is needed
+ 
+        BYTE    rsved[2];       // Reserved
+ 
+    //DWORD 1&2
+ 
+        QWORD   DMAbufferID;    // DMA Buffer Identifier. Used to Identify DMA buffer in host memory. SATA Spec says host specific and not in Spec. Trying AHCI spec might work.
+ 
+        //DWORD 3
+        DWORD   rsvd;           //More reserved
+ 
+        //DWORD 4
+        DWORD   DMAbufOffset;   //Byte offset into buffer. First 2 bits must be 0
+ 
+        //DWORD 5
+        DWORD   TransferCount;  //Number of bytes to transfer. Bit 0 must be 0
+ 
+        //DWORD 6
+        DWORD   resvd;          //Reserved
+ 
+} FIS_DMA_SETUP;
+
 typedef volatile struct tagHBA_PORT
 {
     DWORD   clb;        // 0x00, command list base address, 1K-byte aligned
@@ -52,7 +222,68 @@ typedef volatile struct tagHBA_MEM
     HBA_PORT    ports[1];   // 1 ~ 32
 } HBA_MEM;
 
+typedef struct tagHBA_CMD_HEADER
+{
+    // DW0
+    BYTE    cfl:5;      // Command FIS length in DWORDS, 2 ~ 16
+    BYTE    a:1;        // ATAPI
+    BYTE    w:1;        // Write, 1: H2D, 0: D2H
+    BYTE    p:1;        // Prefetchable
+ 
+    BYTE    r:1;        // Reset
+    BYTE    b:1;        // BIST
+    BYTE    c:1;        // Clear busy upon R_OK
+    BYTE    rsv0:1;     // Reserved
+    BYTE    pmp:4;      // Port multiplier port
+ 
+    WORD    prdtl;      // Physical region descriptor table length in entries
+ 
+    // DW1
+    volatile
+    DWORD   prdbc;      // Physical region descriptor byte count transferred
+ 
+    // DW2, 3
+    DWORD   ctba;       // Command table descriptor base address
+    DWORD   ctbau;      // Command table descriptor base address upper 32 bits
+ 
+    // DW4 - 7
+    DWORD   rsv1[4];    // Reserved
+} HBA_CMD_HEADER;
+
+typedef struct tagHBA_PRDT_ENTRY
+{
+    DWORD   dba;        // Data base address
+    DWORD   dbau;       // Data base address upper 32 bits
+    DWORD   rsv0;       // Reserved
+ 
+    // DW3
+    DWORD  DesInfo;     // Byte count, 4M max
+} HBA_PRDT_ENTRY;
+
+
+typedef struct tagHBA_CMD_TBL
+{
+    // 0x00
+    BYTE    cfis[64];   // Command FIS
+ 
+    // 0x40
+    BYTE    acmd[16];   // ATAPI command, 12 or 16 bytes
+ 
+    // 0x50
+    BYTE    rsv[48];    // Reserved
+ 
+    // 0x80
+    HBA_PRDT_ENTRY  prdt_entry[1];  // Physical region descriptor table entries, 0 ~ 65535
+} HBA_CMD_TBL;
+
+
 #pragma pack()
+
+typedef struct Sata_Device{
+    uint32_t port;
+    HBA_PORT *pPortMem; 
+}Sata_Device;
+
 
 #define SATA_SIG_ATA    0x00000101  // SATA drive
 #define SATA_SIG_ATAPI  0xEB140101  // SATAPI drive
@@ -69,8 +300,20 @@ typedef volatile struct tagHBA_MEM
 
 void initAHCI();
 
+
 #define HBA_PORT_COUNT 32
+#define CMD_TABLE_SIZE 512   //128kb对齐  最多24个prd entry
+#define CMD_RW_MAX_SECTORS_COUNT   0x30000  //每个prd entry 读写4mb (24*4mb)/512 =0x30000
+
+
+#define ATA_CMD_READ_DMA_EX     0x25
+#define ATA_CMD_WRITE_DMA_EX     0x35
+int ahci_read(HBA_PORT *port, DWORD startl, DWORD starth, DWORD sectorcount, QWORD bufaddr);
+int ahci_write(HBA_PORT *port, DWORD startl, DWORD starth, DWORD sectorcount, QWORD bufaddr);
+
+#define SUPPORT_SATA_DEVICE_MAX_COUNT 6
 extern HBA_MEM *pHbaMem;
 extern uint32_t portSataDev;
-
+extern uint32_t sataDevCount;
+extern Sata_Device* sataDev;
 #endif

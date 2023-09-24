@@ -153,6 +153,11 @@ static void createInterruptGate(KernelData *kdata)
 	for (; i < 0x78; i++)
 		appendTableGateItem(&(kdata->idtInfo), &item);
 
+	item.segAddr = interrupt_78_handler; // pci ahci interrupt
+	item.GateDPL = 0;
+	appendTableGateItem(&(kdata->idtInfo), &item);
+	i++;
+
 	item.segAddr = general_interrupt_handler;
 	for (; i < 0x80; i++)
 	{
@@ -639,7 +644,11 @@ int _start(void *argv)
 		int len=fgets(inputbuff, 1024);
 		inputbuff[len - 1] = 0;
 		asm("cli");
-		printf("buff =%s\n", inputbuff);	
+		printf("write:%d\n", ahci_write(sataDev[0].pPortMem,0,0,2,inputbuff));	
+		printf("sata dev: port %d fb 0x%x is:0x%x ie:0x%x cmd:0x%x sig:0x%x ssts:0x%x sctl:0x%x serr:0x%x sact:0x%x tfd:0x%x\n",sataDev[0].port, sataDev[0].pPortMem->fb,
+                   sataDev[0].pPortMem->is, sataDev[0].pPortMem->ie,  sataDev[0].pPortMem->cmd,  sataDev[0].pPortMem->sig,  sataDev[0].pPortMem->ssts,  sataDev[0].pPortMem->sctl,  sataDev[0].pPortMem->serr,  sataDev[0].pPortMem->sact,  sataDev[0].pPortMem->tfd);
+		printf("hba cap:0x%x ghc:0x%x IS:0x%x PI:0x%x VS:0x%x CCC_CTL:0x%X CCC_PORTS:0x%x EM_LOC:0x%x EM_CTL:0x%x CAP2:0x%x BOHC:0x%x\n",
+               pHbaMem->cap, pHbaMem->ghc, pHbaMem->is, pHbaMem->pi, pHbaMem->vs, pHbaMem->ccc_ctl, pHbaMem->ccc_pts, pHbaMem->em_loc, pHbaMem->em_ctl, pHbaMem->cap2, pHbaMem->bohc);
 		asm("sti");
 	}
 	while (1)

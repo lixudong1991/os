@@ -266,7 +266,8 @@ extern void die();
 extern void clearscreen();
 extern void setcursor(uint32 pos);
 extern uint32 getcursor();
-char *allocate_memory(TaskCtrBlock *task, uint32 size, uint32 prop);
+char *allocate_memory(TaskCtrBlock *task, uint32 size, uint32 prop);//4字节对齐
+char *allocate_memory_align(TaskCtrBlock *task, uint32 size, uint32 prop,uint32 alignsize);
 
 extern char *allocatePhy4kPage(uint32 startPhyPage);
 extern uint32 freePhy4kPage(uint32 page);
@@ -283,6 +284,7 @@ int mem4k_map(uint32 linearaddr,uint32 phyaddr,int memcachType,uint32 prop);
 int mem4k_unmap(uint32 linearaddr,int isFreePhyPage);
 
 void* kernel_malloc(uint32 size);
+void* kernel_malloc_align(uint32 size,uint32 alignsize);
 void  kernel_free(void*);
 
 

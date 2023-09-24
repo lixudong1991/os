@@ -14,5 +14,8 @@ extern void interrupt_81_handler();
 extern void interrupt_82_handler();
 extern void interrupt_83_handler();
 extern void interrupt_84_handler();
+
+extern void interrupt_78_handler();
+
 extern void general_interrupt_handler();
 #endif // !INTERRUPTGATE_H_

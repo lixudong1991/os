@@ -15,7 +15,16 @@ char *allocate_memory(TaskCtrBlock *task, uint32 size, uint32 prop)
 	char *ret = allocateVirtual4kPage(sizealign, &(task->AllocateNextAddr), prop);
 	return ret;
 }
-
+char *allocate_memory_align(TaskCtrBlock *task, uint32 size, uint32 prop,uint32 alignsize)
+{
+	uint32 sizealign = size;
+	if (task->AllocateNextAddr % alignsize != 0)
+		task->AllocateNextAddr = (task->AllocateNextAddr / alignsize + 1) * alignsize;
+	if (sizealign % alignsize != 0)
+		sizealign = (sizealign / alignsize + 1) * alignsize;
+	char *ret = allocateVirtual4kPage(sizealign, &(task->AllocateNextAddr), prop);
+	return ret;
+}
 char *allocateVirtual4kPage(uint32 size, uint32 *pAddr, uint32 prop)
 {
 	uint32 addr = *pAddr;
@@ -113,6 +122,10 @@ int mem4k_map(uint32 linearaddr, uint32 phyaddr, int memcachType, uint32 prop)
 void *kernel_malloc(uint32 size)
 {
 	return allocate_memory(kernelData.taskList.tcb_Frist, size, PAGE_RW);
+}
+void* kernel_malloc_align(uint32 size,uint32 alignsize)
+{
+	return allocate_memory_align(kernelData.taskList.tcb_Frist, size, PAGE_RW,alignsize);
 }
 void kernel_free(void *p)
 {
