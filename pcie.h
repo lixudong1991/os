@@ -17,8 +17,11 @@ typedef struct PciDeviceConfigHead
     uint8_t  HeaderType;
     uint8_t  BIST;
 }PciDeviceConfigHead;
-
-
+typedef struct PciCapHead
+{
+    uint8_t capId;
+    uint8_t nextCapOffset; 
+}PciCapHead;
 #pragma pack()
 
 #define MAX_PCIE_CONFIG_PAGE_COUNT 256

@@ -555,26 +555,6 @@ int _start(void *argv)
 
 	// 禁用8259a所有中断
 
-	// char number[32];
-	// puts("\nbus:");
-	// puts(hexstr32(number, bootparam.bus));
-	// puts("\nslot:");
-	// puts(hexstr32(number, bootparam.slot));
-	// puts("\nvendor:");
-	// puts(hexstr32(number, bootparam.vendor));
-	// puts("\ndevice:");
-	// puts(hexstr32(number, bootparam.device));
-	// puts("\nbar5:");
-	// puts(hexstr32(number, bootparam.bar5));
-	// puts("\nReadAddress:");
-	// puts(hexstr32(number, bootparam.ReadAddress));
-
-	// char* buff = allocateVirtual4kPage(1,(char**)&(bootparam.kernelAllocateNextAddr),   PAGE_RW);
-	/*read_ata_sectors(buff,150,1);
-	buff[512] = 0;
-	puts("\n");
-	puts(buff);*/
-	// callTss(kernelData.taskList.tcb_Last->tssSel);
 	// testfun();
 	check_cpu_features();
 	check_mtrr();
@@ -644,12 +624,12 @@ int _start(void *argv)
 		int len=fgets(inputbuff, 1024);
 		inputbuff[len - 1] = 0;
 		asm("cli");
-		printf("write:%d\n", ahci_write(sataDev[0].pPortMem,0,0,2,inputbuff));	
-		printf("sata dev: port %d fb 0x%x is:0x%x ie:0x%x cmd:0x%x sig:0x%x ssts:0x%x sctl:0x%x serr:0x%x sact:0x%x tfd:0x%x\n",sataDev[0].port, sataDev[0].pPortMem->fb,
-                   sataDev[0].pPortMem->is, sataDev[0].pPortMem->ie,  sataDev[0].pPortMem->cmd,  sataDev[0].pPortMem->sig,  sataDev[0].pPortMem->ssts,  sataDev[0].pPortMem->sctl,  sataDev[0].pPortMem->serr,  sataDev[0].pPortMem->sact,  sataDev[0].pPortMem->tfd);
-		printf("hba cap:0x%x ghc:0x%x IS:0x%x PI:0x%x VS:0x%x CCC_CTL:0x%X CCC_PORTS:0x%x EM_LOC:0x%x EM_CTL:0x%x CAP2:0x%x BOHC:0x%x\n",
-               pHbaMem->cap, pHbaMem->ghc, pHbaMem->is, pHbaMem->pi, pHbaMem->vs, pHbaMem->ccc_ctl, pHbaMem->ccc_pts, pHbaMem->em_loc, pHbaMem->em_ctl, pHbaMem->cap2, pHbaMem->bohc);
+		printf("buff:%s\n",inputbuff);	
 		asm("sti");
+		ahci_write(sataDev[0].pPortMem,0,0,2,inputbuff);
+		// printf("hba port %d is:0x%x ie:0x%x cmd:0x%x  ssts:0x%x sctl:0x%x serr:0x%x sact:0x%x tfd:0x%x ci:%x\n", sataDev[0].port,
+        //                        sataDev[0].pPortMem->is, sataDev[0].pPortMem->ie, sataDev[0].pPortMem->cmd, sataDev[0].pPortMem->ssts, sataDev[0].pPortMem->sctl, 
+		// 					   sataDev[0].pPortMem->serr,sataDev[0].pPortMem->sact, sataDev[0].pPortMem->tfd, sataDev[0].pPortMem->ci);
 	}
 	while (1)
 	{
