@@ -313,7 +313,7 @@ int ahci_write(HBA_PORT *port, DWORD startl, DWORD starth, DWORD sectorcount, QW
 
 #define SUPPORT_SATA_DEVICE_MAX_COUNT 6
 extern HBA_MEM *pHbaMem;
-extern uint32_t portSataDev;
-extern uint32_t sataDevCount;
+extern volatile uint32_t portSataDev;
+extern volatile uint32_t sataDevCount;
 extern Sata_Device* sataDev;
 #endif

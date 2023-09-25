@@ -8,8 +8,8 @@
 PcieConfigInfo *ahciConfigInfo = NULL;
 PciCapHead *ahciMsiCapHead = NULL;
 HBA_MEM *pHbaMem = NULL;
-uint32_t portSataDev = 0;
-uint32_t sataDevCount = 0;
+volatile uint32_t portSataDev = 0;
+volatile uint32_t sataDevCount = 0;
 Sata_Device *sataDev = NULL;
 // Check device type
 static int check_type(HBA_PORT *port)
@@ -45,6 +45,7 @@ void probe_port(HBA_MEM *abar_temp)
     // Search disk in impelemented ports
     DWORD pi = abar_temp->pi;
     int i = 0;
+    portSataDev =0;
     while (i < HBA_PORT_COUNT)
     {
         if (pi & 1)
@@ -97,26 +98,28 @@ void hbaInit()
     sataDev = kernel_malloc(sizeof(Sata_Device) * SUPPORT_SATA_DEVICE_MAX_COUNT);
     uint32_t bitTest = 1;
 
-    pHbaMem->ghc |= 1; // H:Init
-    while (pHbaMem->ghc & 1)
-        ;
-    if ((pHbaMem->cap & (bitTest << 18)) == 0) // H:WaitForAhciEnable
-        pHbaMem->ghc |= (bitTest << 31);
-    // // H:Idle
-    while (pHbaMem->ghc & (bitTest << 31) == 0)
-        ;
-    pHbaMem->ghc |= 2; // enable Interrupt
-
+    // pHbaMem->ghc |= 1; // H:Init
+    // while (pHbaMem->ghc & 1)
+    //     ;
+    // if ((pHbaMem->cap & (bitTest << 18)) == 0) // H:WaitForAhciEnable
+    //     pHbaMem->ghc |= (bitTest << 31);
+    // // // H:Idle
+    // while (pHbaMem->ghc & (bitTest << 31) == 0)
+    //     ;
     uint32 cmdMemAddr = AHCI_PORT_USEMEM_START;
     uint32 fisMemAddr = AHCI_PORT_USEMEM_START + SUPPORT_SATA_DEVICE_MAX_COUNT * 1024;
     uint32 numCmdSlot = pHbaMem->cap & 0x1F00;
     numCmdSlot >>= 8;
+    sataDevCount =0;
     // 初始化sata设备连接的端口
     for (int i = 0; i < HBA_PORT_COUNT && sataDevCount < SUPPORT_SATA_DEVICE_MAX_COUNT; i++)
     {
         if (portSataDev & (((uint32_t)1) << i))
         {
-            pHbaMem->ports[i].cmd &= (~(bitTest << 4)); // clear FRE
+            pHbaMem->ports[i].cmd &= 0xFFFFFFFE; // clear cmd.st
+            while ((pHbaMem->ports[i].cmd & ((uint32_t)1 << 15)))
+                ;
+            pHbaMem->ports[i].cmd &= 0xFFFFFFEF; // clear FRE
             pHbaMem->ports[i].cmd |= (bitTest << 3);    // set clo
             while ((pHbaMem->ports[i].cmd & (bitTest << 3)) || (pHbaMem->ports[i].cmd & (bitTest << 14)))
                 ;
@@ -133,11 +136,10 @@ void hbaInit()
             }
             cmdMemAddr += 1024;
             fisMemAddr += 256;
-            pHbaMem->ports[i].cmd |= (bitTest << 4); // set FRE
-            pHbaMem->ports[i].ie |= 0x7D40007F;      // 设置port启用错误中断生成
-
-            while ((pHbaMem->ports[i].cmd & (bitTest << 15)) &&
-                   ((pHbaMem->ports[i].tfd & (bitTest << 7)) || (pHbaMem->ports[i].tfd & (bitTest << 3))))
+            pHbaMem->ports[i].ie |= 0x7D40007F; // 设置port启用错误中断生成
+            pHbaMem->ports[i].is |= pHbaMem->ports[i].ie;
+            pHbaMem->ports[i].cmd |= (bitTest << 4); // set FRE   
+            while ((pHbaMem->ports[i].tfd & ((uint32_t)1 << 7)) || (pHbaMem->ports[i].tfd & ((uint32_t)1 << 3)))
                 ;
             while (1)
             {
@@ -155,6 +157,7 @@ void hbaInit()
             sataDevCount++;
         }
     }
+    pHbaMem->ghc |= 2; // enable Interrupt
 }
 void AhciMsiConfig(PciDeviceConfigHead *pConfigPage)
 {
@@ -189,6 +192,9 @@ void AhciMsiConfig(PciDeviceConfigHead *pConfigPage)
                     uint32_t *msgAddress = baseAddr + nextCap + 4;
                     uint16_t *msgData = baseAddr + nextCap + 0x8;
                     uint32_t *maskBits = baseAddr + nextCap + 0xc, *pendingsBits = baseAddr + nextCap + 0x10;
+                    *msgAddress = 0xFEE00000; // 使用cpu 0处理中断
+                    *msgData = 0x78;          // Trigger Mode:edge  Delivery Mode:fixed vector:0x78
+                    *msgCtl |= 1;             // 启用msg interrupt
                 }
                 break;
             }
@@ -206,11 +212,11 @@ void initAHCI()
         //  printf("pcie config addr:0x%x bus:%d device:%d vendorID: 0x%x  deviceID:0x%x\n", pcieConfigInfos[i].pConfigPage, pcieConfigInfos[i].bus,
         //         pcieConfigInfos[i].device, pcieConfigInfos[i].pConfigPage->VendorID, pcieConfigInfos[i].pConfigPage->deviceID);
         //  asm("sti");
-#if 0
-		if(pcieConfigInfos[i].pConfigPage->VendorID==0x8086&&pcieConfigInfos[i].pConfigPage->deviceID==0xa282)
-		{
-			ahciconfig =&(pcieConfigInfos[i]);
-		}
+#if 1
+        if (pcieConfigInfos[i].pConfigPage->VendorID == 0x8086 && pcieConfigInfos[i].pConfigPage->deviceID == 0xa282)
+        {
+            ahciconfig = &(pcieConfigInfos[i]);
+        }
 #else
         if (pcieConfigInfos[i].pConfigPage->ClassCode == 0x1 && pcieConfigInfos[i].pConfigPage->Subclass == 0x6)
         {
@@ -307,7 +313,7 @@ int ahci_write(HBA_PORT *port, DWORD startl, DWORD starth, DWORD sectorcount, QW
 
     HBA_CMD_TBL *pcmdtb = cmdheadArr[slot].ctba;
     DWORD prdtentryByteSize = 0;
-    printf("write cmdslot:%d prdtl:%d\n",slot,prdtl);
+    printf("write cmdslot:%d prdtl:%d\n", slot, prdtl);
     for (int i = 0; i < prdtl; i++)
     {
         pcmdtb->prdt_entry[i].dba = (DWORD)(bufaddr & 0xFFFFFFFF);
@@ -316,11 +322,11 @@ int ahci_write(HBA_PORT *port, DWORD startl, DWORD starth, DWORD sectorcount, QW
         sentByteCount -= prdtentryByteSize;
         pcmdtb->prdt_entry[i].DesInfo = prdtentryByteSize - 1;
         bufaddr += prdtentryByteSize;
-        printf("prdtl entry:%d dba:%x prdtentryByteSize:%d\n",i,pcmdtb->prdt_entry[i].dba,prdtentryByteSize);
+        printf("prdtl entry:%d dba:%x prdtentryByteSize:%d\n", i, pcmdtb->prdt_entry[i].dba, prdtentryByteSize);
         //    if (i == prdtl - 1)
         //       pcmdtb->prdt_entry[i].DesInfo |= 0x80000000; // 最后一个prd条目生成中断
     }
-    
+
     // Setup command
     FIS_REG_H2D *cmdfis = (FIS_REG_H2D *)(&(pcmdtb->cfis));
 
@@ -346,7 +352,12 @@ int ahci_write(HBA_PORT *port, DWORD startl, DWORD starth, DWORD sectorcount, QW
 
 void interruptHandle_AHCI()
 {
-    uint32_t *maskBits = (uint32_t)ahciMsiCapHead + 0x10;
+    uint16_t *msgCtl = (uint32_t)ahciMsiCapHead + 2;
+    uint32_t *maskBits = NULL;
+    if ((*msgCtl) & 0x80) // Message Address是否是64位
+        maskBits = (uint32_t)ahciMsiCapHead + 0x10;
+    else
+        maskBits = (uint32_t)ahciMsiCapHead + 0xc;
     *maskBits |= 1; // 在处理PCI MSI中断时再次发生该中断后，推迟再次发生的中断的处理,AHCI只有一个中断向量
     printf("hba Interrput: GHC.IS=0x%x\n", pHbaMem->is);
     DWORD pi = pHbaMem->pi;
@@ -358,22 +369,28 @@ void interruptHandle_AHCI()
         {
             if (is & bitTest)
             {
-                if (pHbaMem->ports[i].is & 0x78000000) // 致命错误
-                {   
-                    //非排队命令
+                if (pHbaMem->ports[i].is & 0x78000000 || (pHbaMem->ports[i].is & 0x40)) // 致命错误或者新设备插入或移除
+                {
+                    // 非排队命令
                     {
                         printf("Fatal error:hba port %d is:0x%x ie:0x%x cmd:0x%x  ssts:0x%x sctl:0x%x serr:0x%x sact:0x%x tfd:0x%x ci:%x\n", i,
                                pHbaMem->ports[i].is, pHbaMem->ports[i].ie, pHbaMem->ports[i].cmd, pHbaMem->ports[i].ssts, pHbaMem->ports[i].sctl, pHbaMem->ports[i].serr, pHbaMem->ports[i].sact, pHbaMem->ports[i].tfd, pHbaMem->ports[i].ci);
-                        if(pHbaMem->ports[i].is&0x40)//Change in Current Connect Status
-                           pHbaMem->ports[i].sctl|=1; 
-                        while(pHbaMem->ports[i].is&0x40);
+                        if (pHbaMem->ports[i].is & 0x40)
+                        {
+                            pHbaMem->ports[i].sctl |= 1;
+                            while (pHbaMem->ports[i].is & 0x40)
+                                ;
+                            printf("Change in Current Connect\n");
+                        }
                         pHbaMem->ports[i].cmd &= 0xFFFFFFFE; // clear cmd.st
                         pHbaMem->ports[i].serr = 0xffffffff;
-                        pHbaMem->ports[i].is |=pHbaMem->ports[i].ie ;
-                        while ((pHbaMem->ports[i].cmd & ((uint32_t)1 << 15)));
-                        if((pHbaMem->ports[i].tfd & ((uint32_t)1 << 7)) || (pHbaMem->ports[i].tfd & ((uint32_t)1 << 3)))
-                            pHbaMem->ports[i].sctl|=1;//向设备发送COMRESET
-                        while((pHbaMem->ports[i].tfd & ((uint32_t)1 << 7)) || (pHbaMem->ports[i].tfd & ((uint32_t)1 << 3)));
+                        pHbaMem->ports[i].is |= pHbaMem->ports[i].ie;
+                        while ((pHbaMem->ports[i].cmd & ((uint32_t)1 << 15)))
+                            ;
+                        if ((pHbaMem->ports[i].tfd & ((uint32_t)1 << 7)) || (pHbaMem->ports[i].tfd & ((uint32_t)1 << 3)))
+                            pHbaMem->ports[i].sctl |= 1; // 向设备发送COMRESET
+                        while ((pHbaMem->ports[i].tfd & ((uint32_t)1 << 7)) || (pHbaMem->ports[i].tfd & ((uint32_t)1 << 3)))
+                            ;
                         while (1)
                         {
                             if (pHbaMem->ports[i].ssts & 3)
@@ -383,11 +400,11 @@ void interruptHandle_AHCI()
                                 break;
                         }
                         pHbaMem->ports[i].cmd |= 1; // set cmd.st
-                        printf("fatal ci:%x is:%x\n",pHbaMem->ports[i].cmd);
                     }
                 }
                 else // 非致命错误
                 {
+
                     pHbaMem->ports[i].is |= pHbaMem->ports[i].ie;
                 }
                 pHbaMem->is |= bitTest;

@@ -37,5 +37,5 @@ typedef struct PcieConfigInfo
 
 void checkPciDevice();
 extern PcieConfigInfo  *pcieConfigInfos;
-extern uint32 pcieConfigInfoCount;
+extern volatile uint32 pcieConfigInfoCount;
 #endif

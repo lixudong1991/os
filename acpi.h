@@ -108,8 +108,8 @@ ACPITYPECOUNT
 extern uint32_t *AcpiTableAddrs;
 extern IoApicEntry **Madt_IOAPIC;
 extern LocalApicEntry **Madt_LOCALAPIC;
-extern uint8_t Madt_LOCALAPIC_count;
-extern uint8_t Madt_IOAPIC_count;
+extern volatile uint8_t Madt_LOCALAPIC_count;
+extern volatile uint8_t Madt_IOAPIC_count;
 
 extern pciConfigSpaceBaseAddr **mcfgPciConfigSpace;
 #endif

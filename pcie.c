@@ -5,7 +5,7 @@
 #include "memcachectl.h"
 
 PcieConfigInfo  *pcieConfigInfos =NULL;
-uint32 pcieConfigInfoCount=0;
+volatile uint32 pcieConfigInfoCount=0;
 
 void checkFunction(uint8_t bus, uint8_t device, uint8_t function);
 
@@ -114,6 +114,7 @@ void checkPciDevice()
     uint8_t device;
     pcieConfigInfos = kernel_malloc(sizeof(PcieConfigInfo)*MAX_PCIE_CONFIG_PAGE_COUNT);
     memset_s(pcieConfigInfos,0,sizeof(PcieConfigInfo)*MAX_PCIE_CONFIG_PAGE_COUNT);
+    pcieConfigInfoCount=0;
     for (bus = mcfgPciConfigSpace[0]->StartPCIbus; bus < mcfgPciConfigSpace[0]->EndPCIbus; bus++)
     {
         for (device = 0; device < 32; device++)

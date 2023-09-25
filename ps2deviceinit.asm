@@ -90,7 +90,6 @@ ps2keyboardinit0:
 	call wait60_64PortTowirte
 	mov al,cl
 	out 0x60,al
-
 	call wait60_64PortTowirte
 	mov al,0xff
 	out 0x60,al

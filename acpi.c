@@ -2,12 +2,12 @@
 #include "boot.h"
 #include "memcachectl.h"
 #include "printf.h"
-uint32_t *AcpiTableAddrs;
-IoApicEntry **Madt_IOAPIC;
-LocalApicEntry **Madt_LOCALAPIC;
-pciConfigSpaceBaseAddr **mcfgPciConfigSpace;
-uint8_t Madt_LOCALAPIC_count = 0;
-uint8_t Madt_IOAPIC_count = 0;
+uint32_t *AcpiTableAddrs=NULL;
+IoApicEntry **Madt_IOAPIC=NULL;
+LocalApicEntry **Madt_LOCALAPIC=NULL;
+pciConfigSpaceBaseAddr **mcfgPciConfigSpace=NULL;
+volatile uint8_t Madt_LOCALAPIC_count = 0;
+volatile uint8_t Madt_IOAPIC_count = 0;
 extern BootParam bootparam;
 static void getnext_KMP(const char *dest, int next[], int len)
 {
@@ -114,6 +114,8 @@ void readMADTInfo(uint32 madtaddr)
     uint32 eindex = 0;
     char *pentry = madtaddr + 44;
     uint8_t entrytype;
+    Madt_LOCALAPIC_count=0;
+    Madt_IOAPIC_count=0;
     for (; eindex < pmadt->Length;)
     {
         entrytype = pentry[eindex];
@@ -263,7 +265,7 @@ void initAcpiTable()
     memset_s(Madt_LOCALAPIC, 0, MAX_LOAPIC_COUNT * sizeof(LocalApicEntry *));
     memset_s(mcfgPciConfigSpace, 0, MAX_MCFG_PCICONFIG_COUNT * sizeof(pciConfigSpaceBaseAddr *));
 
-#if 0
+#if 1
 	
 	for (int i = 0; i < bootparam.memInfoSize; i++)
 	{
