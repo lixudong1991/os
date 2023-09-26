@@ -60,7 +60,7 @@ char *allocateVirtual4kPage(uint32 size, uint32 *pAddr, uint32 prop)
 		asm("mfence");
 		if (((*pagePhyAddr) & 1) != 1)
 		{
-			*pagePhyAddr = (uint32)allocatePhy4kPage(0);
+			*pagePhyAddr = (uint32)allocatePhy4kPage(START_PHY_MEM_PAGE);
 			(*pagePhyAddr) |= 1;
 		}
 		asm("mfence");

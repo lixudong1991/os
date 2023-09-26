@@ -9,6 +9,11 @@ pciConfigSpaceBaseAddr **mcfgPciConfigSpace=NULL;
 volatile uint8_t Madt_LOCALAPIC_count = 0;
 volatile uint8_t Madt_IOAPIC_count = 0;
 extern BootParam bootparam;
+#ifdef TRACE_ACPI
+#	define TRACEACPI(a...) printf(a...)
+#else
+#	define TRACEACPI(a...)
+#endif
 static void getnext_KMP(const char *dest, int next[], int len)
 {
     int i = 0, j = -1;
@@ -59,7 +64,7 @@ static int IndexStr_KMP(char *str, int strsize, const char *dest, int *nextbuff,
 char *findRSDPAddr(uint32 startaddr, uint32 endaddr)
 {
     uint32 findstart = startaddr & 0xfffff000, findend = endaddr & 0xfffff000;
-    printf("findstart:%x findend:%x \n", startaddr, findend);
+    TRACEACPI("findstart:%x findend:%x \n", startaddr, findend);
     for (int i = findstart; i < findend; i += 0x1000)
     {
         mem4k_map(i, i, MEM_UC, PAGE_G | PAGE_R);
@@ -110,7 +115,7 @@ void readMADTInfo(uint32 madtaddr)
     sign[3] = pmadt->Signature[3];
     sign[4] = 0;
     uint32 localIntCtl = *(uint32 *)(madtaddr + 36), flags = *(uint32 *)(madtaddr + 40);
-    printf("madt:length=%d sign=%s localIntCtl =0x%x  flags = 0x%x\n", pmadt->Length, sign, localIntCtl, flags);
+    TRACEACPI("madt:length=%d sign=%s localIntCtl =0x%x  flags = 0x%x\n", pmadt->Length, sign, localIntCtl, flags);
     uint32 eindex = 0;
     char *pentry = madtaddr + 44;
     uint8_t entrytype;
@@ -124,7 +129,7 @@ void readMADTInfo(uint32 madtaddr)
         case 0:
         {
             LocalApicEntry *loapic = pentry + eindex;
-            printf("Loapic: ACPI Processor UID=%d APICID=%d Flags=%d\n", loapic->ACPI_Processor_UID, loapic->APIC_ID, loapic->Flags);
+            TRACEACPI("Loapic: ACPI Processor UID=%d APICID=%d Flags=%d\n", loapic->ACPI_Processor_UID, loapic->APIC_ID, loapic->Flags);
             Madt_LOCALAPIC[Madt_LOCALAPIC_count] = loapic;
             Madt_LOCALAPIC_count++;
         }
@@ -132,7 +137,7 @@ void readMADTInfo(uint32 madtaddr)
         case 1:
         {
             IoApicEntry *ioapic = pentry + eindex;
-            printf("IOapic: IOAPIC_ID=%d I/O_APIC_Address=0x%x GlobalSystemInterruptBase=%d\n",
+            TRACEACPI("IOapic: IOAPIC_ID=%d I/O_APIC_Address=0x%x GlobalSystemInterruptBase=%d\n",
                    ioapic->IO_APIC_ID, ioapic->IO_APIC_Address, ioapic->Global_System_Interrupt_Base);
             Madt_IOAPIC[Madt_IOAPIC_count] = ioapic;
             Madt_IOAPIC_count++;
@@ -140,7 +145,7 @@ void readMADTInfo(uint32 madtaddr)
         case 2:
         {
             IntSourceOverride *isoverr = pentry + eindex;
-            printf(": Interrupt Source Override:BUS=%d SOURCE=%d GlobalSystemInterrupt=%d Flags=%d\n",
+            TRACEACPI(": Interrupt Source Override:BUS=%d SOURCE=%d GlobalSystemInterrupt=%d Flags=%d\n",
                    isoverr->Bus, isoverr->Source, isoverr->G_Sys_int, isoverr->Flags);
         }
         break;
@@ -162,18 +167,18 @@ void readMCFGInfo(uint32 mcfgaddr)
     sign[2] = pmcfg->Signature[2];
     sign[3] = pmcfg->Signature[3];
     sign[4] = 0;
-    printf("mcfg:sign=%s len=%d revision=%d oemrevison =%d ", sign, pmcfg->Length, pmcfg->Revision, pmcfg->OEM_Revision);
+    TRACEACPI("mcfg:sign=%s len=%d revision=%d oemrevison =%d ", sign, pmcfg->Length, pmcfg->Revision, pmcfg->OEM_Revision);
     memcpy_s(sign, pmcfg->OEMID, 6);
     sign[6] = 0;
-    printf("mcfg OEMID:%s ", sign);
+    TRACEACPI("mcfg OEMID:%s ", sign);
     memcpy_s(sign, pmcfg->OEM_TABLE_ID, 8);
     sign[8] = 0;
-    printf("mcfg OEM Table ID:%s\n", sign);
+    TRACEACPI("mcfg OEM Table ID:%s\n", sign);
     pciConfigSpaceBaseAddr *space = (pciConfigSpaceBaseAddr *)(mcfgaddr+44);
     uint32 spacecount=(pmcfg->Length-44)/sizeof(pciConfigSpaceBaseAddr);
     for(int i=0;i<spacecount;i++)
     {
-        printf("pci space %d: configBaseaddr=%x PCIsegGroup=%d StartPCIBUS=%d EndPCIBUS=%d\n",i,(uint32_t)(space->BaseAddr),space->PciSegGroup,space->StartPCIbus,
+        TRACEACPI("pci space %d: configBaseaddr=%x PCIsegGroup=%d StartPCIBUS=%d EndPCIBUS=%d\n",i,(uint32_t)(space->BaseAddr),space->PciSegGroup,space->StartPCIbus,
         space->EndPCIbus);
         mcfgPciConfigSpace[i] = space;
         space++;
@@ -184,21 +189,21 @@ void readAcpiTable(RSDPStruct *prsdp)
 {
     AcpiTableAddrs[RSDP] = prsdp;
     char rsign[9] = {0};
-    printf("RSDP addr:0x%x\n", prsdp);
+    TRACEACPI("RSDP addr:0x%x\n", prsdp);
     memcpy_s(rsign, prsdp->Signature, 8);
-    printf("RSDP Signature:%s\n", rsign);
+    TRACEACPI("RSDP Signature:%s\n", rsign);
     // printf("RSDP Checksum:%x\n",prsdp->Checksum);
     memcpy_s(rsign, prsdp->OEMID, 6);
     rsign[6] = 0;
-    printf("RSDP OEMID:%s\n", rsign);
-    printf("RSDP Revision:%x\n", prsdp->Revision);
+    TRACEACPI("RSDP OEMID:%s\n", rsign);
+    TRACEACPI("RSDP Revision:%x\n", prsdp->Revision);
     // printf("RSDP RsdtAddress:%x\n",prsdp->RsdtAddress);
     if (prsdp->Revision == 2)
     {
         AcpiTableAddrs[XSDT] = (uint32_t)(prsdp->XsdtAddress);
         uint32_t eax = 0, mapaddr = 0;
         eax = (uint32_t) & (prsdp->XsdtAddress);
-        printf("RSDP XsdtAddress:%x %x\n", *(uint32 *)(eax + 4), *(uint32 *)eax);
+        TRACEACPI("RSDP XsdtAddress:%x %x\n", *(uint32 *)(eax + 4), *(uint32 *)eax);
         // printf("RSDP Extended Checksum:%x\n",prsdp->ExtendedChecksum);
         SysDtHead *pxsdt = (uint32_t)(prsdp->XsdtAddress);
         mapaddr = pxsdt;
@@ -207,15 +212,15 @@ void readAcpiTable(RSDPStruct *prsdp)
         mem4k_map(mapaddr + 0x1000, mapaddr + 0x1000, MEM_UC, PAGE_G | PAGE_RW);
         memcpy_s(rsign, pxsdt->Signature, 4);
         rsign[4] = 0;
-        printf("XSDT Signature:%s\n", rsign);
-        printf("XSDT Length:%x\n", pxsdt->Length);
-        printf("XSDT Revision:%x\n", pxsdt->Revision);
+        TRACEACPI("XSDT Signature:%s\n", rsign);
+        TRACEACPI("XSDT Length:%x\n", pxsdt->Length);
+        TRACEACPI("XSDT Revision:%x\n", pxsdt->Revision);
         memcpy_s(rsign, pxsdt->OEMID, 6);
         rsign[6] = 0;
-        printf("XSDT OEMID:%s\n", rsign);
+        TRACEACPI("XSDT OEMID:%s\n", rsign);
         memcpy_s(rsign, pxsdt->OEM_TABLE_ID, 8);
         rsign[8] = 0;
-        printf("XSDT OEM Table ID:%s\n", rsign);
+        TRACEACPI("XSDT OEM Table ID:%s\n", rsign);
         uint64 *acpitable = (uint32_t)(prsdp->XsdtAddress) + sizeof(SysDtHead);
         int tablecount = (pxsdt->Length - sizeof(SysDtHead)) / 8;
         SysDtHead *ptable = NULL;
@@ -229,7 +234,7 @@ void readAcpiTable(RSDPStruct *prsdp)
             rsign[2] = ptable->Signature[2];
             rsign[3] = ptable->Signature[3];
             rsign[4] = 0;
-            printf("%s ", rsign);
+            TRACEACPI("%s ", rsign);
             if (ptable->Signature[0] == 'F' && ptable->Signature[1] == 'A' && ptable->Signature[2] == 'C' && ptable->Signature[3] == 'P')
                 fadtaddr = ptable;
             else if (ptable->Signature[0] == 'M' && ptable->Signature[1] == 'C' && ptable->Signature[2] == 'F' && ptable->Signature[3] == 'G')
@@ -241,10 +246,10 @@ void readAcpiTable(RSDPStruct *prsdp)
                 madtaddr = ptable;
             }
         }
-        printf("\n");
-        printf("FADT IAPC_BOOT_ARCH: %x\n", *(uint16_t *)(fadtaddr + 109));
-        printf("MCFG addr: %x\n", mcfgaddr);
-        printf("MADT addr: %x\n", madtaddr);
+        TRACEACPI("\n");
+        TRACEACPI("FADT IAPC_BOOT_ARCH: %x\n", *(uint16_t *)(fadtaddr + 109));
+        TRACEACPI("MCFG addr: %x\n", mcfgaddr);
+        TRACEACPI("MADT addr: %x\n", madtaddr);
         AcpiTableAddrs[FADT] = (uint32_t)(fadtaddr);
         AcpiTableAddrs[MCFG] = (uint32_t)(mcfgaddr);
         AcpiTableAddrs[MADT] = (uint32_t)(madtaddr);
@@ -265,7 +270,7 @@ void initAcpiTable()
     memset_s(Madt_LOCALAPIC, 0, MAX_LOAPIC_COUNT * sizeof(LocalApicEntry *));
     memset_s(mcfgPciConfigSpace, 0, MAX_MCFG_PCICONFIG_COUNT * sizeof(pciConfigSpaceBaseAddr *));
 
-#if 1
+#if 0
 	
 	for (int i = 0; i < bootparam.memInfoSize; i++)
 	{
@@ -284,5 +289,5 @@ void initAcpiTable()
         readAcpiTable(rsdpaddr);
     }
     else
-        printf("not find RSDP\n");
+        TRACEACPI("not find RSDP\n");
 }

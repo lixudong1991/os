@@ -29,7 +29,7 @@ typedef struct KeyBoardStruct
 #pragma pack()
 
 KeyBoardStruct *pkeyBoardStruct = KEY_BUFF_ADDR;
-uint16_t *scanSet2Map;
+uint16_t *scanSet2Map=NULL;
 uint32 ps2DeviceInit()
 {
     uint32 ret = ps2Controllerinit();

@@ -3,6 +3,7 @@
 #include "printf.h"
 #include "apic.h"
 #include "memcachectl.h"
+#include "osdataPhyAddr.h"
 extern KernelData kernelData;
 extern TaskCtrBlock **mainTask;
 extern TaskCtrBlock **procCurrTask;
@@ -118,17 +119,18 @@ void apicTimeOut()
 
 void updataGdt()
 {
+    uint32_t *pAtomicBuff = ATOMIC_BUFF_ADDR;
     spinlock(lockBuff[UPDATE_GDT_CR3].plock);
-	aparg->logcpucount++;
+	pAtomicBuff[UPDATE_GDT_CR3]--;
 	unlock(lockBuff[UPDATE_GDT_CR3].plock);
-    while(aparg->logcpucount<processorinfo.count);
+    while(pAtomicBuff[UPDATE_GDT_CR3]>0);
     resetcr3();
     setgdtr(&(kernelData.gdtInfo));
 
 	spinlock(lockBuff[UPDATE_GDT_CR3].plock);
-	aparg->logcpucount--;
+	pAtomicBuff[UPDATE_GDT_CR3]++;
 	unlock(lockBuff[UPDATE_GDT_CR3].plock);
-	while(aparg->logcpucount>0);
+	while(aparg->logcpucount<processorinfo.count);
     printf("updataGdt apicid:0x%x\n", ((LOCAL_APIC *)getXapicAddr())->ID[0]);
     xapicwriteEOI();
 }

@@ -4,6 +4,12 @@
 #include "boot.h"
 #include "memcachectl.h"
 
+#ifdef TRACE_PCIE
+#	define TRACEPCIE(a...) printf(a...)
+#else
+#	define TRACEPCIE(a...)
+#endif
+
 PcieConfigInfo  *pcieConfigInfos =NULL;
 volatile uint32 pcieConfigInfoCount=0;
 

@@ -318,6 +318,9 @@ extern uint32 _mwait(uint32 extensions, uint32 hints);
 extern uint32 pre_mtrr_change();
 extern void post_mtrr_change(uint32 cr4data);
 
+void ipiUpdateGdtCr3();
+void ipiUpdateMtrr();
+
 
 #define MAX_LOCK 512
 typedef struct LockBlock
@@ -329,7 +332,7 @@ typedef struct LockBlock
 typedef struct LockObj
 {
 	uint32 index;
-	uint32 *plock;
+	uint32 plock;
 }LockObj;
 
 enum Lock_ID
@@ -338,6 +341,7 @@ enum Lock_ID
 	PRINT_LOCK,
 	MTRR_LOCK,
 	UPDATE_GDT_CR3,
+	AHCI_LOCK,
 	LOCK_COUNT
 };
 
@@ -346,6 +350,6 @@ int createLock(LockObj *lobj);
 extern int spinlock(uint32 *lobj);
 extern int unlock(uint32 *lobj);
 void releaseLock(LockObj *lobj);
-extern LockObj lockBuff[LOCK_COUNT];
+extern LockObj *lockBuff;
 
 #endif

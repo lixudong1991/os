@@ -15,14 +15,13 @@
 #include "ahci.h"
 #define STACKLIMIT_G1(a) ((((uint32)(a)) - 1) >> 12) // gdt 表项粒度为1的段界限
 
-
-BootParam bootparam;
+volatile BootParam bootparam;
 KernelData kernelData;
 LockBlock *lockblock = NULL;
 AParg *aparg = (AParg *)AP_ARG_ADDR;
 ProcessorInfo processorinfo;
-TaskCtrBlock **procCurrTask;
-LockObj lockBuff[LOCK_COUNT];
+TaskCtrBlock **procCurrTask = NULL;
+LockObj *lockBuff = NULL;
 char *hexstr32(char buff[9], uint32 val)
 {
 	char hexs[] = "0123456789ABCDEF";
@@ -137,10 +136,10 @@ static void createInterruptGate(KernelData *kdata)
 	for (; i < 0x27; i++)
 		appendTableGateItem(&(kdata->idtInfo), &item);
 
-	item.segAddr = 	interrupt_27_handler; //IRQ1 中断
+	item.segAddr = interrupt_27_handler; // IRQ1 中断
 	appendTableGateItem(&(kdata->idtInfo), &item);
 	i++;
-	item.segAddr = 	interrupt_28_handler; //IRQ12 中断
+	item.segAddr = interrupt_28_handler; // IRQ12 中断
 	appendTableGateItem(&(kdata->idtInfo), &item);
 	i++;
 	item.segAddr = general_interrupt_handler;
@@ -332,10 +331,16 @@ void initLockBlock()
 {
 	uint32_t addr = LOCK_START, size = LOCK_SIZE;
 	mem_fix_type_set(addr, size, MEM_UC);
+	mem4k_map(addr, addr, MEM_UC, PAGE_G | PAGE_RW);
 	lockblock = LOCK_START;
 	memset_s(lockblock, 0, size);
 	setBit(lockblock->lockstatus, 0);
 	lockblock->lockData[0] = 0;
+	lockBuff = kernel_malloc(LOCK_COUNT * sizeof(LockObj));
+
+	mem_fix_type_set(ATOMIC_BUFF_ADDR & 0xfffff000, 0x1000, MEM_UC);
+	mem4k_map(ATOMIC_BUFF_ADDR & 0xfffff000, ATOMIC_BUFF_ADDR & 0xfffff000, MEM_UC, PAGE_G | PAGE_RW);
+	memset_s(ATOMIC_BUFF_ADDR, 0, ATOMIC_BUFF_SIZE);
 }
 int createLock(LockObj *lobj)
 {
@@ -352,7 +357,7 @@ int createLock(LockObj *lobj)
 	{
 		setBit(lockblock->lockstatus, i);
 		lobj->index = i;
-		lobj->plock = &(lockblock->lockData[i]);
+		lobj->plock = (uint32_t)(&(lockblock->lockData[i]));
 		lockblock->lockData[i] = 0;
 		ret = TRUE;
 	}
@@ -413,14 +418,40 @@ void APproc(uint32 argv)
 		}
 	}
 }
+
+void ipiUpdateGdtCr3()
+{
+	LOCAL_APIC *xapic_obj = (LOCAL_APIC *)getXapicAddr();
+	uint32_t isSend = FALSE;
+	uint32_t *pAtomicBuff = ATOMIC_BUFF_ADDR;
+	asm volatile("cli");
+	spinlock(lockBuff[UPDATE_GDT_CR3].plock);
+	if (pAtomicBuff[UPDATE_GDT_CR3] == 0)
+	{
+		isSend = TRUE;
+		pAtomicBuff[UPDATE_GDT_CR3] = processorinfo.count;
+	}
+	unlock(lockBuff[UPDATE_GDT_CR3].plock);
+	asm volatile("sti");
+	if (isSend)
+	{
+		asm volatile("mfence");
+		xapic_obj->ICR1[0] = 0;
+		xapic_obj->ICR0[0] = 0x84083; // 更新gdt,cr3
+	}
+}
+void ipiUpdateMtrr()
+{
+}
 void MPinit()
 {
+	xapicaddr = XAPIC_START_ADDR;
+	logicalID = 0;
 #if X2APIC_ENABLE
 #else
-	printf("map apcode %x :%d\n", AP_CODE_ADDR,mem4k_map(AP_CODE_ADDR, AP_CODE_ADDR, MEM_WB, PAGE_G|PAGE_R));
+	printf("map apcode %x :%d\n", AP_CODE_ADDR, mem4k_map(AP_CODE_ADDR, AP_CODE_ADDR, MEM_WB, PAGE_G | PAGE_R));
 	// read_ata_sectors(0x4b000, 144, 2);
-	uint32_t addr = AP_ARG_ADDR&0xfffff000, size = 0x1000, temp = 0;
-	mem_fix_type_set(addr, size, MEM_UC);
+	uint32_t addr = AP_ARG_ADDR & 0xfffff000, size = 0x1000, temp = 0;
 
 	memset_s(aparg, 0, sizeof(AParg));
 	aparg->entry = APproc;
@@ -549,7 +580,7 @@ int _start(void *argv)
 	createLock(&(lockBuff[PRINT_LOCK]));
 	createLock(&(lockBuff[MTRR_LOCK]));
 	createLock(&(lockBuff[UPDATE_GDT_CR3]));
-
+	createLock(&(lockBuff[AHCI_LOCK]));
 	// initScreen();
 	//  fontInit();
 
@@ -605,30 +636,32 @@ int _start(void *argv)
 	// 	}
 	asm("cli");
 	initAcpiTable();
-    initIoApic();
+	initIoApic();
 	checkPciDevice();
 	initAHCI();
 	asm("sti");
+
 	xapic_obj->ICR1[0] = 0;
 	xapic_obj->ICR0[0] = 0x84083; // 更新gdt,cr3
+
 	asm("cli");
-	printf("ps2Deviceinit =%d\n",ps2DeviceInit());
+	printf("ps2Deviceinit =%d\n", ps2DeviceInit());
 	asm("sti");
-	//printf("support:monitor/mwait = %d\n", cpufeatures[cpu_support_monitor_mwait]);
-	char inputbuff[1024] = { 0 };
+	// printf("support:monitor/mwait = %d\n", cpufeatures[cpu_support_monitor_mwait]);
+	char inputbuff[1024] = {0};
 	while (1)
 	{
 		asm("cli");
 		printf("$");
 		asm("sti");
-		int len=fgets(inputbuff, 1024);
+		int len = fgets(inputbuff, 1024);
 		inputbuff[len - 1] = 0;
 		asm("cli");
-		printf("buff:%s\n",inputbuff);	
+		printf("buff:%s\n", inputbuff);
 		asm("sti");
-		ahci_write(sataDev[0].pPortMem,0,0,2,inputbuff);
+		ahci_write(0, 0, 0, 2, inputbuff);
 		// printf("hba port %d is:0x%x ie:0x%x cmd:0x%x  ssts:0x%x sctl:0x%x serr:0x%x sact:0x%x tfd:0x%x ci:%x\n", sataDev[0].port,
-        //                        sataDev[0].pPortMem->is, sataDev[0].pPortMem->ie, sataDev[0].pPortMem->cmd, sataDev[0].pPortMem->ssts, sataDev[0].pPortMem->sctl, 
+		//                        sataDev[0].pPortMem->is, sataDev[0].pPortMem->ie, sataDev[0].pPortMem->cmd, sataDev[0].pPortMem->ssts, sataDev[0].pPortMem->sctl,
 		// 					   sataDev[0].pPortMem->serr,sataDev[0].pPortMem->sact, sataDev[0].pPortMem->tfd, sataDev[0].pPortMem->ci);
 	}
 	while (1)

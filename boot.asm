@@ -572,7 +572,6 @@ post_mtrr_change:
 	pop ecx
 	ret
 
-
 spinlock:
 	push ebx
 	mov ebx,[esp+8]	
@@ -587,6 +586,7 @@ Get_Lock:
 	XCHG EAX, [ebx] ;Try to get lock
 	CMP EAX, 0 ;Test if successful
 	JNE Spin_Lock
+	mov eax,[esp+8]
 	pop ebx
 	ret
 

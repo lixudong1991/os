@@ -308,8 +308,8 @@ void initAHCI();
 
 #define ATA_CMD_READ_DMA_EX     0x25
 #define ATA_CMD_WRITE_DMA_EX     0x35
-int ahci_read(HBA_PORT *port, DWORD startl, DWORD starth, DWORD sectorcount, QWORD bufaddr);
-int ahci_write(HBA_PORT *port, DWORD startl, DWORD starth, DWORD sectorcount, QWORD bufaddr);
+int ahci_read(uint32_t devid, DWORD startl, DWORD starth, DWORD sectorcount, QWORD bufaddr);
+int ahci_write(uint32_t devid, DWORD startl, DWORD starth, DWORD sectorcount, QWORD bufaddr);
 
 #define SUPPORT_SATA_DEVICE_MAX_COUNT 6
 extern HBA_MEM *pHbaMem;
