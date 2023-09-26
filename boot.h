@@ -126,7 +126,7 @@ typedef struct TaskCtrBlock
 {
 	struct TaskCtrBlock *next;
 	struct TaskCtrBlock *prior;
-	uint32 AllocateNextAddr;
+	uint32 *AllocateNextAddr;
 	uint32 tssSel;
 	uint32 taskStats;
 	TssHead TssData;
@@ -342,10 +342,12 @@ enum Lock_ID
 	MTRR_LOCK,
 	UPDATE_GDT_CR3,
 	AHCI_LOCK,
+	UC_VAR_LOCK,
 	LOCK_COUNT
 };
 
-void initLockBlock();
+void *allocUnCacheMem(uint32_t size);
+void initLockBlock(BootParam *bootparam);
 int createLock(LockObj *lobj);
 extern int spinlock(uint32 *lobj);
 extern int unlock(uint32 *lobj);

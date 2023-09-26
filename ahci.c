@@ -11,11 +11,11 @@ HBA_MEM *pHbaMem = NULL;
 volatile uint32_t portSataDev = 0;
 volatile uint32_t sataDevCount = 0;
 Sata_Device *sataDev = NULL;
-
+#define  TRACE_AHCI
 #ifdef TRACE_AHCI
-#	define TRACEAHCI(a...) printf(a...)
+#	define TRACEAHCI(...) printf(__VA_ARGS__)
 #else
-#	define TRACEAHCI(a...)
+#	define TRACEAHCI(...)
 #endif
 // Check device type
 static int check_type(HBA_PORT *port)
@@ -235,7 +235,7 @@ void initAHCI()
         //  TRACEAHCI("pcie config addr:0x%x bus:%d device:%d vendorID: 0x%x  deviceID:0x%x\n", pcieConfigInfos[i].pConfigPage, pcieConfigInfos[i].bus,
         //         pcieConfigInfos[i].device, pcieConfigInfos[i].pConfigPage->VendorID, pcieConfigInfos[i].pConfigPage->deviceID);
         //  asm("sti");
-#if 0
+#if 1
         if (pcieConfigInfos[i].pConfigPage->VendorID == 0x8086 && pcieConfigInfos[i].pConfigPage->deviceID == 0xa282)
         {
             ahciconfig = &(pcieConfigInfos[i]);
@@ -340,7 +340,7 @@ int ahci_read(uint32_t devid, DWORD startl, DWORD starth, DWORD sectorcount, QWO
 
     HBA_CMD_TBL *pcmdtb = cmdheadArr[slot].ctba;
     DWORD prdtentryByteSize = 0;
-   // TRACEAHCI("write %s fb:0x%x  clb:0x%x cmdslot:%d prdtl:%d ctba:0x%x\n",(DWORD)(bufaddr & 0xFFFFFFFF),port->fb,port->clb,slot, prdtl,cmdheadArr[slot].ctba);
+    TRACEAHCI("read %s fb:0x%x  clb:0x%x cmdslot:%d prdtl:%d ctba:0x%x\n",(DWORD)(bufaddr & 0xFFFFFFFF),port->fb,port->clb,slot, prdtl,cmdheadArr[slot].ctba);
     for (int i = 0; i < prdtl; i++)
     {
         pcmdtb->prdt_entry[i].dba = (DWORD)(bufaddr & 0xFFFFFFFF);
@@ -349,11 +349,11 @@ int ahci_read(uint32_t devid, DWORD startl, DWORD starth, DWORD sectorcount, QWO
         sentByteCount -= prdtentryByteSize;
         pcmdtb->prdt_entry[i].DesInfo = prdtentryByteSize - 1;
         bufaddr += prdtentryByteSize;
-       // TRACEAHCI("prdtl entry:%d dba:%x DesInfo:%d\n", i, pcmdtb->prdt_entry[i].dba, pcmdtb->prdt_entry[i].DesInfo);
+        TRACEAHCI("prdtl entry:%d dba:%x DesInfo:%d\n", i, pcmdtb->prdt_entry[i].dba, pcmdtb->prdt_entry[i].DesInfo);
         //    if (i == prdtl - 1)
         //       pcmdtb->prdt_entry[i].DesInfo |= 0x80000000; // 最后一个prd条目生成中断
     }
-   // TRACEAHCI("3b000: 0x%x 0x%x 0x%x 0x%x\n",*(DWORD*)(0x3b000+0x80),*(DWORD*)(0x3b000+0x80+4),*(DWORD*)(0x3b000+0x80+8),*(DWORD*)(0x3b000+0x80+0xc));
+    TRACEAHCI("3b000: 0x%x 0x%x 0x%x 0x%x\n",*(DWORD*)(0x3b000+0x80),*(DWORD*)(0x3b000+0x80+4),*(DWORD*)(0x3b000+0x80+8),*(DWORD*)(0x3b000+0x80+0xc));
     // Setup command
     FIS_REG_H2D *cmdfis = (FIS_REG_H2D *)(&(pcmdtb->cfis));
 
@@ -372,9 +372,11 @@ int ahci_read(uint32_t devid, DWORD startl, DWORD starth, DWORD sectorcount, QWO
 
     cmdfis->countl = sectorcount & 0xff;
     cmdfis->counth = sectorcount >> 8;
-   // TRACEAHCI("3b000: 0x%x 0x%x 0x%x 0x%x\n",*(DWORD*)(0x3b000),*(DWORD*)(0x3b000+4),*(DWORD*)(0x3b000+8),*(DWORD*)(0x3b000+0xc));
+    TRACEAHCI("3b000: 0x%x 0x%x 0x%x 0x%x\n",*(DWORD*)(0x3b000),*(DWORD*)(0x3b000+4),*(DWORD*)(0x3b000+8),*(DWORD*)(0x3b000+0xc));
+
     port->ci |= (((uint32_t)1) << slot);
-    
+
+    while(port->ci != 0);
     return TRUE;
 }
 int ahci_write(uint32_t devid, DWORD startl, DWORD starth, DWORD sectorcount, QWORD bufaddr)
@@ -443,9 +445,10 @@ int ahci_write(uint32_t devid, DWORD startl, DWORD starth, DWORD sectorcount, QW
 
     cmdfis->countl = sectorcount & 0xff;
     cmdfis->counth = sectorcount >> 8;
+
    // TRACEAHCI("3b000: 0x%x 0x%x 0x%x 0x%x\n",*(DWORD*)(0x3b000),*(DWORD*)(0x3b000+4),*(DWORD*)(0x3b000+8),*(DWORD*)(0x3b000+0xc));
     port->ci |= (((uint32_t)1) << slot);
-    
+    while(port->ci != 0);
     return TRUE;
 }
 
@@ -508,6 +511,8 @@ void interruptHandle_AHCI()
                 }
                 else
                 {
+                    TRACEAHCI("hba port %d is:0x%x ie:0x%x cmd:0x%x  ssts:0x%x sctl:0x%x serr:0x%x sact:0x%x tfd:0x%x ci:%x\n", i,
+                               pHbaMem->ports[i].is, pHbaMem->ports[i].ie, pHbaMem->ports[i].cmd, pHbaMem->ports[i].ssts, pHbaMem->ports[i].sctl, pHbaMem->ports[i].serr, pHbaMem->ports[i].sact, pHbaMem->ports[i].tfd, pHbaMem->ports[i].ci);
                     pHbaMem->ports[i].is = pHbaMem->ports[i].is;
                 }
             }

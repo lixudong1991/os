@@ -10,9 +10,9 @@ volatile uint8_t Madt_LOCALAPIC_count = 0;
 volatile uint8_t Madt_IOAPIC_count = 0;
 extern BootParam bootparam;
 #ifdef TRACE_ACPI
-#	define TRACEACPI(a...) printf(a...)
+#	define TRACEACPI(...) printf(__VA_ARGS__)
 #else
-#	define TRACEACPI(a...)
+#	define TRACEACPI(...)
 #endif
 static void getnext_KMP(const char *dest, int next[], int len)
 {
@@ -270,7 +270,7 @@ void initAcpiTable()
     memset_s(Madt_LOCALAPIC, 0, MAX_LOAPIC_COUNT * sizeof(LocalApicEntry *));
     memset_s(mcfgPciConfigSpace, 0, MAX_MCFG_PCICONFIG_COUNT * sizeof(pciConfigSpaceBaseAddr *));
 
-#if 0
+#if 1
 	
 	for (int i = 0; i < bootparam.memInfoSize; i++)
 	{

@@ -633,7 +633,7 @@ apLoadSeg 			    equ      0x6000 ;ap加载内存起始地址
 
 fontSectionCount      equ      232
 fontStartSection      equ      320     ;加载起始扇区
-fontLoadSeg		  	  equ      0x6100 ;ap加载内存起始地址
+fontLoadSeg		  	  equ      0x6100 ;字体数据加载内存起始地址
 
 
 stdos:  

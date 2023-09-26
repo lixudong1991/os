@@ -216,7 +216,9 @@ void createTask(TcbList *taskList, int taskStartSection, int SectionCount)
 	prodata.vir_end = 0;
 	prodata.vir_base = 0xffffffff;
 	loadElf(elfdata, &prodata, PRIVILEGUSER);
-	newTask->AllocateNextAddr = prodata.vir_end + 1;
+
+	newTask->AllocateNextAddr = allocUnCacheMem(sizeof(uint32));
+	*(newTask->AllocateNextAddr) =prodata.vir_end + 1;
 	uint32 stacksize = 1, stack0size = 1, stack1size = 1, stack2size = 1;
 	char *stack = allocate_memory(newTask, stacksize * 4096, PAGE_ALL_PRIVILEG | PAGE_RW);
 	char *stack0 = allocate_memory(newTask, stack0size * 4096, PAGE_RW);
@@ -327,7 +329,7 @@ void testfun()
 	freePhy4kPage(addr);
 }
 */
-void initLockBlock()
+void initLockBlock(BootParam *bootarg)
 {
 	uint32_t addr = LOCK_START, size = LOCK_SIZE;
 	mem_fix_type_set(addr, size, MEM_UC);
@@ -336,11 +338,11 @@ void initLockBlock()
 	memset_s(lockblock, 0, size);
 	setBit(lockblock->lockstatus, 0);
 	lockblock->lockData[0] = 0;
-	lockBuff = kernel_malloc(LOCK_COUNT * sizeof(LockObj));
 
-	mem_fix_type_set(ATOMIC_BUFF_ADDR & 0xfffff000, 0x1000, MEM_UC);
+	mem_fix_type_set(ATOMIC_BUFF_ADDR & 0xfffff000, ATOMIC_BUFF_SIZE, MEM_UC);
 	mem4k_map(ATOMIC_BUFF_ADDR & 0xfffff000, ATOMIC_BUFF_ADDR & 0xfffff000, MEM_UC, PAGE_G | PAGE_RW);
 	memset_s(ATOMIC_BUFF_ADDR, 0, ATOMIC_BUFF_SIZE);
+	lockBuff =allocateVirtual4kPage(sizeof(LockObj)*LOCK_COUNT, &(bootarg->kernelAllocateNextAddr), PAGE_G |PAGE_RW);
 }
 int createLock(LockObj *lobj)
 {
@@ -418,30 +420,35 @@ void APproc(uint32 argv)
 		}
 	}
 }
-
+void *allocUnCacheMem(uint32_t size)
+{
+	void *ret =NULL;
+	spinlock(lockBuff[UC_VAR_LOCK].plock);
+	if(((uint32_t*)(ATOMIC_BUFF_ADDR))[UC_VAR_LOCK]+size < ATOMIC_BUFF_ADDR+ATOMIC_BUFF_SIZE)
+	{
+		ret = ((uint32_t*)(ATOMIC_BUFF_ADDR))[UC_VAR_LOCK];
+		((uint32_t*)(ATOMIC_BUFF_ADDR))[UC_VAR_LOCK]+=size;
+	}
+	unlock(lockBuff[UC_VAR_LOCK].plock);
+	return ret;
+}
 void ipiUpdateGdtCr3()
 {
 	LOCAL_APIC *xapic_obj = (LOCAL_APIC *)getXapicAddr();
-	uint32_t isSend = FALSE;
 	uint32_t *pAtomicBuff = ATOMIC_BUFF_ADDR;
-	asm volatile("cli");
-	spinlock(lockBuff[UPDATE_GDT_CR3].plock);
-	if (pAtomicBuff[UPDATE_GDT_CR3] == 0)
-	{
-		isSend = TRUE;
-		pAtomicBuff[UPDATE_GDT_CR3] = processorinfo.count;
-	}
-	unlock(lockBuff[UPDATE_GDT_CR3].plock);
-	asm volatile("sti");
-	if (isSend)
-	{
-		asm volatile("mfence");
-		xapic_obj->ICR1[0] = 0;
-		xapic_obj->ICR0[0] = 0x84083; // 更新gdt,cr3
-	}
+	pAtomicBuff[UPDATE_GDT_CR3]=processorinfo.count;
+	asm volatile("mfence");
+	xapic_obj->ICR1[0] = 0;
+	xapic_obj->ICR0[0] = 0x84083; // 更新gdt,cr3
 }
 void ipiUpdateMtrr()
 {
+	LOCAL_APIC *xapic_obj = (LOCAL_APIC *)getXapicAddr();
+	uint32_t *pAtomicBuff = ATOMIC_BUFF_ADDR;
+	pAtomicBuff[MTRR_LOCK]=processorinfo.count;
+	asm volatile("mfence");
+	xapic_obj->ICR1[0] = 0;
+	xapic_obj->ICR0[0] = 0x84084; // 更新mtrr
 }
 void MPinit()
 {
@@ -452,6 +459,8 @@ void MPinit()
 	printf("map apcode %x :%d\n", AP_CODE_ADDR, mem4k_map(AP_CODE_ADDR, AP_CODE_ADDR, MEM_WB, PAGE_G | PAGE_R));
 	// read_ata_sectors(0x4b000, 144, 2);
 	uint32_t addr = AP_ARG_ADDR & 0xfffff000, size = 0x1000, temp = 0;
+	mem_fix_type_set(addr, size, MEM_UC);
+	mem4k_map(addr, addr, MEM_UC, PAGE_G | PAGE_RW);
 
 	memset_s(aparg, 0, sizeof(AParg));
 	aparg->entry = APproc;
@@ -502,7 +511,6 @@ void MPinit()
 		tempSeg.S = 0;
 		tempSeg.Type = TSSSEGTYPE;
 		procCurrTask[i]->tssSel = appendTableSegItem(&(kernelData.gdtInfo), &tempSeg);
-
 		kernelData.taskList.tcb_Last->next = procCurrTask[i];
 		procCurrTask[i]->next = kernelData.taskList.tcb_Frist;
 		kernelData.taskList.tcb_Last = procCurrTask[i];
@@ -550,7 +558,7 @@ int _start(void *argv)
 	interrupt8259a_disable();
 	createInterruptGate(&kernelData);
 
-	TaskCtrBlock *tcbhead = (TaskCtrBlock *)allocateVirtual4kPage(sizeof(TaskCtrBlock), &(bootparam.kernelAllocateNextAddr), PAGE_RW);
+	TaskCtrBlock *tcbhead = (TaskCtrBlock *)allocateVirtual4kPage(sizeof(TaskCtrBlock), &(bootparam.kernelAllocateNextAddr), PAGE_G|PAGE_RW);
 	memset_s(tcbhead, 0, sizeof(TaskCtrBlock));
 	tcbhead->next = tcbhead;
 	tcbhead->taskStats = 1;
@@ -558,7 +566,6 @@ int _start(void *argv)
 	kernelData.taskList.tcb_Last = tcbhead;
 	kernelData.taskList.size = 1;
 	kernelData.nextTask = NULL;
-	tcbhead->AllocateNextAddr = bootparam.kernelAllocateNextAddr;
 	tcbhead->TssData.ioPermission = sizeof(TssHead) - 1;
 	tcbhead->TssData.cr3 = cr3_data();
 	TableSegmentItem tempSeg;
@@ -575,12 +582,20 @@ int _start(void *argv)
 	setgdtr(&(kernelData.gdtInfo));
 	settr(tcbhead->tssSel);
 	createCallGate(&kernelData);
-	initLockBlock();
+	initLockBlock(&bootparam);
+	((uint32_t*)(ATOMIC_BUFF_ADDR))[UC_VAR_LOCK]=ATOMIC_BUFF_ADDR+4*LOCK_COUNT;
+	tcbhead->AllocateNextAddr = ((uint32_t*)(ATOMIC_BUFF_ADDR))[UC_VAR_LOCK];
+	((uint32_t*)(ATOMIC_BUFF_ADDR))[UC_VAR_LOCK]+=4;
+	*(tcbhead->AllocateNextAddr) = bootparam.kernelAllocateNextAddr;
+
 	createLock(&(lockBuff[KERNEL_LOCK]));
 	createLock(&(lockBuff[PRINT_LOCK]));
 	createLock(&(lockBuff[MTRR_LOCK]));
 	createLock(&(lockBuff[UPDATE_GDT_CR3]));
 	createLock(&(lockBuff[AHCI_LOCK]));
+	createLock(&(lockBuff[UC_VAR_LOCK]));
+
+	printf("addr1:0x%x addr2:0x%x value:0x%x value2:0x%x\n",bootparam.kernelAllocateNextAddr,tcbhead->AllocateNextAddr,*(tcbhead->AllocateNextAddr),((uint32_t*)(ATOMIC_BUFF_ADDR))[UC_VAR_LOCK]);
 	// initScreen();
 	//  fontInit();
 
@@ -591,19 +606,11 @@ int _start(void *argv)
 	check_mtrr();
 	check_pat();
 
-	uint32_t eax = 0;
-	printf("cr4: 0x%x\n", cr4_data());
-	eax = cr0_data();
-	printf("cr0_data: 0x%x\n", eax);
 	MPinit();
 	cacheMtrrMsrs();
+
+	ipiUpdateMtrr();
 	LOCAL_APIC *xapic_obj = (LOCAL_APIC *)getXapicAddr();
-
-	aparg->logcpucount = 0;
-	asm("mfence");
-	xapic_obj->ICR1[0] = 0;
-	xapic_obj->ICR0[0] = 0x84084; // 更新mtrr
-
 	// Apic timer task switch
 	xapic_obj->LVT_Timer[0] = 0x82;
 	xapic_obj->DivideConfiguration[0] = 9;
@@ -641,14 +648,15 @@ int _start(void *argv)
 	initAHCI();
 	asm("sti");
 
-	xapic_obj->ICR1[0] = 0;
-	xapic_obj->ICR0[0] = 0x84083; // 更新gdt,cr3
+	ipiUpdateGdtCr3(); // 更新gdt,cr3
 
 	asm("cli");
 	printf("ps2Deviceinit =%d\n", ps2DeviceInit());
 	asm("sti");
 	// printf("support:monitor/mwait = %d\n", cpufeatures[cpu_support_monitor_mwait]);
 	char inputbuff[1024] = {0};
+	mem4k_map(0x3000,0x3000,MEM_WB,PAGE_RW);
+	memset_s(0x3000,0,0x1000);
 	while (1)
 	{
 		asm("cli");
@@ -658,8 +666,10 @@ int _start(void *argv)
 		inputbuff[len - 1] = 0;
 		asm("cli");
 		printf("buff:%s\n", inputbuff);
+		ahci_read(0, 1, 0,1, 0x3000);
 		asm("sti");
-		ahci_write(0, 0, 0, 2, inputbuff);
+		printf("%x\n",*(uint32_t*)(0x3000));
+		//ahci_write(1, 0, 0, 2, 0x7E000);
 		// printf("hba port %d is:0x%x ie:0x%x cmd:0x%x  ssts:0x%x sctl:0x%x serr:0x%x sact:0x%x tfd:0x%x ci:%x\n", sataDev[0].port,
 		//                        sataDev[0].pPortMem->is, sataDev[0].pPortMem->ie, sataDev[0].pPortMem->cmd, sataDev[0].pPortMem->ssts, sataDev[0].pPortMem->sctl,
 		// 					   sataDev[0].pPortMem->serr,sataDev[0].pPortMem->sact, sataDev[0].pPortMem->tfd, sataDev[0].pPortMem->ci);

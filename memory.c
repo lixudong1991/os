@@ -8,21 +8,21 @@ char *allocate_memory(TaskCtrBlock *task, uint32 size, uint32 prop)
 {
 
 	uint32 sizealign = size;
-	if (task->AllocateNextAddr % ALLOC_ALIGN != 0)
-		task->AllocateNextAddr = (task->AllocateNextAddr / ALLOC_ALIGN + 1) * ALLOC_ALIGN;
+	if (*(task->AllocateNextAddr) % ALLOC_ALIGN != 0)
+		*(task->AllocateNextAddr) = (*(task->AllocateNextAddr) / ALLOC_ALIGN + 1) * ALLOC_ALIGN;
 	if (sizealign % ALLOC_ALIGN != 0)
 		sizealign = (sizealign / ALLOC_ALIGN + 1) * ALLOC_ALIGN;
-	char *ret = allocateVirtual4kPage(sizealign, &(task->AllocateNextAddr), prop);
+	char *ret = allocateVirtual4kPage(sizealign,task->AllocateNextAddr, prop);
 	return ret;
 }
 char *allocate_memory_align(TaskCtrBlock *task, uint32 size, uint32 prop,uint32 alignsize)
 {
 	uint32 sizealign = size;
-	if (task->AllocateNextAddr % alignsize != 0)
-		task->AllocateNextAddr = (task->AllocateNextAddr / alignsize + 1) * alignsize;
+	if (*(task->AllocateNextAddr) % alignsize != 0)
+		*(task->AllocateNextAddr) = (*(task->AllocateNextAddr) / alignsize + 1) * alignsize;
 	if (sizealign % alignsize != 0)
 		sizealign = (sizealign / alignsize + 1) * alignsize;
-	char *ret = allocateVirtual4kPage(sizealign, &(task->AllocateNextAddr), prop);
+	char *ret = allocateVirtual4kPage(sizealign, task->AllocateNextAddr, prop);
 	return ret;
 }
 char *allocateVirtual4kPage(uint32 size, uint32 *pAddr, uint32 prop)

@@ -120,32 +120,40 @@ void apicTimeOut()
 void updataGdt()
 {
     uint32_t *pAtomicBuff = ATOMIC_BUFF_ADDR;
+
     spinlock(lockBuff[UPDATE_GDT_CR3].plock);
 	pAtomicBuff[UPDATE_GDT_CR3]--;
 	unlock(lockBuff[UPDATE_GDT_CR3].plock);
+
     while(pAtomicBuff[UPDATE_GDT_CR3]>0);
+
     resetcr3();
     setgdtr(&(kernelData.gdtInfo));
 
 	spinlock(lockBuff[UPDATE_GDT_CR3].plock);
 	pAtomicBuff[UPDATE_GDT_CR3]++;
 	unlock(lockBuff[UPDATE_GDT_CR3].plock);
-	while(aparg->logcpucount<processorinfo.count);
+
+	while(pAtomicBuff[UPDATE_GDT_CR3]<processorinfo.count);
+
     printf("updataGdt apicid:0x%x\n", ((LOCAL_APIC *)getXapicAddr())->ID[0]);
     xapicwriteEOI();
 }
 
 void processorMtrrSync()
 {
+    uint32_t *pAtomicBuff = ATOMIC_BUFF_ADDR;
 	spinlock(lockBuff[MTRR_LOCK].plock);
-	aparg->logcpucount++;
+	pAtomicBuff[MTRR_LOCK]--;
 	unlock(lockBuff[MTRR_LOCK].plock);
-	while(aparg->logcpucount<processorinfo.count);
+	while(pAtomicBuff[MTRR_LOCK]>0);
 	refreshMtrrMsrs();
 	spinlock(lockBuff[MTRR_LOCK].plock);
-	aparg->logcpucount--;
+	pAtomicBuff[MTRR_LOCK]++;
 	unlock(lockBuff[MTRR_LOCK].plock);
-	while(aparg->logcpucount>0);
+
+	while(pAtomicBuff[MTRR_LOCK]<processorinfo.count);
+
     printf("processorMtrrSync apicid:0x%x\n", ((LOCAL_APIC *)getXapicAddr())->ID[0]);
     xapicwriteEOI();
 }

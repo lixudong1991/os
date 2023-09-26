@@ -5,9 +5,9 @@
 #include "memcachectl.h"
 
 #ifdef TRACE_PCIE
-#	define TRACEPCIE(a...) printf(a...)
+#	define TRACEPCIE(...) printf(...)
 #else
-#	define TRACEPCIE(a...)
+#	define TRACEPCIE(...)
 #endif
 
 PcieConfigInfo  *pcieConfigInfos =NULL;

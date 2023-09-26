@@ -8,9 +8,9 @@ volatile uint32 xapicaddr = XAPIC_START_ADDR;
 volatile uint32 logicalID = 1;
 
 #ifdef TRACE_APIC
-#	define TRACEAPIC(a...) printf(a...)
+#	define TRACEAPIC(...) printf(__VA_ARGS__)
 #else
-#	define TRACEAPIC(a...)
+#	define TRACEAPIC(...)
 #endif
 
 int enablingx2APIC()

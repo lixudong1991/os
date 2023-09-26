@@ -8,6 +8,12 @@
 #define IOAPICARB         0x02
 #define IOAPICREDTBL(n)   (0x10 + 2 * n) // lower-32bits (add +1 for upper 32-bits)
  
+#ifdef TRACE_IOAPIC
+#	define TRACEIOAPIC(...) printf(__VA_ARGS__)
+#else
+#	define TRACEIOAPIC(...)
+#endif
+
 void write_ioapic_register(uint32_t  apic_base, const uint8_t offset, const uint32_t val) 
 {
     /* tell IOREGSEL where we want to write to */
@@ -30,7 +36,7 @@ void initIoApic()
     {
         uint32_t ioapicaddr = Madt_IOAPIC[index]->IO_APIC_Address;
         mem4k_map(ioapicaddr&0xfffff000,ioapicaddr&0xfffff000,MEM_UC,PAGE_RW|PAGE_G);
-        printf("ioapic id=0x%x IOAPICVER=0x%x IOAPICARB=0x%x \n",read_ioapic_register(ioapicaddr,IOAPICID),
+        TRACEIOAPIC("ioapic id=0x%x IOAPICVER=0x%x IOAPICARB=0x%x \n",read_ioapic_register(ioapicaddr,IOAPICID),
         read_ioapic_register(ioapicaddr,IOAPICVER),read_ioapic_register(ioapicaddr,IOAPICARB));
     }
     
