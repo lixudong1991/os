@@ -301,7 +301,7 @@ typedef struct Sata_Device{
 void initAHCI();
 
 
-#define HBA_PORT_COUNT 32
+
 #define CMD_TABLE_SIZE 512   //128kb对齐  最多24个prd entry
 #define CMD_RW_MAX_SECTORS_COUNT   0x30000  //每个prd entry 读写4mb (24*4mb)/512 =0x30000
 

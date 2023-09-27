@@ -28,7 +28,7 @@ char *allocate_memory_align(TaskCtrBlock *task, uint32 size, uint32 prop,uint32 
 char *allocateVirtual4kPage(uint32 size, uint32 *pAddr, uint32 prop)
 {
 	uint32 addr = *pAddr;
-	uint32 startaddr = addr & 0xFFFFF000, endaddr = (addr + size - 1) & 0xFFFFF000;
+	uint32 startaddr = addr & PAGE_ADDR_MASK, endaddr = (addr + size - 1) & PAGE_ADDR_MASK;
 	prop &= 6;
 	for (; startaddr <= endaddr;)
 	{
@@ -156,4 +156,33 @@ int mem4k_unmap(uint32 linearaddr, int isFreePhyPage)
 		freePhy4kPage(phyaddr);
 	resetcr3();
 	return TRUE;
+}
+phys_addr_t get_4kpage_phyaddr(phys_addr_t linearaddr)
+{
+
+}
+uint32 get_memory_map_etc(phys_addr_t address, size_t numBytes,Physical_entry* table, uint32* _numEntries)
+{
+	phys_addr_t addr = address;
+	phys_addr_t startPage=addr&PAGE_ADDR_MASK,endPage=(addr+numBytes-1)&PAGE_ADDR_MASK;
+	uint32_t tableIndex=0;
+	uint32_t size=0;
+	for(phys_addr_t index=startPage;index<=endPage;index+=0x1000)
+	{
+		table[tableIndex].address=get_4kpage_phyaddr(index)+(addr-index);
+		size = (index+0x1000)-addr;
+		if(numBytes<=size)
+		{
+			table[tableIndex++].size=numBytes;
+			break;
+		}
+		else
+		{
+			table[tableIndex++].size=size;
+			numBytes-=size;
+		}
+		addr+=size;
+
+	}
+	return tableIndex;
 }

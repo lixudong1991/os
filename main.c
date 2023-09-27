@@ -339,8 +339,8 @@ void initLockBlock(BootParam *bootarg)
 	setBit(lockblock->lockstatus, 0);
 	lockblock->lockData[0] = 0;
 
-	mem_fix_type_set(ATOMIC_BUFF_ADDR & 0xfffff000, ATOMIC_BUFF_SIZE, MEM_UC);
-	mem4k_map(ATOMIC_BUFF_ADDR & 0xfffff000, ATOMIC_BUFF_ADDR & 0xfffff000, MEM_UC, PAGE_G | PAGE_RW);
+	mem_fix_type_set(ATOMIC_BUFF_ADDR & PAGE_ADDR_MASK, ATOMIC_BUFF_SIZE, MEM_UC);
+	mem4k_map(ATOMIC_BUFF_ADDR & PAGE_ADDR_MASK, ATOMIC_BUFF_ADDR & PAGE_ADDR_MASK, MEM_UC, PAGE_G | PAGE_RW);
 	memset_s(ATOMIC_BUFF_ADDR, 0, ATOMIC_BUFF_SIZE);
 	lockBuff =allocateVirtual4kPage(sizeof(LockObj)*LOCK_COUNT, &(bootarg->kernelAllocateNextAddr), PAGE_G |PAGE_RW);
 }
@@ -393,9 +393,7 @@ void APproc(uint32 argv)
 	{
 
 		printf("AP log =========%d init\n", argv);
-		spinlock(lockBuff[KERNEL_LOCK].plock);
 		initApic();
-		unlock(lockBuff[KERNEL_LOCK].plock);
 		processorinfo.processcontent[argv].id = argv;
 		processorinfo.processcontent[argv].apicAddr = getXapicAddr();
 		LOCAL_APIC *xapic_obj = (LOCAL_APIC *)(processorinfo.processcontent[argv].apicAddr);
@@ -423,6 +421,7 @@ void APproc(uint32 argv)
 void *allocUnCacheMem(uint32_t size)
 {
 	void *ret =NULL;
+	asm("cli");
 	spinlock(lockBuff[UC_VAR_LOCK].plock);
 	if(((uint32_t*)(ATOMIC_BUFF_ADDR))[UC_VAR_LOCK]+size < ATOMIC_BUFF_ADDR+ATOMIC_BUFF_SIZE)
 	{
@@ -430,6 +429,7 @@ void *allocUnCacheMem(uint32_t size)
 		((uint32_t*)(ATOMIC_BUFF_ADDR))[UC_VAR_LOCK]+=size;
 	}
 	unlock(lockBuff[UC_VAR_LOCK].plock);
+	asm("sti");
 	return ret;
 }
 void ipiUpdateGdtCr3()
@@ -458,7 +458,7 @@ void MPinit()
 #else
 	printf("map apcode %x :%d\n", AP_CODE_ADDR, mem4k_map(AP_CODE_ADDR, AP_CODE_ADDR, MEM_WB, PAGE_G | PAGE_R));
 	// read_ata_sectors(0x4b000, 144, 2);
-	uint32_t addr = AP_ARG_ADDR & 0xfffff000, size = 0x1000, temp = 0;
+	uint32_t addr = AP_ARG_ADDR & PAGE_ADDR_MASK, size = 0x1000, temp = 0;
 	mem_fix_type_set(addr, size, MEM_UC);
 	mem4k_map(addr, addr, MEM_UC, PAGE_G | PAGE_RW);
 
@@ -610,10 +610,10 @@ int _start(void *argv)
 	cacheMtrrMsrs();
 
 	ipiUpdateMtrr();
-	LOCAL_APIC *xapic_obj = (LOCAL_APIC *)getXapicAddr();
-	// Apic timer task switch
-	xapic_obj->LVT_Timer[0] = 0x82;
-	xapic_obj->DivideConfiguration[0] = 9;
+	// LOCAL_APIC *xapic_obj = (LOCAL_APIC *)getXapicAddr();
+	// // Apic timer task switch
+	// xapic_obj->LVT_Timer[0] = 0x82;
+	// xapic_obj->DivideConfiguration[0] = 9;
 
 	// spinlock(&(lockBuff[KERNEL_LOCK]));
 	// createTask(&(kernelData.taskList), 200, 4);
@@ -641,35 +641,24 @@ int _start(void *argv)
 	// 		//xapic_obj->ICR0[0] = 0x44082;
 	// #endif
 	// 	}
-	asm("cli");
 	initAcpiTable();
 	initIoApic();
 	checkPciDevice();
 	initAHCI();
-	asm("sti");
 
 	ipiUpdateGdtCr3(); // 更新gdt,cr3
 
-	asm("cli");
 	printf("ps2Deviceinit =%d\n", ps2DeviceInit());
-	asm("sti");
 	// printf("support:monitor/mwait = %d\n", cpufeatures[cpu_support_monitor_mwait]);
 	char inputbuff[1024] = {0};
-	mem4k_map(0x3000,0x3000,MEM_WB,PAGE_RW);
-	memset_s(0x3000,0,0x1000);
 	while (1)
 	{
-		asm("cli");
 		printf("$");
-		asm("sti");
 		int len = fgets(inputbuff, 1024);
 		inputbuff[len - 1] = 0;
-		asm("cli");
 		printf("buff:%s\n", inputbuff);
-		ahci_read(0, 1, 0,1, 0x3000);
-		asm("sti");
-		printf("%x\n",*(uint32_t*)(0x3000));
-		//ahci_write(1, 0, 0, 2, 0x7E000);
+		printf("status %d buff:%s\n",ahci_read(1, 0, 0, 2, 0x3000),0x3000);
+		ahci_write(0, 0, 0, 2, 0x3000);
 		// printf("hba port %d is:0x%x ie:0x%x cmd:0x%x  ssts:0x%x sctl:0x%x serr:0x%x sact:0x%x tfd:0x%x ci:%x\n", sataDev[0].port,
 		//                        sataDev[0].pPortMem->is, sataDev[0].pPortMem->ie, sataDev[0].pPortMem->cmd, sataDev[0].pPortMem->ssts, sataDev[0].pPortMem->sctl,
 		// 					   sataDev[0].pPortMem->serr,sataDev[0].pPortMem->sact, sataDev[0].pPortMem->tfd, sataDev[0].pPortMem->ci);

@@ -63,7 +63,7 @@ static int IndexStr_KMP(char *str, int strsize, const char *dest, int *nextbuff,
 
 char *findRSDPAddr(uint32 startaddr, uint32 endaddr)
 {
-    uint32 findstart = startaddr & 0xfffff000, findend = endaddr & 0xfffff000;
+    uint32 findstart = startaddr & PAGE_ADDR_MASK, findend = endaddr & PAGE_ADDR_MASK;
     TRACEACPI("findstart:%x findend:%x \n", startaddr, findend);
     for (int i = findstart; i < findend; i += 0x1000)
     {
@@ -107,8 +107,8 @@ void readMADTInfo(uint32 madtaddr)
 {
     char sign[9] = {0};
     SysDtHead *pmadt = madtaddr;
-    mem4k_map(madtaddr & 0xfffff000, madtaddr & 0xfffff000, MEM_UC, PAGE_G | PAGE_R);
-    mem4k_map((madtaddr + pmadt->Length - 1) & 0xfffff000, (madtaddr + pmadt->Length - 1) & 0xfffff000, MEM_UC, PAGE_G | PAGE_R);
+    mem4k_map(madtaddr & PAGE_ADDR_MASK, madtaddr & PAGE_ADDR_MASK, MEM_UC, PAGE_G | PAGE_R);
+    mem4k_map((madtaddr + pmadt->Length - 1) & PAGE_ADDR_MASK, (madtaddr + pmadt->Length - 1) & PAGE_ADDR_MASK, MEM_UC, PAGE_G | PAGE_R);
     sign[0] = pmadt->Signature[0];
     sign[1] = pmadt->Signature[1];
     sign[2] = pmadt->Signature[2];
@@ -160,8 +160,8 @@ void readMCFGInfo(uint32 mcfgaddr)
 {
     char sign[9] = {0};
     SysDtHead *pmcfg = mcfgaddr;
-    mem4k_map(mcfgaddr & 0xfffff000, mcfgaddr & 0xfffff000, MEM_UC, PAGE_G | PAGE_R);
-    mem4k_map((mcfgaddr + pmcfg->Length - 1) & 0xfffff000, (mcfgaddr + pmcfg->Length - 1) & 0xfffff000, MEM_UC, PAGE_G | PAGE_R);
+    mem4k_map(mcfgaddr & PAGE_ADDR_MASK, mcfgaddr & PAGE_ADDR_MASK, MEM_UC, PAGE_G | PAGE_R);
+    mem4k_map((mcfgaddr + pmcfg->Length - 1) & PAGE_ADDR_MASK, (mcfgaddr + pmcfg->Length - 1) & PAGE_ADDR_MASK, MEM_UC, PAGE_G | PAGE_R);
     sign[0] = pmcfg->Signature[0];
     sign[1] = pmcfg->Signature[1];
     sign[2] = pmcfg->Signature[2];
@@ -207,7 +207,7 @@ void readAcpiTable(RSDPStruct *prsdp)
         // printf("RSDP Extended Checksum:%x\n",prsdp->ExtendedChecksum);
         SysDtHead *pxsdt = (uint32_t)(prsdp->XsdtAddress);
         mapaddr = pxsdt;
-        mapaddr &= 0xfffff000;
+        mapaddr &= PAGE_ADDR_MASK;
         mem4k_map(mapaddr, mapaddr, MEM_UC, PAGE_G | PAGE_RW);
         mem4k_map(mapaddr + 0x1000, mapaddr + 0x1000, MEM_UC, PAGE_G | PAGE_RW);
         memcpy_s(rsign, pxsdt->Signature, 4);
@@ -228,7 +228,7 @@ void readAcpiTable(RSDPStruct *prsdp)
         for (int tableindex = 0; tableindex < tablecount; tableindex++)
         {
             ptable = (uint32_t)(acpitable[tableindex]);
-            mem4k_map((uint32_t)(acpitable[tableindex]) & 0xfffff000, (uint32_t)(acpitable[tableindex]) & 0xfffff000, MEM_UC, PAGE_G | PAGE_RW);
+            mem4k_map((uint32_t)(acpitable[tableindex]) & PAGE_ADDR_MASK, (uint32_t)(acpitable[tableindex]) & PAGE_ADDR_MASK, MEM_UC, PAGE_G | PAGE_RW);
             rsign[0] = ptable->Signature[0];
             rsign[1] = ptable->Signature[1];
             rsign[2] = ptable->Signature[2];
@@ -270,7 +270,7 @@ void initAcpiTable()
     memset_s(Madt_LOCALAPIC, 0, MAX_LOAPIC_COUNT * sizeof(LocalApicEntry *));
     memset_s(mcfgPciConfigSpace, 0, MAX_MCFG_PCICONFIG_COUNT * sizeof(pciConfigSpaceBaseAddr *));
 
-#if 1
+#if 0
 	
 	for (int i = 0; i < bootparam.memInfoSize; i++)
 	{

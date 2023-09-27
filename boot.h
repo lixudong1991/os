@@ -169,6 +169,11 @@ typedef struct ProgramHead
 	uint32 saltCount;
 } ProgramHead;
 
+typedef struct Physical_entry
+{
+	phys_addr_t	address;	/* address in physical memory */
+	phys_size_t	size;		/* size of block */
+}Physical_entry;
 #pragma pack()
 
 #define DATASEG_R 0
@@ -268,6 +273,8 @@ extern void setcursor(uint32 pos);
 extern uint32 getcursor();
 char *allocate_memory(TaskCtrBlock *task, uint32 size, uint32 prop);//4字节对齐
 char *allocate_memory_align(TaskCtrBlock *task, uint32 size, uint32 prop,uint32 alignsize);
+
+uint32 get_memory_map_etc( phys_addr_t address, size_t numBytes,Physical_entry* table, uint32* _numEntries);
 
 extern char *allocatePhy4kPage(uint32 startPhyPage);
 extern uint32 freePhy4kPage(uint32 page);

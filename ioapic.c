@@ -35,7 +35,7 @@ void initIoApic()
     for(uint8_t index =0;index<Madt_IOAPIC_count;index++)
     {
         uint32_t ioapicaddr = Madt_IOAPIC[index]->IO_APIC_Address;
-        mem4k_map(ioapicaddr&0xfffff000,ioapicaddr&0xfffff000,MEM_UC,PAGE_RW|PAGE_G);
+        mem4k_map(ioapicaddr&PAGE_ADDR_MASK,ioapicaddr&PAGE_ADDR_MASK,MEM_UC,PAGE_RW|PAGE_G);
         TRACEIOAPIC("ioapic id=0x%x IOAPICVER=0x%x IOAPICARB=0x%x \n",read_ioapic_register(ioapicaddr,IOAPICID),
         read_ioapic_register(ioapicaddr,IOAPICVER),read_ioapic_register(ioapicaddr,IOAPICARB));
     }

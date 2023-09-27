@@ -324,15 +324,33 @@ int printf(const char *fmt, ...)
 	va_start(args, fmt);
 	printed = vsprintf(printf_buf, fmt, args);
 	va_end(args);
+	asm("cli");
+	spinlock(lockBuff[PRINT_LOCK].plock);
 	puts(printf_buf);
-
+	unlock(lockBuff[PRINT_LOCK].plock);
+	asm("sti");
 	return printed;
 }
+int interruptPrintf(const char *fmt, ...)
+{
+	char printf_buf[1024];
+	va_list args;
+	int printed;
 
+	va_start(args, fmt);
+	printed = vsprintf(printf_buf, fmt, args);
+	va_end(args);
+	spinlock(lockBuff[PRINT_LOCK].plock);
+	puts(printf_buf);
+	unlock(lockBuff[PRINT_LOCK].plock);
+	return printed;
+}
 int putchar(int _Character)
 {
-	uint32 pos = getcursor();
 	char c = (char)_Character;
+	if(c ==0x0d)
+		return;
+	uint32 pos = getcursor();
 	if (c == 0x0a)
 	{
 		pos = pos / 80 * 80;
@@ -355,11 +373,9 @@ int putchar(int _Character)
 }
 void puts(const char *str)
 {
-	spinlock(lockBuff[PRINT_LOCK].plock);
 	char *pstr = str;
 	while (*pstr != 0)
 		putchar(*pstr++);
-	unlock(lockBuff[PRINT_LOCK].plock);
 }
 void clearChars(int count)
 {

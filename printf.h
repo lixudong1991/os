@@ -8,4 +8,5 @@ int putchar(int _Character);
 void puts(const char *str);
 int putcharPos(int _Character, int pos);
 
+int interruptPrintf(const char *fmt, ...);
 #endif // ! _PRINT_F_HH_

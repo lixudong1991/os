@@ -8,7 +8,7 @@ volatile uint32 xapicaddr = XAPIC_START_ADDR;
 volatile uint32 logicalID = 1;
 
 #ifdef TRACE_APIC
-#	define TRACEAPIC(...) printf(__VA_ARGS__)
+#	define TRACEAPIC(...) interruptPrintf(__VA_ARGS__)
 #else
 #	define TRACEAPIC(...)
 #endif
@@ -49,6 +49,7 @@ int enablexApic()
          temp |=(((uint64)1)<<i);
       apicbasemsrData &= temp;  
       wrmsr_fence(IA32_APIC_BASE_MSR, *(uint32 *)pApicAddr, *(uint32 *)(pApicAddr + 4));
+      		unlock(lockBuff[KERNEL_LOCK].plock);
       asm("sti");
       return TRUE;
    }
