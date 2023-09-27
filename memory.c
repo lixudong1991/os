@@ -159,7 +159,7 @@ int mem4k_unmap(uint32 linearaddr, int isFreePhyPage)
 }
 phys_addr_t get_4kpage_phyaddr(phys_addr_t linearaddr)
 {
-
+	return linearaddr;
 }
 uint32 get_memory_map_etc(phys_addr_t address, size_t numBytes,Physical_entry* table, uint32* _numEntries)
 {

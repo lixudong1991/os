@@ -13,6 +13,7 @@
 #include "ps2device.h"
 #include "pcie.h"
 #include "ahci.h"
+#include "stdlib.h"
 #define STACKLIMIT_G1(a) ((((uint32)(a)) - 1) >> 12) // gdt 表项粒度为1的段界限
 
 volatile BootParam bootparam;
@@ -393,7 +394,9 @@ void APproc(uint32 argv)
 	{
 
 		printf("AP log =========%d init\n", argv);
+		spinlock(lockBuff[KERNEL_LOCK].plock);
 		initApic();
+		unlock(lockBuff[KERNEL_LOCK].plock);
 		processorinfo.processcontent[argv].id = argv;
 		processorinfo.processcontent[argv].apicAddr = getXapicAddr();
 		LOCAL_APIC *xapic_obj = (LOCAL_APIC *)(processorinfo.processcontent[argv].apicAddr);
@@ -641,24 +644,61 @@ int _start(void *argv)
 	// 		//xapic_obj->ICR0[0] = 0x44082;
 	// #endif
 	// 	}
+	asm("cli");
 	initAcpiTable();
 	initIoApic();
 	checkPciDevice();
 	initAHCI();
+	asm("sti");
 
 	ipiUpdateGdtCr3(); // 更新gdt,cr3
 
+	asm("cli");
 	printf("ps2Deviceinit =%d\n", ps2DeviceInit());
+	asm("sti");
 	// printf("support:monitor/mwait = %d\n", cpufeatures[cpu_support_monitor_mwait]);
 	char inputbuff[1024] = {0};
+	uint32_t startAddr=0,addrsize=0;
+	Physical_entry *entrys=kernel_malloc(sizeof(Physical_entry)*64);
+	memset_s(entrys,0,sizeof(Physical_entry)*64);
+	uint32_t entryssize=0;
 	while (1)
 	{
-		printf("$");
+		asm("cli");
+		printf("first num:");
+		asm("sti");
 		int len = fgets(inputbuff, 1024);
 		inputbuff[len - 1] = 0;
-		printf("buff:%s\n", inputbuff);
-		printf("status %d buff:%s\n",ahci_read(1, 0, 0, 2, 0x3000),0x3000);
-		ahci_write(0, 0, 0, 2, 0x3000);
+		startAddr =atoi(inputbuff);
+		asm("cli");
+		printf("size:");
+		asm("sti");
+		len = fgets(inputbuff, 1024);
+		inputbuff[len - 1] = 0;
+		addrsize =atoi(inputbuff);
+		asm("cli");
+		printf("addr:0x%x size:0x%x\n",startAddr,addrsize);
+		asm("sti");
+		entryssize = get_memory_map_etc(startAddr,addrsize,entrys,64);
+		asm("cli");
+		printf("entrySize:%d\n",entryssize);
+		asm("sti");
+		for(int i=0;i<entryssize;i++)
+		{
+			asm("cli");
+			printf("entry %d addr:0x%x size:0x%x\n",i,entrys[i].address,entrys[i].size);
+			asm("sti");
+		}
+		// asm("cli");
+		// printf("buff:%s\n", inputbuff);
+		// asm("sti");
+		// uint32_t status = ahci_read(0, 0, 0, 1, 0x3000);
+		
+		// asm("cli");
+		// printf("status %d data:%s\n",status,0x3000);
+		// asm("sti");
+		
+		// ahci_write(0, 1, 0, 1, 0x3000);
 		// printf("hba port %d is:0x%x ie:0x%x cmd:0x%x  ssts:0x%x sctl:0x%x serr:0x%x sact:0x%x tfd:0x%x ci:%x\n", sataDev[0].port,
 		//                        sataDev[0].pPortMem->is, sataDev[0].pPortMem->ie, sataDev[0].pPortMem->cmd, sataDev[0].pPortMem->ssts, sataDev[0].pPortMem->sctl,
 		// 					   sataDev[0].pPortMem->serr,sataDev[0].pPortMem->sact, sataDev[0].pPortMem->tfd, sataDev[0].pPortMem->ci);

@@ -324,11 +324,11 @@ int printf(const char *fmt, ...)
 	va_start(args, fmt);
 	printed = vsprintf(printf_buf, fmt, args);
 	va_end(args);
-	asm("cli");
+	//asm("cli");
 	spinlock(lockBuff[PRINT_LOCK].plock);
 	puts(printf_buf);
 	unlock(lockBuff[PRINT_LOCK].plock);
-	asm("sti");
+//	asm("sti");
 	return printed;
 }
 int interruptPrintf(const char *fmt, ...)

@@ -2,6 +2,7 @@
 #ifndef BOOT_CTYPE_H
 #define BOOT_CTYPE_H
 
+
 static inline int isdigit(int ch)
 {
 	return (ch >= '0') && (ch <= '9');
@@ -17,5 +18,10 @@ static inline int isxdigit(int ch)
 
 	return (ch >= 'A') && (ch <= 'F');
 }
+static inline int __isspace(int _c)
+{
+	return _c == ' ' || (unsigned)_c-'\t' < 5;
+}
 
+#define isspace(a) __isspace(a)
 #endif
