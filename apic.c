@@ -37,6 +37,7 @@ int enablexApic()
    if (cpufeatures[cpu_support_apic])
    {
       asm("cli");
+      spinlock(lockBuff[KERNEL_LOCK].plock);
       rdmsr_fence(IA32_APIC_BASE_MSR, &eax, &edx);
       apicbasemsrData = xapicaddr;
       xapicaddr+=0x1000;
@@ -49,7 +50,7 @@ int enablexApic()
          temp |=(((uint64)1)<<i);
       apicbasemsrData &= temp;  
       wrmsr_fence(IA32_APIC_BASE_MSR, *(uint32 *)pApicAddr, *(uint32 *)(pApicAddr + 4));
-      		unlock(lockBuff[KERNEL_LOCK].plock);
+      unlock(lockBuff[KERNEL_LOCK].plock);
       asm("sti");
       return TRUE;
    }
