@@ -349,7 +349,10 @@ uint32 find_cmdslot(uint32_t devid)
     return -1;
 }
 
-
+int make_slot_cmdtable(HBA_CMD_HEADER *cmdheadArr,int slot,DWORD startl, DWORD starth, DWORD sectorcount, QWORD bufaddr)
+{
+    
+}
 int ahci_read(uint32_t devid, DWORD startl, DWORD starth, DWORD sectorcount, QWORD bufaddr)
 {
     if (sectorcount > CMD_RW_MAX_SECTORS_COUNT)

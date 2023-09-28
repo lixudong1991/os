@@ -157,19 +157,41 @@ int mem4k_unmap(uint32 linearaddr, int isFreePhyPage)
 	resetcr3();
 	return TRUE;
 }
-phys_addr_t get_4kpage_phyaddr(phys_addr_t linearaddr)
+int get_4kpage_phyaddr(phys_addr_t linearaddr,phys_addr_t *phyaddr)
 {
-	return linearaddr;
+	uint32 pageDiraddr = linearaddr >> 22;
+	pageDiraddr = pageDiraddr << 2;
+	uint32 *ppageDiraddr = (uint32 *)(0xfffff000 + pageDiraddr);
+	asm("mfence");
+	uint32 tableaddr = *ppageDiraddr;
+	if ((tableaddr & 1) != 1)
+		return 0;
+	uint32 pageAddr = (linearaddr & 0x3FF000) >> 12;
+	pageAddr = pageAddr << 2;
+	uint32 *pagePhyAddr = (uint32 *)((0xffc00000 | (pageDiraddr << 10)) + pageAddr);
+	asm("mfence");
+	if (((*pagePhyAddr) & 1) != 1)
+		return 0;
+	*phyaddr = (*pagePhyAddr)&PAGE_ADDR_MASK;
+	return 1;
 }
-uint32 get_memory_map_etc(phys_addr_t address, size_t numBytes,Physical_entry* table, uint32* _numEntries)
+int get_memory_map_etc(phys_addr_t address, size_t numBytes,Physical_entry* table, uint32* _numEntries)
 {
+	uint32 numEntries = *_numEntries;
+	*_numEntries = 0;
 	phys_addr_t addr = address;
 	phys_addr_t startPage=addr&PAGE_ADDR_MASK,endPage=(addr+numBytes-1)&PAGE_ADDR_MASK;
 	uint32_t tableIndex=0;
 	uint32_t size=0;
+	int status =0;
 	for(phys_addr_t index=startPage;index<=endPage;index+=0x1000)
-	{
-		table[tableIndex].address=get_4kpage_phyaddr(index)+(addr-index);
+	{	
+		if(tableIndex >=numEntries)
+			return 0;
+		status = get_4kpage_phyaddr(index,&(table[tableIndex].address))+(addr-index);
+		if(status==0)
+			return 0;
+		table[tableIndex].address+=(addr-index);
 		size = (index+0x1000)-addr;
 		if(numBytes<=size)
 		{
@@ -184,5 +206,6 @@ uint32 get_memory_map_etc(phys_addr_t address, size_t numBytes,Physical_entry* t
 		addr+=size;
 
 	}
-	return tableIndex;
+	*_numEntries = tableIndex;
+	return TRUE;
 }
