@@ -662,24 +662,28 @@ int _start(void *argv)
 	Physical_entry *entrys=kernel_malloc(sizeof(Physical_entry)*64);
 	memset_s(entrys,0,sizeof(Physical_entry)*64);
 	uint32_t entryssize=0;
+	char *testbuff = kernel_malloc(8192);
+	memset_s(testbuff,0,512);
+	//printf("getdev info:%d sector size:%d sector count:%d\n",get_dev_info(0,testbuff,512),((uint16_t*)testbuff)[106],*(uint32_t*)(testbuff+117*2));
 	while (1)
 	{
 		asm("cli");
-		printf("first num:");
+		printf("start sector:");
 		asm("sti");
 		int len = fgets(inputbuff, 1024);
 		inputbuff[len - 1] = 0;
 		startAddr =atoi(inputbuff);
 		asm("cli");
-		printf("size:");
+		printf("sectorcount:");
 		asm("sti");
 		len = fgets(inputbuff, 1024);
 		inputbuff[len - 1] = 0;
 		addrsize =atoi(inputbuff);
 		asm("cli");
-		printf("addr:0x%x size:0x%x\n",startAddr,addrsize);
+		printf("start sector:0x%x sectorcount:0x%x\n",startAddr,addrsize);
 		asm("sti");
-		entryssize = get_memory_map_etc(startAddr,addrsize,entrys,64);
+		entryssize =768;
+		get_memory_map_etc(testbuff,addrsize*512,entrys,&entryssize);
 		asm("cli");
 		printf("entrySize:%d\n",entryssize);
 		asm("sti");
@@ -689,6 +693,12 @@ int _start(void *argv)
 			printf("entry %d addr:0x%x size:0x%x\n",i,entrys[i].address,entrys[i].size);
 			asm("sti");
 		}
+		uint32 srcount = ahci_read(0,startAddr,0,addrsize,testbuff);
+		uint32 swcount = ahci_write(0,4,0,addrsize,testbuff);
+		asm("cli");
+		printf("read seccount:%d wirte seccount:%d\n", srcount,swcount);
+		asm("sti");
+		
 		// asm("cli");
 		// printf("buff:%s\n", inputbuff);
 		// asm("sti");

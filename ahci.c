@@ -12,8 +12,9 @@ volatile uint32_t portSataDev = 0;
 volatile uint32_t sataDevCount = 0;
 Sata_Device *sataDev = NULL;
 uint32_t *portCmdSlots = NULL;
-volatile uint32_t gHbaSupportPortCount=0;
-volatile uint32_t gPortMaxPrdtlCount=0;
+volatile uint32_t gHbaSupportPortCount = 0;
+volatile uint32_t gPortMaxPrdtlCount = 0;
+Physical_entry *gMaxPhyentryBuff = NULL;
 #define HBA_PORT_COUNT gHbaSupportPortCount
 #define TRACE_AHCI
 #ifdef TRACE_AHCI
@@ -56,7 +57,7 @@ void probe_port(HBA_MEM *abar_temp)
     DWORD pi = abar_temp->pi;
     int i = 0;
     portSataDev = 0;
-    gHbaSupportPortCount=(abar_temp->cap&0x1F)+1;
+    gHbaSupportPortCount = (abar_temp->cap & 0x1F) + 1;
     while (i < gHbaSupportPortCount)
     {
         if (pi & 1)
@@ -94,7 +95,7 @@ void probe_port(HBA_MEM *abar_temp)
 }
 static void port_cmd_fis_MemInit()
 {
-    uint32_t portUseStart = AHCI_PORT_USEMEM_START&PAGE_ADDR_MASK;
+    uint32_t portUseStart = AHCI_PORT_USEMEM_START & PAGE_ADDR_MASK;
     for (int i = 0; i < AHCI_PORT_USEMEM_4K_COUNT; i++)
     {
         mem4k_map(portUseStart, portUseStart, MEM_UC, PAGE_RW);
@@ -117,7 +118,9 @@ static void port_cmd_fis_MemInit()
     mem_fix_type_set(AHCI_PORT_CMD_TBL_START & PAGE_ADDR_MASK, max_cmd_tbl_size + 0x1000, MEM_UC);
     portCmdSlots = allocUnCacheMem(4 * SUPPORT_SATA_DEVICE_MAX_COUNT);
     memset_s(portCmdSlots, 0, 4 * SUPPORT_SATA_DEVICE_MAX_COUNT);
-    gPortMaxPrdtlCount = ((numCmdSlot + 1)*(CMD_TABLE_SIZE-0x80))/0x10;
+    gPortMaxPrdtlCount = ((numCmdSlot + 1) * (CMD_TABLE_SIZE - 0x80)) / 0x10;
+    gMaxPhyentryBuff = kernel_malloc(gPortMaxPrdtlCount * sizeof(Physical_entry));
+    memset_s(gMaxPhyentryBuff, 0, gPortMaxPrdtlCount * sizeof(Physical_entry));
 }
 void hbaInit()
 {
@@ -138,7 +141,7 @@ void hbaInit()
     uint32 fisMemAddr = AHCI_PORT_USEMEM_START + SUPPORT_SATA_DEVICE_MAX_COUNT * 1024;
     uint32 numCmdSlot = pHbaMem->cap & 0x1F00;
     numCmdSlot >>= 8;
-    
+
     // uint32 ctbaAddr = AHCI_PORT_CMD_TBL_START;
     sataDevCount = 0;
     // 初始化sata设备连接的端口
@@ -184,7 +187,7 @@ void hbaInit()
                     break;
             }
             pHbaMem->ports[i].cmd |= 1; // set cmd.st
-            TRACEAHCI("sata dev: port %d clb:0x%x fb 0x%x is:0x%x ie:0x%x cmd:0x%x sig:0x%x ssts:0x%x sctl:0x%x serr:0x%x  tfd:0x%x\n", i,pHbaMem->ports[i].clb, pHbaMem->ports[i].fb,
+            TRACEAHCI("sata dev: port %d clb:0x%x fb 0x%x is:0x%x ie:0x%x cmd:0x%x sig:0x%x ssts:0x%x sctl:0x%x serr:0x%x  tfd:0x%x\n", i, pHbaMem->ports[i].clb, pHbaMem->ports[i].fb,
                       pHbaMem->ports[i].is, pHbaMem->ports[i].ie, pHbaMem->ports[i].cmd, pHbaMem->ports[i].sig, pHbaMem->ports[i].ssts, pHbaMem->ports[i].sctl, pHbaMem->ports[i].serr, pHbaMem->ports[i].tfd);
             sataDev[sataDevCount].port = i;
             sataDev[sataDevCount].pPortMem = &(pHbaMem->ports[i]);
@@ -246,7 +249,7 @@ void initAHCI()
         //  TRACEAHCI("pcie config addr:0x%x bus:%d device:%d vendorID: 0x%x  deviceID:0x%x\n", pcieConfigInfos[i].pConfigPage, pcieConfigInfos[i].bus,
         //         pcieConfigInfos[i].device, pcieConfigInfos[i].pConfigPage->VendorID, pcieConfigInfos[i].pConfigPage->deviceID);
         //  asm("sti");
-#if 1
+#if 0
         if (pcieConfigInfos[i].pConfigPage->VendorID == 0x8086 && pcieConfigInfos[i].pConfigPage->deviceID == 0xa282)
         {
             ahciconfig = &(pcieConfigInfos[i]);
@@ -295,17 +298,17 @@ void initAHCI()
 }
 void waitFinshCmd(uint32_t devid, uint32_t cmdslotId)
 {
-    if(devid>=sataDevCount)
+    if (devid >= sataDevCount)
         return;
-    uint32 bitTest = 1;
-    bitTest <<= cmdslotId;    
+    uint32 bitTest = (~cmdslotId);
+    // bitTest <<= cmdslotId;
     while (1)
     {
-        if ((sataDev[devid].pPortMem->ci & bitTest) == 0)
+        if ((sataDev[devid].pPortMem->ci & cmdslotId) == 0)
         {
             asm("cli");
             spinlock(lockBuff[AHCI_LOCK].plock);
-            portCmdSlots[devid] &= (~bitTest);
+            portCmdSlots[devid] &= bitTest;
             unlock(lockBuff[AHCI_LOCK].plock);
             asm("sti");
             return;
@@ -315,9 +318,9 @@ void waitFinshCmd(uint32_t devid, uint32_t cmdslotId)
     }
 }
 // To setup command fing a free command list slot
-uint32 find_cmdslot(uint32_t devid)
+int find_cmdslot(uint32_t devid)
 {
-    if(devid>=sataDevCount)
+    if (devid >= sataDevCount)
         return;
     HBA_PORT *port = sataDev[devid].pPortMem;
     // An empty command slot has its respective bit cleared to �0� in both the PxCI and PxSACT registers.
@@ -349,11 +352,114 @@ uint32 find_cmdslot(uint32_t devid)
     return -1;
 }
 
-int make_slot_cmdtable(HBA_CMD_HEADER *cmdheadArr,int slot,DWORD startl, DWORD starth, DWORD sectorcount, QWORD bufaddr)
+static uint32_t make_slot_cmdtable(uint32_t devid, int slot, int iswirte, uint32_t opcode, DWORD *startl, DWORD *starth, Physical_entry *entrys,
+                                   size_t _numEntries, uint32_t *entryindex, uint32 *entrysByteIndex)
 {
-    
+    HBA_PORT *port = sataDev[devid].pPortMem;
+    HBA_CMD_HEADER *cmdheadArr = port->clb;
+    cmdheadArr[slot].w = (BYTE)iswirte;
+    cmdheadArr[slot].p = 1;
+    cmdheadArr[slot].c = 1;
+    cmdheadArr[slot].cfl = sizeof(FIS_REG_H2D) / sizeof(DWORD);
+    cmdheadArr[slot].prdbc = 0;
+    uint32 numCmdSlot = (pHbaMem->cap & 0x1F00) >> 8;
+    cmdheadArr[slot].ctba = AHCI_PORT_CMD_TBL_START + (devid * (numCmdSlot + 1) + slot) * CMD_TABLE_SIZE;
+    cmdheadArr[slot].ctbau = 0;
+
+    uint32_t perMaxPrdtl = (CMD_TABLE_SIZE - 0x80) / 0x10;
+    uint32_t prdtIndex = 0;
+    uint32_t byteCount = 0;
+    HBA_CMD_TBL *pcmdtb = cmdheadArr[slot].ctba;
+    uint32_t preEntryByteIndex = 0;
+    for (; prdtIndex < perMaxPrdtl; prdtIndex++)
+    {
+        if (*entryindex >= _numEntries)
+            break;
+        pcmdtb->prdt_entry[prdtIndex].dba = (DWORD)(entrys[*entryindex].address + *entrysByteIndex);
+        pcmdtb->prdt_entry[prdtIndex].dbau = 0;
+        pcmdtb->prdt_entry[prdtIndex].DesInfo = entrys[*entryindex].size - *entrysByteIndex - 1;
+        byteCount += (entrys[*entryindex].size - *entrysByteIndex);
+        (*entryindex)++;
+        preEntryByteIndex = *entrysByteIndex;
+        *entrysByteIndex = 0;
+        // TRACEAHCI("prdtEntry:%d dba:0x%x DesInfo:%d \n",prdtIndex, pcmdtb->prdt_entry[prdtIndex].dba,pcmdtb->prdt_entry[prdtIndex].DesInfo);
+    }
+    uint32_t seccount = byteCount / 512;
+    if (byteCount % 512 != 0)
+    {
+        if (*entryindex == 0)
+            return 0;
+        (*entryindex)--;
+        uint32_t subByte = byteCount % 512;
+        pcmdtb->prdt_entry[prdtIndex - 1].dba = (DWORD)(entrys[*entryindex].address + preEntryByteIndex);
+        pcmdtb->prdt_entry[prdtIndex - 1].DesInfo = entrys[*entryindex].size - preEntryByteIndex - subByte - 1;
+        *entrysByteIndex = entrys[*entryindex].size - subByte;
+        // TRACEAHCI("prdtEntry:%d dba:0x%x DesInfo:%d \n",prdtIndex, pcmdtb->prdt_entry[prdtIndex-1].dba,pcmdtb->prdt_entry[prdtIndex-1].DesInfo);
+    }
+    cmdheadArr[slot].prdtl = prdtIndex;
+    FIS_REG_H2D *cmdfis = (FIS_REG_H2D *)(&(pcmdtb->cfis));
+
+    cmdfis->fis_type = FIS_TYPE_REG_H2D;
+    cmdfis->c = 1; // Command
+    cmdfis->command = (BYTE)opcode;
+    cmdfis->lba0 = (BYTE)(*startl);
+    cmdfis->lba1 = (BYTE)((*startl) >> 8);
+    cmdfis->lba2 = (BYTE)((*startl) >> 16);
+    cmdfis->device = 1 << 6; // LBA mode
+
+    cmdfis->lba3 = (BYTE)((*startl) >> 24);
+    cmdfis->lba4 = (BYTE)(*starth);
+    cmdfis->lba5 = (BYTE)((*starth) >> 8);
+
+    cmdfis->countl = seccount & 0xff;
+    cmdfis->counth = seccount >> 8;
+    // TRACEAHCI("send startl:%x starth:%x  seccount:%d\n",*startl,*starth,seccount);
+
+    QWORD lbastart = 0;
+    lbastart = (*starth);
+    lbastart <<= 32;
+    lbastart |= (*startl);
+    lbastart += seccount;
+    *startl = (DWORD)(lbastart & 0xffffffff);
+    *starth = (DWORD)((lbastart >> 32) & 0xffffffff);
+
+    return seccount;
 }
-int ahci_read(uint32_t devid, DWORD startl, DWORD starth, DWORD sectorcount, QWORD bufaddr)
+uint32_t ahci_read(uint32_t devid, DWORD startl, DWORD starth, DWORD sectorcount, QWORD bufaddr)
+{
+    if (devid >= sataDevCount)
+        return 0;
+
+    DWORD sendByteCount = sectorcount * 512;
+    uint32_t _numEntries = gPortMaxPrdtlCount;
+    if (!get_memory_map_etc((phys_addr_t)bufaddr, sendByteCount, gMaxPhyentryBuff, &_numEntries))
+        return FALSE;
+    DWORD _startl = startl, _starth = starth;
+    uint32_t entryindex = 0, entrysByteIndex = 0;
+    uint32_t _ci = 0;
+    uint32_t sendsectorcount = 0;
+    while (1)
+    {
+        int cmdslot = -1;
+        while ((cmdslot = find_cmdslot(devid)) == -1)
+            ;
+        _ci |= (((uint32_t)1) << cmdslot);
+        uint32_t seccount = make_slot_cmdtable(devid, cmdslot, 0, ATA_CMD_READ_DMA_EX, &_startl, &_starth, gMaxPhyentryBuff, _numEntries, &entryindex, &entrysByteIndex);
+        if (seccount == 0)
+            break;
+        sendsectorcount += seccount;
+        // TRACEAHCI("sectorcount:%d cmdslot:%d startl:0x%x starth:0x%x _numEntries:%d entryindex:%d entrysByteIndex:%d\n",sectorcount,cmdslot,_startl,_starth,_numEntries,entryindex,entrysByteIndex);
+        if (sendsectorcount >= sectorcount)
+            break;
+        if (entryindex >= _numEntries)
+            break;
+    }
+    HBA_PORT *port = sataDev[devid].pPortMem;
+    port->ci |= _ci;
+    waitFinshCmd(devid, _ci);
+    return sendsectorcount;
+}
+int ahci_read1(uint32_t devid, DWORD startl, DWORD starth, DWORD sectorcount, QWORD bufaddr)
 {
     if (sectorcount > CMD_RW_MAX_SECTORS_COUNT)
         return 0;
@@ -423,10 +529,44 @@ int ahci_read(uint32_t devid, DWORD startl, DWORD starth, DWORD sectorcount, QWO
 
     port->ci |= (((uint32_t)1) << slot);
 
-    waitFinshCmd(devid, slot);
+    //  waitFinshCmd(devid, slot);
     return TRUE;
 }
-int ahci_write(uint32_t devid, DWORD startl, DWORD starth, DWORD sectorcount, QWORD bufaddr)
+uint32_t ahci_write(uint32_t devid, DWORD startl, DWORD starth, DWORD sectorcount, QWORD bufaddr)
+{
+    if (devid >= sataDevCount)
+        return 0;
+
+    DWORD sendByteCount = sectorcount * 512;
+    uint32_t _numEntries = gPortMaxPrdtlCount;
+    if (!get_memory_map_etc((phys_addr_t)bufaddr, sendByteCount, gMaxPhyentryBuff, &_numEntries))
+        return FALSE;
+    DWORD _startl = startl, _starth = starth;
+    uint32_t entryindex = 0, entrysByteIndex = 0;
+    uint32_t _ci = 0;
+    uint32_t sendsectorcount = 0;
+    while (1)
+    {
+        int cmdslot = -1;
+        while ((cmdslot = find_cmdslot(devid)) == -1)
+            ;
+        _ci |= (((uint32_t)1) << cmdslot);
+        uint32_t seccount = make_slot_cmdtable(devid, cmdslot, 1, ATA_CMD_WRITE_DMA_EX, &_startl, &_starth, gMaxPhyentryBuff, _numEntries, &entryindex, &entrysByteIndex);
+        if (seccount == 0)
+            break;
+        sendsectorcount += seccount;
+        // TRACEAHCI("sectorcount:%d cmdslot:%d startl:0x%x starth:0x%x _numEntries:%d entryindex:%d entrysByteIndex:%d\n",sectorcount,cmdslot,_startl,_starth,_numEntries,entryindex,entrysByteIndex);
+        if (sendsectorcount >= sectorcount)
+            break;
+        if (entryindex >= _numEntries)
+            break;
+    }
+    HBA_PORT *port = sataDev[devid].pPortMem;
+    port->ci |= _ci;
+    waitFinshCmd(devid, _ci);
+    return sendsectorcount;
+}
+int ahci_write1(uint32_t devid, DWORD startl, DWORD starth, DWORD sectorcount, QWORD bufaddr)
 {
     if (sectorcount > CMD_RW_MAX_SECTORS_COUNT)
         return 0;
@@ -495,7 +635,7 @@ int ahci_write(uint32_t devid, DWORD startl, DWORD starth, DWORD sectorcount, QW
 
     // TRACEAHCI("3b000: 0x%x 0x%x 0x%x 0x%x\n",*(DWORD*)(0x3b000),*(DWORD*)(0x3b000+4),*(DWORD*)(0x3b000+8),*(DWORD*)(0x3b000+0xc));
     port->ci |= (((uint32_t)1) << slot);
-    waitFinshCmd(devid, slot);
+    // waitFinshCmd(devid, slot);
     return TRUE;
 }
 
@@ -575,4 +715,31 @@ void interruptHandle_AHCI()
     }
     pHbaMem->is = pHbaMem->is;
     *maskBits &= 0xFFFFFFFE; // 在处理PCI MSI中断时再次发生该中断后，推迟再次发生的中断的处理
+}
+
+int get_dev_info(uint32_t devid, char *infobuff, uint32_t buffsize)
+{
+    if (devid >= sataDevCount)
+        return 0;
+    if (buffsize < 512)
+        return 0;
+    uint32_t _numEntries = gPortMaxPrdtlCount;
+    if (!get_memory_map_etc((phys_addr_t)infobuff, 512, gMaxPhyentryBuff, &_numEntries))
+        return FALSE;
+    DWORD _startl = 0, _starth = 0;
+    uint32_t entryindex = 0, entrysByteIndex = 0;
+    uint32_t _ci = 0;
+
+    int cmdslot = -1;
+    while ((cmdslot = find_cmdslot(devid)) == -1)
+        ;
+    _ci |= (((uint32_t)1) << cmdslot);
+    uint32_t seccount = make_slot_cmdtable(devid, cmdslot, 0, ATA_IDENTIFY_DEVICE_DMA, &_startl, &_starth, gMaxPhyentryBuff, _numEntries, &entryindex, &entrysByteIndex);
+    if (seccount == 0)
+        return 0;
+    // TRACEAHCI("sectorcount:%d cmdslot:%d startl:0x%x starth:0x%x _numEntries:%d entryindex:%d entrysByteIndex:%d\n",sectorcount,cmdslot,_startl,_starth,_numEntries,entryindex,entrysByteIndex);
+    HBA_PORT *port = sataDev[devid].pPortMem;
+    port->ci |= _ci;
+    waitFinshCmd(devid, _ci);
+    return seccount;
 }
