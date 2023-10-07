@@ -14,6 +14,7 @@
 #include "pcie.h"
 #include "ahci.h"
 #include "stdlib.h"
+#include "fat32.h"
 #define STACKLIMIT_G1(a) ((((uint32)(a)) - 1) >> 12) // gdt 表项粒度为1的段界限
 
 volatile BootParam bootparam;
@@ -667,6 +668,7 @@ int _start(void *argv)
 	// memset_s(0x3000,0,512);
 	// printf("getdev info:%d \n",get_dev_info(0,0x3000,512));
 	// printf("sector size:%d sector count:%d\n",((uint16_t*)0x3000)[106],*(uint32_t*)(0x3000+117*2));
+	formatFat32();
 	while (1)
 	{
 		asm("cli");
