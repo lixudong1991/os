@@ -3,7 +3,7 @@
 
 #include "stdint.h"
 #pragma pack(1)
-typedef struct BPB_Struct
+typedef struct FAT32_BPB_Struct
 {
     uint8_t BS_jmpBoot[3];
     uint8_t BS_OEMName[8];
@@ -19,9 +19,7 @@ typedef struct BPB_Struct
     uint16_t BPB_NumHeads;
     uint32_t BPB_HiddSec;
     uint32_t BPB_TotSec32;
-} BPB_Struct;
-typedef struct FAT32_BPB_Struct
-{
+    
     uint32_t BPB_FATSz32;
     uint16_t BPB_ExtFlags;
     uint16_t BPB_FSVer;
@@ -38,5 +36,7 @@ typedef struct FAT32_BPB_Struct
 }FAT32_BPB_Struct;
 
 #pragma pack()
+
+void formatFat32();
 
 #endif

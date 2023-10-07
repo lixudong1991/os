@@ -21,7 +21,16 @@ r:		mov bx,0600h
 		mov ax,0600h
 		push ax
 		retf
-		times 510-($-$$) db 0
+		times 446-($-$$) db 0
+fsActive		db 0x80
+fsStartHead		db 0
+fsStartCylSect	dw 0
+fsPartType		db 0x0c
+fsEndHead		db 0
+fsEndCylSect 	dw 0
+fsStartLBA		dd 0x800
+fsSize			dd 0x4000000-0x800
+		times 48 db 0
 		db 55h,0aah
 osstart:mov ax,0
 		mov ds,ax
