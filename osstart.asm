@@ -23,11 +23,11 @@ r:		mov bx,0600h
 		retf
 		times 446-($-$$) db 0
 fsActive		db 0x80
-fsStartHead		db 0
-fsStartCylSect	dw 0
+fsStartHead		db 0x20
+fsStartCylSect	dw 0x21
 fsPartType		db 0x0c
-fsEndHead		db 0
-fsEndCylSect 	dw 0
+fsEndHead		db 0xfe
+fsEndCylSect 	dw 0xffff
 fsStartLBA		dd 0x800
 fsSize			dd 0x4000000-0x800
 		times 48 db 0
