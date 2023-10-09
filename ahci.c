@@ -329,9 +329,8 @@ int find_cmdslot(uint32_t devid)
     uint32 numCmdSlot = pHbaMem->cap & 0x1F00;
     numCmdSlot >>= 8;
     numCmdSlot += 1;
-    uint32 i;
     uint32 bitTest = 1;
-    for (i = 0; i < numCmdSlot; i++, bitTest <<= 1)
+    for (int i = 0; i < numCmdSlot; i++, bitTest <<= 1)
     {
         if ((slots & bitTest) == 0)
         {
@@ -357,19 +356,20 @@ static uint32_t make_slot_cmdtable(uint32_t devid, int slot, int iswirte, uint32
 {
     HBA_PORT *port = sataDev[devid].pPortMem;
     HBA_CMD_HEADER *cmdheadArr = port->clb;
-    cmdheadArr[slot].w = (BYTE)iswirte;
-    cmdheadArr[slot].p = 1;
-    cmdheadArr[slot].c = 1;
-    cmdheadArr[slot].cfl = sizeof(FIS_REG_H2D) / sizeof(DWORD);
-    cmdheadArr[slot].prdbc = 0;
+    cmdheadArr += slot;
+    cmdheadArr->w = (BYTE)iswirte;
+    cmdheadArr->p = 1;
+    cmdheadArr->c = 1;
+    cmdheadArr->cfl = sizeof(FIS_REG_H2D) / sizeof(DWORD);
+    cmdheadArr->prdbc = 0;
     uint32 numCmdSlot = (pHbaMem->cap & 0x1F00) >> 8;
-    cmdheadArr[slot].ctba = AHCI_PORT_CMD_TBL_START + (devid * (numCmdSlot + 1) + slot) * CMD_TABLE_SIZE;
-    cmdheadArr[slot].ctbau = 0;
+    cmdheadArr->ctba = AHCI_PORT_CMD_TBL_START + (devid * (numCmdSlot + 1) + slot) * CMD_TABLE_SIZE;
+    cmdheadArr->ctbau = 0;
 
     uint32_t perMaxPrdtl = (CMD_TABLE_SIZE - 0x80) / 0x10;
     uint32_t prdtIndex = 0;
     uint32_t byteCount = 0;
-    HBA_CMD_TBL *pcmdtb = cmdheadArr[slot].ctba;
+    HBA_CMD_TBL *pcmdtb = cmdheadArr->ctba;
     uint32_t preEntryByteIndex = 0;
     for (; prdtIndex < perMaxPrdtl; prdtIndex++)
     {
@@ -396,7 +396,7 @@ static uint32_t make_slot_cmdtable(uint32_t devid, int slot, int iswirte, uint32
         *entrysByteIndex = entrys[*entryindex].size - subByte;
         // TRACEAHCI("prdtEntry:%d dba:0x%x DesInfo:%d \n",prdtIndex, pcmdtb->prdt_entry[prdtIndex-1].dba,pcmdtb->prdt_entry[prdtIndex-1].DesInfo);
     }
-    cmdheadArr[slot].prdtl = prdtIndex;
+    cmdheadArr->prdtl = prdtIndex;
     FIS_REG_H2D *cmdfis = (FIS_REG_H2D *)(&(pcmdtb->cfis));
 
     cmdfis->fis_type = FIS_TYPE_REG_H2D;
@@ -429,7 +429,6 @@ uint32_t ahci_read(uint32_t devid, DWORD startl, DWORD starth, DWORD sectorcount
 {
     if (devid >= sataDevCount)
         return 0;
-
     DWORD sendByteCount = sectorcount * 512;
     uint32_t _numEntries = gPortMaxPrdtlCount;
     if (!get_memory_map_etc((phys_addr_t)bufaddr, sendByteCount, gMaxPhyentryBuff, &_numEntries))
@@ -441,8 +440,12 @@ uint32_t ahci_read(uint32_t devid, DWORD startl, DWORD starth, DWORD sectorcount
     while (1)
     {
         int cmdslot = -1;
-        while ((cmdslot = find_cmdslot(devid)) == -1)
-            ;
+        while (1)
+        {
+            cmdslot = find_cmdslot(devid);
+            if (cmdslot != -1)
+                break;
+        }
         _ci |= (((uint32_t)1) << cmdslot);
         uint32_t seccount = make_slot_cmdtable(devid, cmdslot, 0, ATA_CMD_READ_DMA_EX, &_startl, &_starth, gMaxPhyentryBuff, _numEntries, &entryindex, &entrysByteIndex);
         if (seccount == 0)
@@ -459,79 +462,79 @@ uint32_t ahci_read(uint32_t devid, DWORD startl, DWORD starth, DWORD sectorcount
     waitFinshCmd(devid, _ci);
     return sendsectorcount;
 }
-int ahci_read1(uint32_t devid, DWORD startl, DWORD starth, DWORD sectorcount, QWORD bufaddr)
-{
-    if (sectorcount > CMD_RW_MAX_SECTORS_COUNT)
-        return 0;
-    if (devid >= sataDevCount)
-        return 0;
+// int ahci_read1(uint32_t devid, DWORD startl, DWORD starth, DWORD sectorcount, QWORD bufaddr)
+// {
+//     if (sectorcount > CMD_RW_MAX_SECTORS_COUNT)
+//         return 0;
+//     if (devid >= sataDevCount)
+//         return 0;
 
-    HBA_PORT *port = sataDev[devid].pPortMem;
-    DWORD sentByteCount = sectorcount * 512;
-    DWORD prdtl = sentByteCount / 0x400000; // 每个prd entry最多传输4mb;
-    if (sentByteCount % 0x400000 != 0)
-        prdtl++;
-    if (prdtl > (CMD_TABLE_SIZE - 128) / 16)
-        return 0;
+//     HBA_PORT *port = sataDev[devid].pPortMem;
+//     DWORD sentByteCount = sectorcount * 512;
+//     DWORD prdtl = sentByteCount / 0x400000; // 每个prd entry最多传输4mb;
+//     if (sentByteCount % 0x400000 != 0)
+//         prdtl++;
+//     if (prdtl > (CMD_TABLE_SIZE - 128) / 16)
+//         return 0;
 
-    int slot = find_cmdslot(devid);
-    if (slot == -1)
-        return 0;
+//     int slot = find_cmdslot(devid);
+//     if (slot == -1)
+//         return 0;
 
-    HBA_CMD_HEADER *cmdheadArr = port->clb;
-    memset_s(cmdheadArr, 0, sizeof(HBA_CMD_HEADER));
-    cmdheadArr[slot].prdtl = prdtl;
-    cmdheadArr[slot].w = 0;
-    cmdheadArr[slot].p = 1;
-    cmdheadArr[slot].c = 1;
-    cmdheadArr[slot].cfl = sizeof(FIS_REG_H2D) / sizeof(DWORD);
-    cmdheadArr[slot].prdbc = 0;
-    uint32 numCmdSlot = (pHbaMem->cap & 0x1F00) >> 8;
+//     HBA_CMD_HEADER *cmdheadArr = port->clb;
+//     memset_s(cmdheadArr, 0, sizeof(HBA_CMD_HEADER));
+//     cmdheadArr[slot].prdtl = prdtl;
+//     cmdheadArr[slot].w = 0;
+//     cmdheadArr[slot].p = 1;
+//     cmdheadArr[slot].c = 1;
+//     cmdheadArr[slot].cfl = sizeof(FIS_REG_H2D) / sizeof(DWORD);
+//     cmdheadArr[slot].prdbc = 0;
+//     uint32 numCmdSlot = (pHbaMem->cap & 0x1F00) >> 8;
 
-    cmdheadArr[slot].ctba = AHCI_PORT_CMD_TBL_START + (devid * (numCmdSlot + 1) + slot) * CMD_TABLE_SIZE;
-    cmdheadArr[slot].ctbau = 0;
+//     cmdheadArr[slot].ctba = AHCI_PORT_CMD_TBL_START + (devid * (numCmdSlot + 1) + slot) * CMD_TABLE_SIZE;
+//     cmdheadArr[slot].ctbau = 0;
 
-    HBA_CMD_TBL *pcmdtb = cmdheadArr[slot].ctba;
-    DWORD prdtentryByteSize = 0;
-    //  TRACEAHCI("read %s fb:0x%x  clb:0x%x cmdslot:%d prdtl:%d ctba:0x%x\n", (DWORD)(bufaddr & 0xFFFFFFFF), port->fb, port->clb, slot, prdtl, cmdheadArr[slot].ctba);
-    for (int i = 0; i < prdtl; i++)
-    {
-        pcmdtb->prdt_entry[i].dba = (DWORD)(bufaddr & 0xFFFFFFFF);
-        pcmdtb->prdt_entry[i].dbau = 0;
-        prdtentryByteSize = sentByteCount > 0x400000 ? 0x400000 : sentByteCount;
-        sentByteCount -= prdtentryByteSize;
-        pcmdtb->prdt_entry[i].DesInfo = prdtentryByteSize - 1;
-        bufaddr += prdtentryByteSize;
-        //  TRACEAHCI("prdtl entry:%d dba:%x DesInfo:%d\n", i, pcmdtb->prdt_entry[i].dba, pcmdtb->prdt_entry[i].DesInfo);
-        //    if (i == prdtl - 1)
-        //       pcmdtb->prdt_entry[i].DesInfo |= 0x80000000; // 最后一个prd条目生成中断
-    }
-    // TRACEAHCI("3b000: 0x%x 0x%x 0x%x 0x%x\n",*(DWORD*)(0x3b000+0x80),*(DWORD*)(0x3b000+0x80+4),*(DWORD*)(0x3b000+0x80+8),*(DWORD*)(0x3b000+0x80+0xc));
-    // Setup command
-    FIS_REG_H2D *cmdfis = (FIS_REG_H2D *)(&(pcmdtb->cfis));
+//     HBA_CMD_TBL *pcmdtb = cmdheadArr[slot].ctba;
+//     DWORD prdtentryByteSize = 0;
+//     //  TRACEAHCI("read %s fb:0x%x  clb:0x%x cmdslot:%d prdtl:%d ctba:0x%x\n", (DWORD)(bufaddr & 0xFFFFFFFF), port->fb, port->clb, slot, prdtl, cmdheadArr[slot].ctba);
+//     for (int i = 0; i < prdtl; i++)
+//     {
+//         pcmdtb->prdt_entry[i].dba = (DWORD)(bufaddr & 0xFFFFFFFF);
+//         pcmdtb->prdt_entry[i].dbau = 0;
+//         prdtentryByteSize = sentByteCount > 0x400000 ? 0x400000 : sentByteCount;
+//         sentByteCount -= prdtentryByteSize;
+//         pcmdtb->prdt_entry[i].DesInfo = prdtentryByteSize - 1;
+//         bufaddr += prdtentryByteSize;
+//         //  TRACEAHCI("prdtl entry:%d dba:%x DesInfo:%d\n", i, pcmdtb->prdt_entry[i].dba, pcmdtb->prdt_entry[i].DesInfo);
+//         //    if (i == prdtl - 1)
+//         //       pcmdtb->prdt_entry[i].DesInfo |= 0x80000000; // 最后一个prd条目生成中断
+//     }
+//     // TRACEAHCI("3b000: 0x%x 0x%x 0x%x 0x%x\n",*(DWORD*)(0x3b000+0x80),*(DWORD*)(0x3b000+0x80+4),*(DWORD*)(0x3b000+0x80+8),*(DWORD*)(0x3b000+0x80+0xc));
+//     // Setup command
+//     FIS_REG_H2D *cmdfis = (FIS_REG_H2D *)(&(pcmdtb->cfis));
 
-    cmdfis->fis_type = FIS_TYPE_REG_H2D;
-    cmdfis->c = 1; // Command
-    cmdfis->command = ATA_CMD_READ_DMA_EX;
+//     cmdfis->fis_type = FIS_TYPE_REG_H2D;
+//     cmdfis->c = 1; // Command
+//     cmdfis->command = ATA_CMD_READ_DMA_EX;
 
-    cmdfis->lba0 = (BYTE)startl;
-    cmdfis->lba1 = (BYTE)(startl >> 8);
-    cmdfis->lba2 = (BYTE)(startl >> 16);
-    cmdfis->device = 1 << 6; // LBA mode
+//     cmdfis->lba0 = (BYTE)startl;
+//     cmdfis->lba1 = (BYTE)(startl >> 8);
+//     cmdfis->lba2 = (BYTE)(startl >> 16);
+//     cmdfis->device = 1 << 6; // LBA mode
 
-    cmdfis->lba3 = (BYTE)(startl >> 24);
-    cmdfis->lba4 = (BYTE)starth;
-    cmdfis->lba5 = (BYTE)(starth >> 8);
+//     cmdfis->lba3 = (BYTE)(startl >> 24);
+//     cmdfis->lba4 = (BYTE)starth;
+//     cmdfis->lba5 = (BYTE)(starth >> 8);
 
-    cmdfis->countl = sectorcount & 0xff;
-    cmdfis->counth = sectorcount >> 8;
-    // TRACEAHCI("3b000: 0x%x 0x%x 0x%x 0x%x\n",*(DWORD*)(0x3b000),*(DWORD*)(0x3b000+4),*(DWORD*)(0x3b000+8),*(DWORD*)(0x3b000+0xc));
+//     cmdfis->countl = sectorcount & 0xff;
+//     cmdfis->counth = sectorcount >> 8;
+//     // TRACEAHCI("3b000: 0x%x 0x%x 0x%x 0x%x\n",*(DWORD*)(0x3b000),*(DWORD*)(0x3b000+4),*(DWORD*)(0x3b000+8),*(DWORD*)(0x3b000+0xc));
 
-    port->ci |= (((uint32_t)1) << slot);
+//     port->ci |= (((uint32_t)1) << slot);
 
-    //  waitFinshCmd(devid, slot);
-    return TRUE;
-}
+//     //  waitFinshCmd(devid, slot);
+//     return TRUE;
+// }
 uint32_t ahci_write(uint32_t devid, DWORD startl, DWORD starth, DWORD sectorcount, QWORD bufaddr)
 {
     if (devid >= sataDevCount)
@@ -566,78 +569,78 @@ uint32_t ahci_write(uint32_t devid, DWORD startl, DWORD starth, DWORD sectorcoun
     waitFinshCmd(devid, _ci);
     return sendsectorcount;
 }
-int ahci_write1(uint32_t devid, DWORD startl, DWORD starth, DWORD sectorcount, QWORD bufaddr)
-{
-    if (sectorcount > CMD_RW_MAX_SECTORS_COUNT)
-        return 0;
-    if (devid >= sataDevCount)
-        return 0;
+// int ahci_write1(uint32_t devid, DWORD startl, DWORD starth, DWORD sectorcount, QWORD bufaddr)
+// {
+//     if (sectorcount > CMD_RW_MAX_SECTORS_COUNT)
+//         return 0;
+//     if (devid >= sataDevCount)
+//         return 0;
 
-    HBA_PORT *port = sataDev[devid].pPortMem;
-    DWORD sentByteCount = sectorcount * 512;
-    DWORD prdtl = sentByteCount / 0x400000; // 每个prd entry最多传输4mb;
-    if (sentByteCount % 0x400000 != 0)
-        prdtl++;
-    if (prdtl > (CMD_TABLE_SIZE - 128) / 16)
-        return 0;
+//     HBA_PORT *port = sataDev[devid].pPortMem;
+//     DWORD sentByteCount = sectorcount * 512;
+//     DWORD prdtl = sentByteCount / 0x400000; // 每个prd entry最多传输4mb;
+//     if (sentByteCount % 0x400000 != 0)
+//         prdtl++;
+//     if (prdtl > (CMD_TABLE_SIZE - 128) / 16)
+//         return 0;
 
-    int slot = find_cmdslot(devid);
-    if (slot == -1)
-        return 0;
+//     int slot = find_cmdslot(devid);
+//     if (slot == -1)
+//         return 0;
 
-    HBA_CMD_HEADER *cmdheadArr = port->clb;
-    memset_s(cmdheadArr, 0, sizeof(HBA_CMD_HEADER));
-    cmdheadArr[slot].prdtl = prdtl;
-    cmdheadArr[slot].w = 1;
-    cmdheadArr[slot].p = 1;
-    cmdheadArr[slot].c = 1;
-    cmdheadArr[slot].cfl = sizeof(FIS_REG_H2D) / sizeof(DWORD);
-    cmdheadArr[slot].prdbc = 0;
-    uint32 numCmdSlot = (pHbaMem->cap & 0x1F00) >> 8;
+//     HBA_CMD_HEADER *cmdheadArr = port->clb;
+//     memset_s(cmdheadArr, 0, sizeof(HBA_CMD_HEADER));
+//     cmdheadArr[slot].prdtl = prdtl;
+//     cmdheadArr[slot].w = 1;
+//     cmdheadArr[slot].p = 1;
+//     cmdheadArr[slot].c = 1;
+//     cmdheadArr[slot].cfl = sizeof(FIS_REG_H2D) / sizeof(DWORD);
+//     cmdheadArr[slot].prdbc = 0;
+//     uint32 numCmdSlot = (pHbaMem->cap & 0x1F00) >> 8;
 
-    cmdheadArr[slot].ctba = AHCI_PORT_CMD_TBL_START + (devid * (numCmdSlot + 1) + slot) * CMD_TABLE_SIZE;
-    cmdheadArr[slot].ctbau = 0;
+//     cmdheadArr[slot].ctba = AHCI_PORT_CMD_TBL_START + (devid * (numCmdSlot + 1) + slot) * CMD_TABLE_SIZE;
+//     cmdheadArr[slot].ctbau = 0;
 
-    HBA_CMD_TBL *pcmdtb = cmdheadArr[slot].ctba;
-    DWORD prdtentryByteSize = 0;
-    // TRACEAHCI("write %s fb:0x%x  clb:0x%x cmdslot:%d prdtl:%d ctba:0x%x\n", (DWORD)(bufaddr & 0xFFFFFFFF), port->fb, port->clb, slot, prdtl, cmdheadArr[slot].ctba);
-    for (int i = 0; i < prdtl; i++)
-    {
-        pcmdtb->prdt_entry[i].dba = (DWORD)(bufaddr & 0xFFFFFFFF);
-        pcmdtb->prdt_entry[i].dbau = 0;
-        prdtentryByteSize = sentByteCount > 0x400000 ? 0x400000 : sentByteCount;
-        sentByteCount -= prdtentryByteSize;
-        pcmdtb->prdt_entry[i].DesInfo = prdtentryByteSize - 1;
-        bufaddr += prdtentryByteSize;
-        // TRACEAHCI("prdtl entry:%d dba:%x DesInfo:%d\n", i, pcmdtb->prdt_entry[i].dba, pcmdtb->prdt_entry[i].DesInfo);
-        //     if (i == prdtl - 1)
-        //        pcmdtb->prdt_entry[i].DesInfo |= 0x80000000; // 最后一个prd条目生成中断
-    }
-    // TRACEAHCI("3b000: 0x%x 0x%x 0x%x 0x%x\n",*(DWORD*)(0x3b000+0x80),*(DWORD*)(0x3b000+0x80+4),*(DWORD*)(0x3b000+0x80+8),*(DWORD*)(0x3b000+0x80+0xc));
-    //  Setup command
-    FIS_REG_H2D *cmdfis = (FIS_REG_H2D *)(&(pcmdtb->cfis));
+//     HBA_CMD_TBL *pcmdtb = cmdheadArr[slot].ctba;
+//     DWORD prdtentryByteSize = 0;
+//     // TRACEAHCI("write %s fb:0x%x  clb:0x%x cmdslot:%d prdtl:%d ctba:0x%x\n", (DWORD)(bufaddr & 0xFFFFFFFF), port->fb, port->clb, slot, prdtl, cmdheadArr[slot].ctba);
+//     for (int i = 0; i < prdtl; i++)
+//     {
+//         pcmdtb->prdt_entry[i].dba = (DWORD)(bufaddr & 0xFFFFFFFF);
+//         pcmdtb->prdt_entry[i].dbau = 0;
+//         prdtentryByteSize = sentByteCount > 0x400000 ? 0x400000 : sentByteCount;
+//         sentByteCount -= prdtentryByteSize;
+//         pcmdtb->prdt_entry[i].DesInfo = prdtentryByteSize - 1;
+//         bufaddr += prdtentryByteSize;
+//         // TRACEAHCI("prdtl entry:%d dba:%x DesInfo:%d\n", i, pcmdtb->prdt_entry[i].dba, pcmdtb->prdt_entry[i].DesInfo);
+//         //     if (i == prdtl - 1)
+//         //        pcmdtb->prdt_entry[i].DesInfo |= 0x80000000; // 最后一个prd条目生成中断
+//     }
+//     // TRACEAHCI("3b000: 0x%x 0x%x 0x%x 0x%x\n",*(DWORD*)(0x3b000+0x80),*(DWORD*)(0x3b000+0x80+4),*(DWORD*)(0x3b000+0x80+8),*(DWORD*)(0x3b000+0x80+0xc));
+//     //  Setup command
+//     FIS_REG_H2D *cmdfis = (FIS_REG_H2D *)(&(pcmdtb->cfis));
 
-    cmdfis->fis_type = FIS_TYPE_REG_H2D;
-    cmdfis->c = 1; // Command
-    cmdfis->command = ATA_CMD_WRITE_DMA_EX;
+//     cmdfis->fis_type = FIS_TYPE_REG_H2D;
+//     cmdfis->c = 1; // Command
+//     cmdfis->command = ATA_CMD_WRITE_DMA_EX;
 
-    cmdfis->lba0 = (BYTE)startl;
-    cmdfis->lba1 = (BYTE)(startl >> 8);
-    cmdfis->lba2 = (BYTE)(startl >> 16);
-    cmdfis->device = 1 << 6; // LBA mode
+//     cmdfis->lba0 = (BYTE)startl;
+//     cmdfis->lba1 = (BYTE)(startl >> 8);
+//     cmdfis->lba2 = (BYTE)(startl >> 16);
+//     cmdfis->device = 1 << 6; // LBA mode
 
-    cmdfis->lba3 = (BYTE)(startl >> 24);
-    cmdfis->lba4 = (BYTE)starth;
-    cmdfis->lba5 = (BYTE)(starth >> 8);
+//     cmdfis->lba3 = (BYTE)(startl >> 24);
+//     cmdfis->lba4 = (BYTE)starth;
+//     cmdfis->lba5 = (BYTE)(starth >> 8);
 
-    cmdfis->countl = sectorcount & 0xff;
-    cmdfis->counth = sectorcount >> 8;
+//     cmdfis->countl = sectorcount & 0xff;
+//     cmdfis->counth = sectorcount >> 8;
 
-    // TRACEAHCI("3b000: 0x%x 0x%x 0x%x 0x%x\n",*(DWORD*)(0x3b000),*(DWORD*)(0x3b000+4),*(DWORD*)(0x3b000+8),*(DWORD*)(0x3b000+0xc));
-    port->ci |= (((uint32_t)1) << slot);
-    // waitFinshCmd(devid, slot);
-    return TRUE;
-}
+//     // TRACEAHCI("3b000: 0x%x 0x%x 0x%x 0x%x\n",*(DWORD*)(0x3b000),*(DWORD*)(0x3b000+4),*(DWORD*)(0x3b000+8),*(DWORD*)(0x3b000+0xc));
+//     port->ci |= (((uint32_t)1) << slot);
+//     // waitFinshCmd(devid, slot);
+//     return TRUE;
+// }
 
 void interruptHandle_AHCI()
 {
@@ -718,7 +721,7 @@ void interruptHandle_AHCI()
 }
 
 int get_dev_info(uint32_t devid, char *infobuff, uint32_t buffsize)
-{   
+{
     HBA_PORT *port = sataDev[devid].pPortMem;
     int slot = find_cmdslot(devid);
     if (slot == -1)
@@ -751,12 +754,12 @@ int get_dev_info(uint32_t devid, char *infobuff, uint32_t buffsize)
     // TRACEAHCI("3b000: 0x%x 0x%x 0x%x 0x%x\n",*(DWORD*)(0x3b000+0x80),*(DWORD*)(0x3b000+0x80+4),*(DWORD*)(0x3b000+0x80+8),*(DWORD*)(0x3b000+0x80+0xc));
     // Setup command
     FIS_REG_H2D *cmdfis = (FIS_REG_H2D *)(&(pcmdtb->cfis));
-    memset_s(cmdfis,0,sizeof(FIS_REG_H2D));
+    memset_s(cmdfis, 0, sizeof(FIS_REG_H2D));
     cmdfis->fis_type = FIS_TYPE_REG_H2D;
     cmdfis->c = 1; // Command
     cmdfis->command = ATA_IDENTIFY_DEVICE_DMA;
     cmdfis->device = 0;
-    
+
     // TRACEAHCI("3b000: 0x%x 0x%x 0x%x 0x%x\n",*(DWORD*)(0x3b000),*(DWORD*)(0x3b000+4),*(DWORD*)(0x3b000+8),*(DWORD*)(0x3b000+0xc));
     uint32_t _ci = (((uint32_t)1) << slot);
     port->ci |= _ci;

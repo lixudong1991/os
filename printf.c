@@ -345,7 +345,7 @@ int interruptPrintf(const char *fmt, ...)
 	unlock(lockBuff[PRINT_LOCK].plock);
 	return printed;
 }
-int putchar(int _Character)
+void putchar(int _Character)
 {
 	char c = (char)_Character;
 	if(c ==0x0d)

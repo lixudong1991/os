@@ -653,10 +653,12 @@ int _start(void *argv)
 	asm("sti");
 
 	ipiUpdateGdtCr3(); // 更新gdt,cr3
-
+	uint32 waitap = 0xfffffff;
+	while (waitap--);
 	asm("cli");
 	printf("ps2Deviceinit =%d\n", ps2DeviceInit());
 	asm("sti");
+	initFS();
 	// printf("support:monitor/mwait = %d\n", cpufeatures[cpu_support_monitor_mwait]);
 	char inputbuff[1024] = {0};
 	uint32_t startAddr=0,addrsize=0;
@@ -668,6 +670,7 @@ int _start(void *argv)
 	// memset_s(0x3000,0,512);
 	// printf("getdev info:%d \n",get_dev_info(0,0x3000,512));
 	// printf("sector size:%d sector count:%d\n",((uint16_t*)0x3000)[106],*(uint32_t*)(0x3000+117*2));
+	
 	while (1)
 	{
 		asm("cli");

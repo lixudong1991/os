@@ -1,8 +1,18 @@
 #include "fat32.h"
 #include "boot.h"
 #include "ahci.h"
+#include "printf.h"
 #define FS_START_LBA 0x800
 #define FS_TOTSEC_COUNT 0x4000000-FS_START_LBA
+static FAT32_BPB_Struct *pBpbinfo =NULL;
+static VolumeInfo volumeInfo;
+static MbrPartition partioninfo;
+#define TRACE_FS
+#ifdef TRACE_FS
+#define TRACEFS(...) printf(__VA_ARGS__)
+#else
+#define TRACEFS(...)
+#endif
 void formatFat32()
 {
     char bpbbuff[512];
@@ -50,4 +60,27 @@ void formatFat32()
     fat1startlba=FS_START_LBA+bpbstruct->BPB_RsvdSecCnt,fat2startlba=FS_START_LBA+bpbstruct->BPB_RsvdSecCnt+bpbstruct->BPB_FATSz32;
     ahci_write(0,fat1startlba,0,1,fatbuff);
     ahci_write(0,fat2startlba,0,1,fatbuff);
+}
+void initFS()
+{
+    pBpbinfo  = kernel_malloc(sizeof(FAT32_BPB_Struct));
+    char bpbbuff[512];
+    memset_s(bpbbuff,0,512);
+    uint32 swcount = ahci_read(0,0,0,1,bpbbuff);
+    memcpy_s(&partioninfo,bpbbuff+446,sizeof(MbrPartition));
+    swcount = ahci_read(0,partioninfo.fsStartLBA,0,1,bpbbuff);
+    memcpy_s(pBpbinfo,bpbbuff,sizeof(FAT32_BPB_Struct));
+    // asm("cli");
+    // TRACEFS("ahci_read fs:%d\n",swcount);
+    // TRACEFS("ahci_read BPB_RsvdSecCnt:0x%x\n",pBpbinfo->BPB_RsvdSecCnt);
+    // TRACEFS("ahci_read BPB_FATSz32:0x%x\n",pBpbinfo->BPB_FATSz32);
+    // TRACEFS("ahci_read BPB_TotSec32:0x%x\n",pBpbinfo->BPB_TotSec32);
+    // asm("sti");
+    volumeInfo.RootDirSectors = 0;
+    volumeInfo.FirstDataSector = partioninfo.fsStartLBA+pBpbinfo->BPB_RsvdSecCnt+pBpbinfo->BPB_NumFATs*pBpbinfo->BPB_FATSz32;
+    volumeInfo.DataSec =pBpbinfo->BPB_TotSec32-(pBpbinfo->BPB_RsvdSecCnt+pBpbinfo->BPB_NumFATs*pBpbinfo->BPB_FATSz32);
+    volumeInfo.CountofClusters = volumeInfo.DataSec/pBpbinfo->BPB_SecPerClus;
+    asm("cli");
+    TRACEFS("FS FirstDataSector:0x%x DataSec:0x%x CountofClusters:0x%x\n",volumeInfo.FirstDataSector,volumeInfo.DataSec,volumeInfo.CountofClusters);
+    asm("sti");
 }

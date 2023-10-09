@@ -3,6 +3,18 @@
 
 #include "stdint.h"
 #pragma pack(1)
+typedef struct MbrPartition
+{
+    uint8_t fsActive;
+    uint8_t fsStartHead;
+    uint16_t fsStartCylSect;
+    uint8_t fsPartType;
+    uint8_t fsEndHead;
+    uint16_t fsEndCylSect;
+    uint32_t fsStartLBA;
+    uint32_t fsSize;
+}MbrPartition;
+
 typedef struct FAT32_BPB_Struct
 {
     uint8_t BS_jmpBoot[3];
@@ -38,5 +50,15 @@ typedef struct FAT32_BPB_Struct
 #pragma pack()
 
 void formatFat32();
+
+void initFS();
+
+typedef struct VolumeInfo
+{
+    uint32_t RootDirSectors;
+    uint32_t FirstDataSector;
+    uint32_t DataSec;
+    uint32_t CountofClusters;
+}VolumeInfo;
 
 #endif
