@@ -1,6 +1,5 @@
 #include "elf.h"
-
-void loadElf(char *elfData, ProgramaData *proData, uint32 privileg)
+void loadElf(char *elfData, ProgramaData *proData, uint32_t privileg)
 {
 	Elf32_Ehdr *elfhead = (Elf32_Ehdr *)elfData;
 	proData->proEntry = elfhead->e_entry;

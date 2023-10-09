@@ -80,6 +80,6 @@ typedef struct
 #define PRIVILEGSYSTEM 0
 #define PRIVILEGUSER 4
 
-void loadElf(char *elfData, ProgramaData *proData, uint32 pri);
+void loadElf(char *elfData, ProgramaData *proData, uint32_t pri);
 
 #endif

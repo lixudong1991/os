@@ -640,9 +640,9 @@ apcodeStartSection      equ      312     ;ap加载起始扇区
 apLoadSeg 			    equ      0x6000 ;ap加载内存起始地址
 
 
-fontSectionCount      equ      232
-fontStartSection      equ      320     ;加载起始扇区
-fontLoadSeg		  	  equ      0x6100 ;字体数据加载内存起始地址
+;fontSectionCount      equ      232
+;fontStartSection      equ      320     ;加载起始扇区
+;fontLoadSeg		  	  equ      0x6100 ;字体数据加载内存起始地址
 
 
 stdos:  
@@ -674,13 +674,13 @@ stdos:
 		call read_hard_disk_0
 		jb readKDataErr
 		;加载字体数据
-		mov ax,fontLoadSeg
-		mov es,ax
-		mov di,0
-		mov si,fontStartSection
-		mov ax,fontSectionCount
-		call read_hard_disk_0
-		jb readKDataErr
+;		mov ax,fontLoadSeg
+;		mov es,ax
+;		mov di,0
+;		mov si,fontStartSection
+;		mov ax,fontSectionCount
+;		call read_hard_disk_0
+;		jb readKDataErr
 
 		xor ax,ax
 		mov ds,ax
@@ -917,8 +917,7 @@ next4k:	bts dword [0x1b000],eax
 		jmp next4k
 no4k:	xor eax,eax
 target4k:
-		mov ebx,0x1000
-		mul ebx
+		shl eax,12
 		pop ebx
 		pop edx
 		ret
@@ -968,8 +967,6 @@ allcate1:
 		pop ecx
 		pop ebp
 		ret
-
-
 
 ;Elf32_Ehdr 
 e_ident       equ      0 ;times 16 db 0
