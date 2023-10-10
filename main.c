@@ -479,7 +479,7 @@ void MPinit()
 	xapic_obj->ICR0[0] = 0xC4500; // 发送Init
 
 	xapic_obj->ICR1[0] = 0;
-	xapic_obj->ICR0[0] = 0xC4660; // 发送SIPI AP执行0x60000处的代码
+	xapic_obj->ICR0[0] = 0xC4686; // 发送SIPI AP执行0xbb000处的代码
 
 	uint32 waitap = 0xffffffff;
 	while (waitap--)

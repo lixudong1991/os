@@ -629,15 +629,15 @@ setVGAPalete1:
 		pop dx
 		ret
 
-kernelSectionCount      equ      296    ;用户程序1+用户程序2+kernel的总扇区数
+kernelSectionCount      equ      600    ;用户程序1+用户程序2+kernel的总扇区数
 kernelStartSection      equ      16     ;内核加载起始扇区
 kernelLoadSeg 			equ      0x3b00 ;内核加载内存起始地址
 kernelVirAddr			equ      0xc0000000
 startPhyPage 			equ      0x100
 
 apcodeSectionCount      equ      8
-apcodeStartSection      equ      312     ;ap加载起始扇区
-apLoadSeg 			    equ      0x6000 ;ap加载内存起始地址
+apcodeStartSection      equ      616     ;ap加载起始扇区
+apLoadSeg 			    equ      0x8600 ;ap加载内存起始地址
 
 
 ;fontSectionCount      equ      232

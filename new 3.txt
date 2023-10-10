@@ -1,0 +1,38 @@
+qemu-system-i386                                 \
+  -accel tcg,thread=single                       \
+  -cpu core2duo                                  \
+  -m 4096                                         \
+  -no-reboot                                     \
+  -drive format=raw,media=cdrom,file=myos.iso    \
+  -serial stdio                                  \
+  -smp 1                                         \
+  -usb                                           \
+  -vga std
+  
+  qemu-system-i386 \
+ -drive id=disk,file=myos-0.vmdk,if=none \
+ -device ahci,id=ahci \
+ -device ide-drive,drive=disk,bus=ahci.0 \
+ -m 4096
+ 
+ sudo qemu-system-x86_64 -enable-kvm -M q35 -m 4096 -cpu host \
+-smp 4,sockets=1,cores=4,threads=1 \
+-device ioh3420,bus=pcie.0,addr=1c.0,multifunction=on,port=1,chassis=1,id=root.1 \
+-device vfio-pci,host=02:00.0,bus=root.1,addr=00.0,multifunction=on,x-vga=on \
+-device vfio-pci,host=02:00.1,bus=root.1,addr=00.1 \
+-device virtio-scsi-pci,id=scs \
+-device ahci,id=ahci \
+-drive file=/home/lxd/myos/c.img,id=disk,format=raw -device scsi-hd,bus=virtio.0,drive=disk \
+-hda /dev/sda7 \
+-boot menu=on
+
+qemu-system-i386 -m 4096 -M q35 \
+-smp 4,sockets=1,cores=4,threads=1 \
+-device ahci,id=ahci0 \
+-drive if=none,file=myos-0-flat.vmdk,format=raw,id=SATA1 \
+-device ide-hd,bus=ahci0.0,drive=SATA1 \
+-bios /home/lxd/myos/bios.bin
+
+
+target remote :1234
+b hbaInit

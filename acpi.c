@@ -9,6 +9,7 @@ pciConfigSpaceBaseAddr **mcfgPciConfigSpace=NULL;
 volatile uint8_t Madt_LOCALAPIC_count = 0;
 volatile uint8_t Madt_IOAPIC_count = 0;
 extern BootParam bootparam;
+#define TRACE_ACPI
 #ifdef TRACE_ACPI
 #	define TRACEACPI(...) printf(__VA_ARGS__)
 #else
@@ -176,10 +177,11 @@ void readMCFGInfo(uint32 mcfgaddr)
     TRACEACPI("mcfg OEM Table ID:%s\n", sign);
     pciConfigSpaceBaseAddr *space = (pciConfigSpaceBaseAddr *)(mcfgaddr+44);
     uint32 spacecount=(pmcfg->Length-44)/sizeof(pciConfigSpaceBaseAddr);
+    TRACEACPI("mcfg pci spacecount 0x%x\n", spacecount);
     for(int i=0;i<spacecount;i++)
     {
-        TRACEACPI("pci space %d: configBaseaddr=%x PCIsegGroup=%d StartPCIBUS=%d EndPCIBUS=%d\n",i,(uint32_t)(space->BaseAddr),space->PciSegGroup,space->StartPCIbus,
-        space->EndPCIbus);
+        //TRACEACPI("pci space %d: configBaseaddr=%x PCIsegGroup=%d StartPCIBUS=%d EndPCIBUS=%d\n",i,(uint32_t)(space->BaseAddr),space->PciSegGroup,space->StartPCIbus,
+        //space->EndPCIbus);
         mcfgPciConfigSpace[i] = space;
         space++;
     }
@@ -223,6 +225,64 @@ void readAcpiTable(RSDPStruct *prsdp)
         TRACEACPI("XSDT OEM Table ID:%s\n", rsign);
         uint64 *acpitable = (uint32_t)(prsdp->XsdtAddress) + sizeof(SysDtHead);
         int tablecount = (pxsdt->Length - sizeof(SysDtHead)) / 8;
+        SysDtHead *ptable = NULL;
+        uint32_t fadtaddr = 0, mcfgaddr = 0, madtaddr = 0;
+        for (int tableindex = 0; tableindex < tablecount; tableindex++)
+        {
+            ptable = (uint32_t)(acpitable[tableindex]);
+            mem4k_map((uint32_t)(acpitable[tableindex]) & PAGE_ADDR_MASK, (uint32_t)(acpitable[tableindex]) & PAGE_ADDR_MASK, MEM_UC, PAGE_G | PAGE_RW);
+            rsign[0] = ptable->Signature[0];
+            rsign[1] = ptable->Signature[1];
+            rsign[2] = ptable->Signature[2];
+            rsign[3] = ptable->Signature[3];
+            rsign[4] = 0;
+            TRACEACPI("%s ", rsign);
+            if (ptable->Signature[0] == 'F' && ptable->Signature[1] == 'A' && ptable->Signature[2] == 'C' && ptable->Signature[3] == 'P')
+                fadtaddr = ptable;
+            else if (ptable->Signature[0] == 'M' && ptable->Signature[1] == 'C' && ptable->Signature[2] == 'F' && ptable->Signature[3] == 'G')
+            {
+                mcfgaddr = ptable;
+            }
+            else if (ptable->Signature[0] == 'A' && ptable->Signature[1] == 'P' && ptable->Signature[2] == 'I' && ptable->Signature[3] == 'C')
+            {
+                madtaddr = ptable;
+            }
+        }
+        TRACEACPI("\n");
+        TRACEACPI("FADT IAPC_BOOT_ARCH: %x\n", *(uint16_t *)(fadtaddr + 109));
+        TRACEACPI("MCFG addr: %x\n", mcfgaddr);
+        TRACEACPI("MADT addr: %x\n", madtaddr);
+        AcpiTableAddrs[FADT] = (uint32_t)(fadtaddr);
+        AcpiTableAddrs[MCFG] = (uint32_t)(mcfgaddr);
+        AcpiTableAddrs[MADT] = (uint32_t)(madtaddr);
+        readMADTInfo(madtaddr);
+        readMCFGInfo(mcfgaddr);
+    }
+    else if( prsdp->Revision == 0)
+    {
+        AcpiTableAddrs[RSDT] = (uint32_t)(prsdp->RsdtAddress);
+        uint32_t eax = 0, mapaddr = 0;
+        eax = (uint32_t) & (prsdp->RsdtAddress);
+        TRACEACPI("RSDP RsdtAddress:%x %x\n", *(uint32 *)(eax + 4), *(uint32 *)eax);
+        // printf("RSDP Extended Checksum:%x\n",prsdp->ExtendedChecksum);
+        SysDtHead *prsdt = (uint32_t)(prsdp->RsdtAddress);
+        mapaddr = prsdt;
+        mapaddr &= PAGE_ADDR_MASK;
+        mem4k_map(mapaddr, mapaddr, MEM_UC, PAGE_G | PAGE_RW);
+        mem4k_map(mapaddr + 0x1000, mapaddr + 0x1000, MEM_UC, PAGE_G | PAGE_RW);
+        memcpy_s(rsign, prsdt->Signature, 4);
+        rsign[4] = 0;
+        TRACEACPI("RSDT Signature:%s\n", rsign);
+        TRACEACPI("RSDT Length:%x\n", prsdt->Length);
+        TRACEACPI("RSDT Revision:%x\n", prsdt->Revision);
+        memcpy_s(rsign, prsdt->OEMID, 6);
+        rsign[6] = 0;
+        TRACEACPI("RSDT OEMID:%s\n", rsign);
+        memcpy_s(rsign, prsdt->OEM_TABLE_ID, 8);
+        rsign[8] = 0;
+        TRACEACPI("RSDT OEM Table ID:%s\n", rsign);
+        uint32 *acpitable = (uint32_t)(prsdp->RsdtAddress) + sizeof(SysDtHead);
+        int tablecount = (prsdt->Length - sizeof(SysDtHead)) /4;
         SysDtHead *ptable = NULL;
         uint32_t fadtaddr = 0, mcfgaddr = 0, madtaddr = 0;
         for (int tableindex = 0; tableindex < tablecount; tableindex++)

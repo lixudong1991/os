@@ -11,6 +11,6 @@ obj = $(addprefix $(D_OBJ)/,$(src:%.c=%.o))
 $(prom): $(obj)
 	$(cc) -Ttext 0xc0036000 -o $(prom) $(obj) $(asmobj) $(mobj) -nostdlib -ffreestanding -lgcc
 $(D_OBJ)/%.o: %.c $(deps)
-	$(cc) -c $< -I $(incpath) -o $@ -ffreestanding
+	$(cc) -g -c $< -I $(incpath) -o $@ -ffreestanding
 clean:
 	rm -rf $(obj) $(prom) $(asmobj)
