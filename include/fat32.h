@@ -47,6 +47,41 @@ typedef struct FAT32_BPB_Struct
     uint8_t  BS_FilSysType[8];
 }FAT32_BPB_Struct;
 
+typedef struct Fat32Fsinfo{
+    uint32_t FSI_LeadSig;
+    char FSI_Reserved1[480];
+    uint32_t FSI_StrucSig;
+    uint32_t FSI_Free_Count;
+    uint32_t FSI_Nxt_Free;
+    char FSI_Reserved2[12];
+    uint32_t FSI_TrailSig; 
+}Fat32Fsinfo;
+
+typedef struct Fat32EntryInfo{
+    char DIR_Name[11];
+    uint8_t DIR_Attr;
+    uint8_t DIR_NTRes;
+    uint8_t DIR_CrtTimeTenth;
+    uint16_t DIR_CrtTime;
+    uint16_t DIR_CrtDate;
+    uint16_t DIR_LstAccDate;
+    uint16_t DIR_FstClusHI;  
+    uint16_t DIR_WrtTime;
+    uint16_t DIR_WrtDate;
+    uint16_t DIR_FstClusLO;
+    uint32_t DIR_FileSize; 
+}Fat32EntryInfo;
+
+typedef struct Fat32LongEntryInfo{
+    uint8_t LDIR_Ord;
+    char LDIR_Name1[10];
+    uint8_t LDIR_Attr;
+    uint8_t LDIR_Type; 
+    uint8_t LDIR_Chksum;
+    char LDIR_Name2[12];
+    uint16_t LDIR_FstClusLO;
+    char LDIR_Name3[4]; 
+}Fat32LongEntryInfo;
 #pragma pack()
 
 void formatFat32();
@@ -60,5 +95,16 @@ typedef struct VolumeInfo
     uint32_t DataSec;
     uint32_t CountofClusters;
 }VolumeInfo;
+
+
+
+typedef struct FsNode{
+    struct FsNode *pri;
+    struct FsNode *next;
+    char *descbuff;
+    uint32_t descsize;
+}FsNode;
+
+int get_dir_item_count(const char *dirpath);
 
 #endif

@@ -307,8 +307,8 @@ void initAHCI();
 #define ATA_IDENTIFY_DEVICE_DMA 0xEC
 #define ATA_CMD_READ_DMA_EX     0x25
 #define ATA_CMD_WRITE_DMA_EX     0x35
-uint32_t ahci_read(uint32_t devid, DWORD startl, DWORD starth, DWORD sectorcount, QWORD bufaddr);
-uint32_t ahci_write(uint32_t devid, DWORD startl, DWORD starth, DWORD sectorcount, QWORD bufaddr);
+uint32_t ahci_read(uint32_t devid, DWORD startl, DWORD starth, DWORD sectorcount, DWORD bufaddr);
+uint32_t ahci_write(uint32_t devid, DWORD startl, DWORD starth, DWORD sectorcount, DWORD bufaddr);
 
 int get_dev_info(uint32_t devid,char *infobuff,uint32_t buffsize);
 

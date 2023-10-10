@@ -667,9 +667,9 @@ int _start(void *argv)
 	uint32_t entryssize=0;
 	char *testbuff = kernel_malloc(8192);
 	memset_s(testbuff,0,512);
-	// memset_s(0x3000,0,512);
-	// printf("getdev info:%d \n",get_dev_info(0,0x3000,512));
-	// printf("sector size:%d sector count:%d\n",((uint16_t*)0x3000)[106],*(uint32_t*)(0x3000+117*2));
+	//  memset_s(0x3000,0,512);
+	//  printf("getdev info:%d \n",get_dev_info(0,0x3000,512));
+	//  printf("sector size:%d sector count:%d\n",((uint16_t*)0x3000)[106],*(uint32_t*)(0x3000+117*2));
 	
 	while (1)
 	{

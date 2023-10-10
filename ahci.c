@@ -296,27 +296,18 @@ void initAHCI()
                   pHbaMem->cap, pHbaMem->ghc, pHbaMem->is, pHbaMem->pi, pHbaMem->vs, pHbaMem->ccc_ctl, pHbaMem->ccc_pts, pHbaMem->em_loc, pHbaMem->em_ctl, pHbaMem->cap2, pHbaMem->bohc);
     }
 }
-void waitFinshCmd(uint32_t devid, uint32_t cmdslotId)
-{
-    if (devid >= sataDevCount)
-        return;
-    uint32 bitTest = (~cmdslotId);
-    // bitTest <<= cmdslotId;
-    while (1)
-    {
-        if ((sataDev[devid].pPortMem->ci & cmdslotId) == 0)
-        {
-            asm("cli");
-            spinlock(lockBuff[AHCI_LOCK].plock);
-            portCmdSlots[devid] &= bitTest;
-            unlock(lockBuff[AHCI_LOCK].plock);
-            asm("sti");
-            return;
-        }
-        asm("sti");
-        asm("hlt");
-    }
+
+#define WAITFORCMDFINSH(a,b) \
+{ \
+    while (1)\
+    { \
+        if ((portCmdSlots[(a)] & (b)) == 0) \
+            break;\
+        asm("sti");\
+        asm("hlt");\
+    }\
 }
+
 // To setup command fing a free command list slot
 int find_cmdslot(uint32_t devid)
 {
@@ -425,15 +416,17 @@ static uint32_t make_slot_cmdtable(uint32_t devid, int slot, int iswirte, uint32
 
     return seccount;
 }
-uint32_t ahci_read(uint32_t devid, DWORD startl, DWORD starth, DWORD sectorcount, QWORD bufaddr)
+uint32_t ahci_read(uint32_t devid, DWORD startl, DWORD starth, DWORD sectorcount, DWORD bufaddr)
 {
     if (devid >= sataDevCount)
         return 0;
+    //TRACEAHCI("ahci_read startl:%x starth:%x  seccount:0x%x\n",startl,starth,(DWORD)bufaddr);
+    DWORD _startl = startl, _starth = starth;
     DWORD sendByteCount = sectorcount * 512;
     uint32_t _numEntries = gPortMaxPrdtlCount;
     if (!get_memory_map_etc((phys_addr_t)bufaddr, sendByteCount, gMaxPhyentryBuff, &_numEntries))
         return FALSE;
-    DWORD _startl = startl, _starth = starth;
+    
     uint32_t entryindex = 0, entrysByteIndex = 0;
     uint32_t _ci = 0;
     uint32_t sendsectorcount = 0;
@@ -458,8 +451,18 @@ uint32_t ahci_read(uint32_t devid, DWORD startl, DWORD starth, DWORD sectorcount
             break;
     }
     HBA_PORT *port = sataDev[devid].pPortMem;
+    uint32_t spin = 0;
+    while (((port->tfd & ((uint32_t)1 << 7)) || (port->tfd & ((uint32_t)1 << 3)))&&(spin < 1000000))
+	{
+		spin++;
+	}
+	if (spin == 1000000)
+	{
+		TRACEAHCI("Port is hung\n");
+		return FALSE;
+	}
     port->ci |= _ci;
-    waitFinshCmd(devid, _ci);
+    WAITFORCMDFINSH(devid, _ci);
     return sendsectorcount;
 }
 // int ahci_read1(uint32_t devid, DWORD startl, DWORD starth, DWORD sectorcount, QWORD bufaddr)
@@ -535,7 +538,7 @@ uint32_t ahci_read(uint32_t devid, DWORD startl, DWORD starth, DWORD sectorcount
 //     //  waitFinshCmd(devid, slot);
 //     return TRUE;
 // }
-uint32_t ahci_write(uint32_t devid, DWORD startl, DWORD starth, DWORD sectorcount, QWORD bufaddr)
+uint32_t ahci_write(uint32_t devid, DWORD startl, DWORD starth, DWORD sectorcount, DWORD bufaddr)
 {
     if (devid >= sataDevCount)
         return 0;
@@ -565,8 +568,18 @@ uint32_t ahci_write(uint32_t devid, DWORD startl, DWORD starth, DWORD sectorcoun
             break;
     }
     HBA_PORT *port = sataDev[devid].pPortMem;
+    uint32_t spin = 0;
+    while (((port->tfd & ((uint32_t)1 << 7)) || (port->tfd & ((uint32_t)1 << 3)))&&(spin < 1000000))
+	{
+		spin++;
+	}
+	if (spin == 1000000)
+	{
+		TRACEAHCI("Port is hung\n");
+		return FALSE;
+	}
     port->ci |= _ci;
-    waitFinshCmd(devid, _ci);
+    WAITFORCMDFINSH(devid, _ci);
     return sendsectorcount;
 }
 // int ahci_write1(uint32_t devid, DWORD startl, DWORD starth, DWORD sectorcount, QWORD bufaddr)
@@ -712,6 +725,17 @@ void interruptHandle_AHCI()
                 else
                 {
                     pHbaMem->ports[i].is = pHbaMem->ports[i].is;
+                    for(int devid =0;devid<sataDevCount;devid++)
+                    {
+                        if(sataDev[devid].port == i)
+                        {
+                            spinlock(lockBuff[AHCI_LOCK].plock);
+                            portCmdSlots[devid] = pHbaMem->ports[i].ci;
+                            unlock(lockBuff[AHCI_LOCK].plock);
+                            break;
+                        }
+                    }
+                    
                 }
             }
         }
@@ -764,6 +788,6 @@ int get_dev_info(uint32_t devid, char *infobuff, uint32_t buffsize)
     uint32_t _ci = (((uint32_t)1) << slot);
     port->ci |= _ci;
 
-    waitFinshCmd(devid, _ci);
+    WAITFORCMDFINSH(devid, _ci);
     return TRUE;
 }

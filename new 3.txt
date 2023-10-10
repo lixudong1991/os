@@ -31,7 +31,7 @@ qemu-system-i386 -m 4096 -M q35 \
 -device ahci,id=ahci0 \
 -drive if=none,file=myos-0-flat.vmdk,format=raw,id=SATA1 \
 -device ide-hd,bus=ahci0.0,drive=SATA1 \
--bios /home/lxd/myos/bios.bin
+-bios /home/lxd/myos/bios.bin -S -s
 
 
 target remote :1234

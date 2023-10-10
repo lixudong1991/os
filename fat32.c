@@ -7,6 +7,8 @@
 static FAT32_BPB_Struct *pBpbinfo =NULL;
 static VolumeInfo volumeInfo;
 static MbrPartition partioninfo;
+static MbrPartition partioninfo;
+static FsNode currentDir;
 #define TRACE_FS
 #ifdef TRACE_FS
 #define TRACEFS(...) printf(__VA_ARGS__)
@@ -66,9 +68,10 @@ void initFS()
     pBpbinfo  = kernel_malloc(sizeof(FAT32_BPB_Struct));
     char bpbbuff[512];
     memset_s(bpbbuff,0,512);
-    uint32 swcount = ahci_read(0,0,0,1,bpbbuff);
+    uint32 swcount = ahci_read(0,0,0,1,(uint32_t)bpbbuff);
     memcpy_s(&partioninfo,bpbbuff+446,sizeof(MbrPartition));
-    swcount = ahci_read(0,partioninfo.fsStartLBA,0,1,bpbbuff);
+   // TRACEFS("ahci_read fsStartLBA:0x%x\n",partioninfo.fsStartLBA);
+    swcount = ahci_read(0,partioninfo.fsStartLBA,0,1,(uint32_t)bpbbuff);
     memcpy_s(pBpbinfo,bpbbuff,sizeof(FAT32_BPB_Struct));
     // asm("cli");
     // TRACEFS("ahci_read fs:%d\n",swcount);
@@ -83,4 +86,21 @@ void initFS()
     asm("cli");
     TRACEFS("FS FirstDataSector:0x%x DataSec:0x%x CountofClusters:0x%x\n",volumeInfo.FirstDataSector,volumeInfo.DataSec,volumeInfo.CountofClusters);
     asm("sti");
+    currentDir.descbuff = kernel_malloc(sizeof(Fat32EntryInfo));
+    currentDir.descsize = sizeof(Fat32EntryInfo);
+    memset_s(currentDir.descbuff,0,sizeof(Fat32EntryInfo));
+    Fat32EntryInfo *rootdir = currentDir.descbuff;
+    rootdir->DIR_FstClusLO = 2;
+    rootdir->DIR_Name[0]='/';
+}
+
+int get_dir_item_count(const char *dirpath)
+{
+    size_t len = strlen_s(dirpath);
+    if(len < 1)
+        return -1;
+    char *pPathStr = dirpath;     
+    if( *pPathStr !='/'&& *pPathStr !='.')
+        return -1;
+    
 }
