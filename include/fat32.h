@@ -96,15 +96,6 @@ typedef struct VolumeInfo
     uint32_t CountofClusters;
 }VolumeInfo;
 
-
-
-typedef struct FsNode{
-    struct FsNode *pri;
-    struct FsNode *next;
-    char *descbuff;
-    uint32_t descsize;
-}FsNode;
-
 #define ATTR_READ_ONLY  ((uint8_t)0x01)
 #define ATTR_HIDDEN  ((uint8_t)0x02)
 #define ATTR_SYSTEM  ((uint8_t)0x04)
@@ -119,6 +110,6 @@ typedef struct FsNode{
 int get_dir_item_count(const char *dirpath);
 int _get_dir_item_count(uint32_t firstclusternum);
 int _get_dir_item_descsize(uint32_t firstclusternum,uint32_t itemIndex);
-int _get_dir_item_descdata(uint32_t firstclusternum,uint32_t itemIndex,char *descbuff,uint32_t descbuffsize);
-
+int _get_dir_item_descdata_fromindex(uint32_t firstclusternum, uint32_t itemIndex, char *descbuff, uint32_t descbufflen);
+int _get_dir_item_descdata_fromname(uint32_t firstclusternum, const char* itemname, char *descbuff, uint32_t descbufflen);
 #endif

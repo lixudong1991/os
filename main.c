@@ -3,6 +3,7 @@
 #include "syscall.h"
 #include "interruptGate.h"
 #include "elf.h"
+#include "string.h"
 #include "printf.h"
 #include "apic.h"
 #include "cpufeature.h"
@@ -635,7 +636,7 @@ void testFS()
 		len = fgets(inputbuff, 1024);
 		inputbuff[len - 1] = 0;
 		itemindex =atoi(inputbuff);
-		ret = _get_dir_item_descdata(dircluster,itemindex,testbuff,512);
+		ret = _get_dir_item_descdata_fromindex(dircluster,itemindex,testbuff,512);
 		if(ret ==-1)
 			continue;
 		Fat32EntryInfo *pFileEntry = testbuff;

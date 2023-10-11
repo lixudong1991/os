@@ -1,4 +1,4 @@
-#include "boot.h"
+#include "string.h"
 
 int strncmp_s(const char *cs, const char *ct, uint32 count)
 {

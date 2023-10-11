@@ -296,19 +296,6 @@ void* kernel_malloc(uint32 size);
 void* kernel_malloc_align(uint32 size,uint32 alignsize);
 void  kernel_free(void*);
 
-
-extern void memcpy_s(char *des, char *src, uint32 size);
-extern int memcmp_s(char *src1, char *src2, uint32 size);
-extern void *memset_s(void *s, int c, size_t count);
-extern char *strcpy_s(char *dest, const char *src);
-extern uint32 strlen_s(const char *s);
-int strncmp_s(const char *cs, const char *ct, uint32 count);
-int strcmp_s(const char *str1, const char *str2);
-uint32 strnlen(const char *s, uint32 maxlen);
-
-char *hexstr32(char buff[9], uint32 val);
-char *hexstr64(char buff[17], uint64 val);
-
 uint16 appendTableSegItem(Tableinfo *info, TableSegmentItem *item);
 BOOL getTableSegItem(Tableinfo *info, TableSegmentItem *item, uint16 SegSelect);
 uint16 appendTableGateItem(Tableinfo *info, TableGateItem *item);

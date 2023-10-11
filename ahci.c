@@ -5,6 +5,7 @@
 #include "memcachectl.h"
 #include "osdataPhyAddr.h"
 #include "printf.h"
+#include "string.h"
 PcieConfigInfo *ahciConfigInfo = NULL;
 PciCapHead *ahciMsiCapHead = NULL;
 HBA_MEM *pHbaMem = NULL;
@@ -99,7 +100,7 @@ static void port_cmd_fis_MemInit()
     for (int i = 0; i < AHCI_PORT_USEMEM_4K_COUNT; i++)
     {
         mem4k_map(portUseStart, portUseStart, MEM_UC, PAGE_RW);
-        memset_s(portUseStart, 0, 0x1000);
+        memset_s((char*)portUseStart, 0, 0x1000);
         portUseStart += 0x1000;
     }
     mem_fix_type_set(portUseStart, AHCI_PORT_USEMEM_4K_COUNT * 0x1000, MEM_UC);
@@ -312,7 +313,7 @@ void initAHCI()
 int find_cmdslot(uint32_t devid)
 {
     if (devid >= sataDevCount)
-        return;
+        return -1;
     HBA_PORT *port = sataDev[devid].pPortMem;
     // An empty command slot has its respective bit cleared to �0� in both the PxCI and PxSACT registers.
     // If not set in SACT and CI, the slot is free // Checked

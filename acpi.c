@@ -2,6 +2,7 @@
 #include "boot.h"
 #include "memcachectl.h"
 #include "printf.h"
+#include "string.h"
 uint32_t *AcpiTableAddrs=NULL;
 IoApicEntry **Madt_IOAPIC=NULL;
 LocalApicEntry **Madt_LOCALAPIC=NULL;

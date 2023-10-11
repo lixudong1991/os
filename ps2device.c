@@ -2,6 +2,8 @@
 #include "osdataPhyAddr.h"
 #include "boot.h"
 #include "printf.h"
+#include "string.h"
+
 extern uint32 ps2Controllerinit();
 
 enum VariousKeyIndex

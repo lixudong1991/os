@@ -2,13 +2,17 @@
 #include "boot.h"
 #include "ahci.h"
 #include "printf.h"
+#include "string.h"
+#include "stdlib.h"
 #define FS_START_LBA 0x800
 #define FS_TOTSEC_COUNT 0x4000000 - FS_START_LBA
 static FAT32_BPB_Struct *pBpbinfo = NULL;
 static VolumeInfo volumeInfo;
 static MbrPartition partioninfo;
 static MbrPartition partioninfo;
-static FsNode *currentDir;
+static uint32_t g_CurrentDirFirstCluster;
+
+#define MAX_DIR_LONGNAME_SIZE 256
 #define TRACE_FS
 #ifdef TRACE_FS
 #define TRACEFS(...) printf(__VA_ARGS__)
@@ -86,17 +90,150 @@ void initFS()
     asm("cli");
     TRACEFS("FS FirstDataSector:0x%x DataSec:0x%x CountofClusters:0x%x\n", volumeInfo.FirstDataSector, volumeInfo.DataSec, volumeInfo.CountofClusters);
     asm("sti");
-    currentDir = kernel_malloc(sizeof(FsNode));
-    memset_s(currentDir, 0, sizeof(FsNode));
+    g_CurrentDirFirstCluster = pBpbinfo->BPB_RootClus;
 }
+int _get_dir_item_descdata_fromname(uint32_t firstclusternum, const char *itemname, char *descbuff, uint32_t descbufflen)
+{
+    uint32_t dirCluster = firstclusternum;
+    uint32_t dirClusterSecIndex = (dirCluster - 2) * pBpbinfo->BPB_SecPerClus + volumeInfo.FirstDataSector;
+    uint32_t dirClusterSecEnd = dirClusterSecIndex + pBpbinfo->BPB_SecPerClus;
 
+    uint32_t thisFATSecNum = 0;
+    uint32_t thisFATEntOffset = 0;
+    char fatsectordata[512] = {0};
+
+    
+    int descBuffIndex = 0;
+    char sectordata[512] = {0};
+    int descBuffSize = 0;
+
+    int wdescIndex = 0;
+    char wdescbuffname[MAX_DIR_LONGNAME_SIZE*sizeof(wchar_t)];
+    memset_s(wdescbuffname, 0, sizeof(wchar_t) * MAX_DIR_LONGNAME_SIZE);
+
+    // wcstombs(descbuff, wdesbuffname, descbufflen);
+    while (1)
+    {
+        if (dirClusterSecIndex >= dirClusterSecEnd)
+        {
+            uint32_t temp = partioninfo.fsStartLBA + pBpbinfo->BPB_RsvdSecCnt + (dirCluster * 4) / pBpbinfo->BPB_BytsPerSec;
+            // TRACEFS("fs read thisFATSecNum:%d temp:%d\n",thisFATSecNum,temp);
+            if (thisFATSecNum != temp)
+            {
+                thisFATSecNum = temp;
+                if (ahci_read(0, thisFATSecNum, 0, 1, fatsectordata) != 1)
+                    return -1;
+            }
+            thisFATEntOffset = (dirCluster * 4) % pBpbinfo->BPB_BytsPerSec;
+            dirCluster = *(uint32_t *)(&(fatsectordata[thisFATEntOffset])) & 0x0FFFFFFF;
+            // TRACEFS("fs read thisFATSecNum:%d thisFATEntOffset:%d dirCluster:%d\n",thisFATSecNum,thisFATEntOffset,dirCluster);
+            if (dirCluster >= 0x0FFFFFF8)
+                return -1;
+            dirClusterSecIndex = (dirCluster - 2) * pBpbinfo->BPB_SecPerClus + volumeInfo.FirstDataSector;
+            dirClusterSecEnd = dirClusterSecIndex + pBpbinfo->BPB_SecPerClus;
+        }
+        // TRACEFS("fs read dirCluIndex:%d dirClusterSecEnd:%d\n",dirClusterSecIndex,dirClusterSecEnd);
+        if (ahci_read(0, dirClusterSecIndex++, 0, 1, sectordata) != 1)
+            return -1;
+        uint32_t entryindex = 0;
+        while (entryindex < 512)
+        {
+            // TRACEFS("fs read item entry[0]:0x%x dirItemCount:%d\n",(uint8_t)(sectordata[entryindex]),dirItemCount);
+            if ((uint8_t)(sectordata[entryindex]) == 0)
+                return -1;
+
+            if ((uint8_t)(sectordata[entryindex]) == (uint8_t)0xE5)
+            {
+                descBuffIndex = 0;
+                descBuffSize = 0;
+                entryindex += 0x20;
+                continue;
+            }
+            Fat32LongEntryInfo *plongnameentry = &(sectordata[entryindex]);
+            if (plongnameentry->LDIR_Attr == ATTR_LONG_NAME)
+            {
+                entryindex += 0x20;
+                descBuffSize += 0x20;
+                if (descBuffIndex <= descbufflen - 0x20)
+                {
+                    memcpy_s(descbuff + descBuffIndex, plongnameentry, 0x20);
+                    descBuffIndex += 0x20;
+                }
+                continue;
+            }
+
+            if ((plongnameentry->LDIR_Attr & ATTR_LONG_NAME_MASK) != ATTR_LONG_NAME)
+            {
+                if ((plongnameentry->LDIR_Attr & (ATTR_DIRECTORY | ATTR_VOLUME_ID)) == 0x00)
+                {
+                    if (dirItemIndex == itemIndex)
+                    {
+                        descBuffSize += 0x20;
+                        if (descBuffIndex <= descbufflen - 0x20)
+                        {
+                            memcpy_s(descbuff + descBuffIndex, plongnameentry, 0x20);
+                            descBuffIndex += 0x20;
+                        }
+                        if (descBuffIndex == descBuffSize)
+                            return descBuffSize;
+                        else
+                            return -1;
+                    }
+                    /* Found a file. */
+
+                }
+                else if ((plongnameentry->LDIR_Attr & (ATTR_DIRECTORY | ATTR_VOLUME_ID)) == ATTR_DIRECTORY)
+                {
+                    if (dirItemIndex == itemIndex)
+                    {
+                        descBuffSize += 0x20;
+                        if (descBuffIndex <= descbufflen - 0x20)
+                        {
+                            memcpy_s(descbuff + descBuffIndex, plongnameentry, 0x20);
+                            descBuffIndex += 0x20;
+                        }
+                        if (descBuffIndex == descBuffSize)
+                            return descBuffSize;
+                        else
+                            return -1;
+                    }
+                    /* Found a directory. */
+                }
+                else if ((plongnameentry->LDIR_Attr & (ATTR_DIRECTORY | ATTR_VOLUME_ID)) == ATTR_VOLUME_ID)
+                {
+                    /* Found a volume label. */
+                    if (dirItemIndex == itemIndex)
+                    {
+                        descBuffSize += 0x20;
+                        if (descBuffIndex <= descbufflen - 0x20)
+                        {
+                            memcpy_s(descbuff + descBuffIndex, plongnameentry, 0x20);
+                            descBuffIndex += 0x20;
+                        }
+                        if (descBuffIndex == descBuffSize)
+                            return descBuffSize;
+                        else
+                            return -1;
+                    }
+                }
+                /* Found an invalid directory entry. */
+            }
+            descBuffIndex = 0;
+            descBuffSize = 0;
+            entryindex += 0x20;
+        }
+    }
+    return -1;
+}
 int get_dir_item_count(const char *dirpath)
 {
     size_t len = strlen_s(dirpath);
     if (len < 1)
         return -1;
     char *pPathStr = dirpath;
-    for (size_t index = 0; index < len; index++)
+    uint32_t startCluster = pBpbinfo->BPB_RootClus;
+    size_t index = 0;
+    for (; index < len; index++)
     {
     }
 }
@@ -149,12 +286,31 @@ int _get_dir_item_count(uint32_t firstclusternum)
                 continue;
             }
             Fat32LongEntryInfo *plongnameentry = &(sectordata[entryindex]);
-            if (plongnameentry->LDIR_Attr == ATTR_LONG_NAME)
+            if ((plongnameentry->LDIR_Attr & ATTR_LONG_NAME_MASK) == ATTR_LONG_NAME)
             {
                 entryindex += 0x20;
                 continue;
             }
-            dirItemCount++;
+
+            if ((plongnameentry->LDIR_Attr & ATTR_LONG_NAME_MASK) != ATTR_LONG_NAME)
+            {
+                if ((plongnameentry->LDIR_Attr & (ATTR_DIRECTORY | ATTR_VOLUME_ID)) == 0x00)
+                {
+                    /* Found a file. */
+                    dirItemCount++;
+                }
+                else if ((plongnameentry->LDIR_Attr & (ATTR_DIRECTORY | ATTR_VOLUME_ID)) == ATTR_DIRECTORY)
+                {
+                    /* Found a directory. */
+                    dirItemCount++;
+                }
+                else if ((plongnameentry->LDIR_Attr & (ATTR_DIRECTORY | ATTR_VOLUME_ID)) == ATTR_VOLUME_ID)
+                {
+                    /* Found a volume label. */
+                    dirItemCount++;
+                }
+                /* Found an invalid directory entry. */
+            }
             entryindex += 0x20;
         }
     }
@@ -217,20 +373,49 @@ int _get_dir_item_descsize(uint32_t firstclusternum, uint32_t itemIndex)
                 descBuffSize += 0x20;
                 continue;
             }
-            if (dirItemIndex == itemIndex)
+
+            if ((plongnameentry->LDIR_Attr & ATTR_LONG_NAME_MASK) != ATTR_LONG_NAME)
             {
-                descBuffSize += 0x20;
-                return descBuffSize;
+                if ((plongnameentry->LDIR_Attr & (ATTR_DIRECTORY | ATTR_VOLUME_ID)) == 0x00)
+                {
+                    if (dirItemIndex == itemIndex)
+                    {
+                        descBuffSize += 0x20;
+                        return descBuffSize;
+                    }
+                    /* Found a file. */
+                    dirItemIndex++;
+                }
+                else if ((plongnameentry->LDIR_Attr & (ATTR_DIRECTORY | ATTR_VOLUME_ID)) == ATTR_DIRECTORY)
+                {
+                    if (dirItemIndex == itemIndex)
+                    {
+                        descBuffSize += 0x20;
+                        return descBuffSize;
+                    }
+                    /* Found a directory. */
+                    dirItemIndex++;
+                }
+                else if ((plongnameentry->LDIR_Attr & (ATTR_DIRECTORY | ATTR_VOLUME_ID)) == ATTR_VOLUME_ID)
+                {
+                    /* Found a volume label. */
+                    if (dirItemIndex == itemIndex)
+                    {
+                        descBuffSize += 0x20;
+                        return descBuffSize;
+                    }
+                    dirItemIndex++;
+                }
+                /* Found an invalid directory entry. */
             }
             descBuffSize = 0;
-            dirItemIndex++;
             entryindex += 0x20;
         }
     }
     return descBuffSize;
 }
 
-int _get_dir_item_descdata(uint32_t firstclusternum, uint32_t itemIndex, char *descbuff, uint32_t descbufflen)
+int _get_dir_item_descdata_fromindex(uint32_t firstclusternum, uint32_t itemIndex, char *descbuff, uint32_t descbufflen)
 {
     uint32_t dirCluster = firstclusternum;
     uint32_t dirClusterSecIndex = (dirCluster - 2) * pBpbinfo->BPB_SecPerClus + volumeInfo.FirstDataSector;
@@ -294,22 +479,66 @@ int _get_dir_item_descdata(uint32_t firstclusternum, uint32_t itemIndex, char *d
                 continue;
             }
 
-            if (dirItemIndex == itemIndex)
+            if ((plongnameentry->LDIR_Attr & ATTR_LONG_NAME_MASK) != ATTR_LONG_NAME)
             {
-                descBuffSize += 0x20;
-                if (descBuffIndex <= descbufflen - 0x20)
+                if ((plongnameentry->LDIR_Attr & (ATTR_DIRECTORY | ATTR_VOLUME_ID)) == 0x00)
                 {
-                    memcpy_s(descbuff + descBuffIndex, plongnameentry, 0x20);
-                    descBuffIndex += 0x20;
+                    if (dirItemIndex == itemIndex)
+                    {
+                        descBuffSize += 0x20;
+                        if (descBuffIndex <= descbufflen - 0x20)
+                        {
+                            memcpy_s(descbuff + descBuffIndex, plongnameentry, 0x20);
+                            descBuffIndex += 0x20;
+                        }
+                        if (descBuffIndex == descBuffSize)
+                            return descBuffSize;
+                        else
+                            return -1;
+                    }
+                    /* Found a file. */
+                    dirItemIndex++;
                 }
-                if (descBuffIndex == descBuffSize)
-                    return descBuffSize;
-                else
-                    return -1;
+                else if ((plongnameentry->LDIR_Attr & (ATTR_DIRECTORY | ATTR_VOLUME_ID)) == ATTR_DIRECTORY)
+                {
+                    if (dirItemIndex == itemIndex)
+                    {
+                        descBuffSize += 0x20;
+                        if (descBuffIndex <= descbufflen - 0x20)
+                        {
+                            memcpy_s(descbuff + descBuffIndex, plongnameentry, 0x20);
+                            descBuffIndex += 0x20;
+                        }
+                        if (descBuffIndex == descBuffSize)
+                            return descBuffSize;
+                        else
+                            return -1;
+                    }
+                    /* Found a directory. */
+                    dirItemIndex++;
+                }
+                else if ((plongnameentry->LDIR_Attr & (ATTR_DIRECTORY | ATTR_VOLUME_ID)) == ATTR_VOLUME_ID)
+                {
+                    /* Found a volume label. */
+                    if (dirItemIndex == itemIndex)
+                    {
+                        descBuffSize += 0x20;
+                        if (descBuffIndex <= descbufflen - 0x20)
+                        {
+                            memcpy_s(descbuff + descBuffIndex, plongnameentry, 0x20);
+                            descBuffIndex += 0x20;
+                        }
+                        if (descBuffIndex == descBuffSize)
+                            return descBuffSize;
+                        else
+                            return -1;
+                    }
+                    dirItemIndex++;
+                }
+                /* Found an invalid directory entry. */
             }
             descBuffIndex = 0;
             descBuffSize = 0;
-            dirItemIndex++;
             entryindex += 0x20;
         }
     }

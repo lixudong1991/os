@@ -7,6 +7,6 @@ int printf(const char *fmt, ...);
 void putchar(int _Character);
 void puts(const char *str);
 int putcharPos(int _Character, int pos);
-
+void clearChars(int count);
 int interruptPrintf(const char *fmt, ...);
 #endif // ! _PRINT_F_HH_

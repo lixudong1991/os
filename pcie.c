@@ -3,7 +3,7 @@
 #include "acpi.h"
 #include "boot.h"
 #include "memcachectl.h"
-
+#include "string.h"
 #ifdef TRACE_PCIE
 #	define TRACEPCIE(...) printf(...)
 #else
