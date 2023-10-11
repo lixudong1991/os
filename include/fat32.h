@@ -105,6 +105,20 @@ typedef struct FsNode{
     uint32_t descsize;
 }FsNode;
 
+#define ATTR_READ_ONLY  ((uint8_t)0x01)
+#define ATTR_HIDDEN  ((uint8_t)0x02)
+#define ATTR_SYSTEM  ((uint8_t)0x04)
+#define ATTR_VOLUME_ID  ((uint8_t)0x08)
+#define ATTR_DIRECTORY  ((uint8_t)0x10)
+#define ATTR_ARCHIVE  ((uint8_t)0x20)
+#define ATTR_LONG_NAME  ((uint8_t)(ATTR_READ_ONLY | ATTR_HIDDEN | ATTR_SYSTEM | ATTR_VOLUME_ID))
+
+#define ATTR_LONG_NAME_MASK  ((uint8_t)(ATTR_READ_ONLY | ATTR_HIDDEN |ATTR_SYSTEM |ATTR_VOLUME_ID |ATTR_DIRECTORY |ATTR_ARCHIVE))
+
+
 int get_dir_item_count(const char *dirpath);
+int _get_dir_item_count(uint32_t firstclusternum);
+int _get_dir_item_descsize(uint32_t firstclusternum,uint32_t itemIndex);
+int _get_dir_item_descdata(uint32_t firstclusternum,uint32_t itemIndex,char *descbuff,uint32_t descbuffsize);
 
 #endif

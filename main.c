@@ -547,6 +547,105 @@ void MPinit()
 #endif
 }
 
+void testAHCI()
+{
+	char inputbuff[1024] = {0};
+	uint32_t startAddr=0,addrsize=0;
+	Physical_entry *entrys=kernel_malloc(sizeof(Physical_entry)*64);
+	memset_s(entrys,0,sizeof(Physical_entry)*64);
+	uint32_t entryssize=0;
+	char *testbuff = kernel_malloc(8192);
+	memset_s(testbuff,0,8192);
+	//  memset_s(0x3000,0,512);
+	//  printf("getdev info:%d \n",get_dev_info(0,0x3000,512));
+	//  printf("sector size:%d sector count:%d\n",((uint16_t*)0x3000)[106],*(uint32_t*)(0x3000+117*2));
+	while (1)
+	{
+		asm("cli");
+		printf("start sector:");
+		asm("sti");
+		int len = fgets(inputbuff, 1024);
+		inputbuff[len - 1] = 0;
+		startAddr =atoi(inputbuff);
+		asm("cli");
+		printf("sectorcount:");
+		asm("sti");
+		len = fgets(inputbuff, 1024);
+		inputbuff[len - 1] = 0;
+		addrsize =atoi(inputbuff);
+		asm("cli");
+		printf("start sector:0x%x sectorcount:0x%x\n",startAddr,addrsize);
+		asm("sti");
+		entryssize =768;
+		get_memory_map_etc(testbuff,addrsize*512,entrys,&entryssize);
+		asm("cli");
+		printf("entrySize:%d\n",entryssize);
+		asm("sti");
+		for(int i=0;i<entryssize;i++)
+		{
+			asm("cli");
+			printf("entry %d addr:0x%x size:0x%x\n",i,entrys[i].address,entrys[i].size);
+			asm("sti");
+		}
+		uint32 srcount = ahci_read(0,startAddr,0,addrsize,testbuff);
+		uint32 swcount = ahci_write(0,4,0,addrsize,testbuff);
+		asm("cli");
+		printf("read seccount:%d wirte seccount:%d\n", srcount,swcount);
+		asm("sti");
+		
+		// asm("cli");
+		// printf("buff:%s\n", inputbuff);
+		// asm("sti");
+		// uint32_t status = ahci_read(0, 0, 0, 1, 0x3000);
+		
+		// asm("cli");
+		// printf("status %d data:%s\n",status,0x3000);
+		// asm("sti");
+		
+		// ahci_write(0, 1, 0, 1, 0x3000);
+		// printf("hba port %d is:0x%x ie:0x%x cmd:0x%x  ssts:0x%x sctl:0x%x serr:0x%x sact:0x%x tfd:0x%x ci:%x\n", sataDev[0].port,
+		//                        sataDev[0].pPortMem->is, sataDev[0].pPortMem->ie, sataDev[0].pPortMem->cmd, sataDev[0].pPortMem->ssts, sataDev[0].pPortMem->sctl,
+		// 					   sataDev[0].pPortMem->serr,sataDev[0].pPortMem->sact, sataDev[0].pPortMem->tfd, sataDev[0].pPortMem->ci);
+	}
+}
+void testFS()
+{
+	char inputbuff[1024] = {0};
+	char *testbuff = kernel_malloc(512);
+	memset_s(testbuff,0,512);
+	uint32_t dircluster=0,itemindex =0;
+	while (1)
+	{
+		asm("cli");
+		printf("input dir cluster:");
+		asm("sti");
+		int len = fgets(inputbuff, 1024);
+		inputbuff[len - 1] = 0;
+		dircluster =atoi(inputbuff);
+		int ret = _get_dir_item_count(dircluster);
+		if(ret ==-1)
+			continue;
+		asm("cli");
+		printf("dir cluster:%d itemcount:%d\n",dircluster,ret);
+		asm("sti");
+
+		asm("cli");
+		printf("input dir itemIndex:");
+		asm("sti");
+		len = fgets(inputbuff, 1024);
+		inputbuff[len - 1] = 0;
+		itemindex =atoi(inputbuff);
+		ret = _get_dir_item_descdata(dircluster,itemindex,testbuff,512);
+		if(ret ==-1)
+			continue;
+		Fat32EntryInfo *pFileEntry = testbuff;
+		memcpy_s(inputbuff,pFileEntry[ret/0x20-1].DIR_Name,11);
+		inputbuff[11]=0;
+		asm("cli");
+		printf("Dir cluster %d item:%d descSize:%d shortName:%s attr: 0x%x filesize:0x%x\n",4,itemindex,ret,inputbuff,pFileEntry[ret/0x20-1].DIR_Attr,pFileEntry[ret/0x20-1].DIR_FileSize);
+		asm("sti");
+	}
+}
 int _start(void *argv)
 {
 	// clearscreen();
@@ -660,65 +759,7 @@ int _start(void *argv)
 	asm("sti");
 	initFS();
 	// printf("support:monitor/mwait = %d\n", cpufeatures[cpu_support_monitor_mwait]);
-	char inputbuff[1024] = {0};
-	uint32_t startAddr=0,addrsize=0;
-	Physical_entry *entrys=kernel_malloc(sizeof(Physical_entry)*64);
-	memset_s(entrys,0,sizeof(Physical_entry)*64);
-	uint32_t entryssize=0;
-	char *testbuff = kernel_malloc(8192);
-	memset_s(testbuff,0,512);
-	//  memset_s(0x3000,0,512);
-	//  printf("getdev info:%d \n",get_dev_info(0,0x3000,512));
-	//  printf("sector size:%d sector count:%d\n",((uint16_t*)0x3000)[106],*(uint32_t*)(0x3000+117*2));
-	
-	while (1)
-	{
-		asm("cli");
-		printf("start sector:");
-		asm("sti");
-		int len = fgets(inputbuff, 1024);
-		inputbuff[len - 1] = 0;
-		startAddr =atoi(inputbuff);
-		asm("cli");
-		printf("sectorcount:");
-		asm("sti");
-		len = fgets(inputbuff, 1024);
-		inputbuff[len - 1] = 0;
-		addrsize =atoi(inputbuff);
-		asm("cli");
-		printf("start sector:0x%x sectorcount:0x%x\n",startAddr,addrsize);
-		asm("sti");
-		entryssize =768;
-		get_memory_map_etc(testbuff,addrsize*512,entrys,&entryssize);
-		asm("cli");
-		printf("entrySize:%d\n",entryssize);
-		asm("sti");
-		for(int i=0;i<entryssize;i++)
-		{
-			asm("cli");
-			printf("entry %d addr:0x%x size:0x%x\n",i,entrys[i].address,entrys[i].size);
-			asm("sti");
-		}
-		uint32 srcount = ahci_read(0,startAddr,0,addrsize,testbuff);
-		uint32 swcount = ahci_write(0,4,0,addrsize,testbuff);
-		asm("cli");
-		printf("read seccount:%d wirte seccount:%d\n", srcount,swcount);
-		asm("sti");
-		
-		// asm("cli");
-		// printf("buff:%s\n", inputbuff);
-		// asm("sti");
-		// uint32_t status = ahci_read(0, 0, 0, 1, 0x3000);
-		
-		// asm("cli");
-		// printf("status %d data:%s\n",status,0x3000);
-		// asm("sti");
-		
-		// ahci_write(0, 1, 0, 1, 0x3000);
-		// printf("hba port %d is:0x%x ie:0x%x cmd:0x%x  ssts:0x%x sctl:0x%x serr:0x%x sact:0x%x tfd:0x%x ci:%x\n", sataDev[0].port,
-		//                        sataDev[0].pPortMem->is, sataDev[0].pPortMem->ie, sataDev[0].pPortMem->cmd, sataDev[0].pPortMem->ssts, sataDev[0].pPortMem->sctl,
-		// 					   sataDev[0].pPortMem->serr,sataDev[0].pPortMem->sact, sataDev[0].pPortMem->tfd, sataDev[0].pPortMem->ci);
-	}
+	testFS();
 	while (1)
 	{
 		// printf("BSP empty\n");

@@ -3,12 +3,12 @@
 #include "ahci.h"
 #include "printf.h"
 #define FS_START_LBA 0x800
-#define FS_TOTSEC_COUNT 0x4000000-FS_START_LBA
-static FAT32_BPB_Struct *pBpbinfo =NULL;
+#define FS_TOTSEC_COUNT 0x4000000 - FS_START_LBA
+static FAT32_BPB_Struct *pBpbinfo = NULL;
 static VolumeInfo volumeInfo;
 static MbrPartition partioninfo;
 static MbrPartition partioninfo;
-static FsNode currentDir;
+static FsNode *currentDir;
 #define TRACE_FS
 #ifdef TRACE_FS
 #define TRACEFS(...) printf(__VA_ARGS__)
@@ -18,19 +18,19 @@ static FsNode currentDir;
 void formatFat32()
 {
     char bpbbuff[512];
-    memset_s(bpbbuff,0,512);
-    bpbbuff[510] =0x55;
-    bpbbuff[511] =0xAA;
-    FAT32_BPB_Struct *bpbstruct=bpbbuff;
-    memcpy_s(bpbstruct->BS_OEMName,"MSWIN4.1",8);
+    memset_s(bpbbuff, 0, 512);
+    bpbbuff[510] = 0x55;
+    bpbbuff[511] = 0xAA;
+    FAT32_BPB_Struct *bpbstruct = bpbbuff;
+    memcpy_s(bpbstruct->BS_OEMName, "MSWIN4.1", 8);
     bpbstruct->BPB_BytsPerSec = 512;
     bpbstruct->BPB_SecPerClus = 8;
-    bpbstruct->BPB_RsvdSecCnt =32;
-    bpbstruct->BPB_NumFATs =2;
+    bpbstruct->BPB_RsvdSecCnt = 32;
+    bpbstruct->BPB_NumFATs = 2;
     bpbstruct->BPB_RootEntCnt = 0;
-    bpbstruct->BPB_TotSec16 =0;
+    bpbstruct->BPB_TotSec16 = 0;
     bpbstruct->BPB_Media = 0xf8;
-    bpbstruct->BPB_FATSz16=0;
+    bpbstruct->BPB_FATSz16 = 0;
     bpbstruct->BPB_SecPerClus = 0;
     bpbstruct->BPB_NumHeads = 0;
     bpbstruct->BPB_HiddSec = 0;
@@ -39,40 +39,40 @@ void formatFat32()
     bpbstruct->BPB_FATSz32 = 65471;
     bpbstruct->BPB_ExtFlags = 0;
     bpbstruct->BPB_FSVer = 0;
-    bpbstruct->BPB_RootClus =2;
-    bpbstruct->BPB_FSInfo =1;
-    bpbstruct->BPB_BkBootSec =6;
+    bpbstruct->BPB_RootClus = 2;
+    bpbstruct->BPB_FSInfo = 1;
+    bpbstruct->BPB_BkBootSec = 6;
     bpbstruct->BS_DrvNum = 0x80;
     bpbstruct->BS_BootSig = 0x29;
-    memcpy_s(bpbstruct->BS_VolLab,"NO NAME    ",11);
-    memcpy_s(bpbstruct->BS_FilSysType,"FAT32   ",8);
+    memcpy_s(bpbstruct->BS_VolLab, "NO NAME    ", 11);
+    memcpy_s(bpbstruct->BS_FilSysType, "FAT32   ", 8);
 
-    uint32 swcount = ahci_write(0,FS_START_LBA,0,1,bpbbuff);
+    uint32 swcount = ahci_write(0, FS_START_LBA, 0, 1, bpbbuff);
     char fatbuff[512];
-    memset_s(bpbbuff,0,512);
-    uint32_t fat1startlba=FS_START_LBA+bpbstruct->BPB_RsvdSecCnt,fat2startlba=FS_START_LBA+bpbstruct->BPB_RsvdSecCnt+bpbstruct->BPB_FATSz32;
-    for(int i=0;i<bpbstruct->BPB_FATSz32;i++)
+    memset_s(bpbbuff, 0, 512);
+    uint32_t fat1startlba = FS_START_LBA + bpbstruct->BPB_RsvdSecCnt, fat2startlba = FS_START_LBA + bpbstruct->BPB_RsvdSecCnt + bpbstruct->BPB_FATSz32;
+    for (int i = 0; i < bpbstruct->BPB_FATSz32; i++)
     {
-        ahci_write(0,fat1startlba++,0,1,fatbuff);
-        ahci_write(0,fat2startlba++,0,1,fatbuff);
+        ahci_write(0, fat1startlba++, 0, 1, fatbuff);
+        ahci_write(0, fat2startlba++, 0, 1, fatbuff);
     }
-    *(uint32_t*)fatbuff = 0x0FFFFFF8;
-    *(uint32_t*)(fatbuff+4) = 0xFFFFFFFF;
-    *(uint32_t*)(fatbuff+8) = 0x0FFFFFFF;
-    fat1startlba=FS_START_LBA+bpbstruct->BPB_RsvdSecCnt,fat2startlba=FS_START_LBA+bpbstruct->BPB_RsvdSecCnt+bpbstruct->BPB_FATSz32;
-    ahci_write(0,fat1startlba,0,1,fatbuff);
-    ahci_write(0,fat2startlba,0,1,fatbuff);
+    *(uint32_t *)fatbuff = 0x0FFFFFF8;
+    *(uint32_t *)(fatbuff + 4) = 0xFFFFFFFF;
+    *(uint32_t *)(fatbuff + 8) = 0x0FFFFFFF;
+    fat1startlba = FS_START_LBA + bpbstruct->BPB_RsvdSecCnt, fat2startlba = FS_START_LBA + bpbstruct->BPB_RsvdSecCnt + bpbstruct->BPB_FATSz32;
+    ahci_write(0, fat1startlba, 0, 1, fatbuff);
+    ahci_write(0, fat2startlba, 0, 1, fatbuff);
 }
 void initFS()
 {
-    pBpbinfo  = kernel_malloc(sizeof(FAT32_BPB_Struct));
+    pBpbinfo = kernel_malloc(sizeof(FAT32_BPB_Struct));
     char bpbbuff[512];
-    memset_s(bpbbuff,0,512);
-    uint32 swcount = ahci_read(0,0,0,1,(uint32_t)bpbbuff);
-    memcpy_s(&partioninfo,bpbbuff+446,sizeof(MbrPartition));
-   // TRACEFS("ahci_read fsStartLBA:0x%x\n",partioninfo.fsStartLBA);
-    swcount = ahci_read(0,partioninfo.fsStartLBA,0,1,(uint32_t)bpbbuff);
-    memcpy_s(pBpbinfo,bpbbuff,sizeof(FAT32_BPB_Struct));
+    memset_s(bpbbuff, 0, 512);
+    uint32 swcount = ahci_read(0, 0, 0, 1, (uint32_t)bpbbuff);
+    memcpy_s(&partioninfo, bpbbuff + 446, sizeof(MbrPartition));
+    // TRACEFS("ahci_read fsStartLBA:0x%x\n",partioninfo.fsStartLBA);
+    swcount = ahci_read(0, partioninfo.fsStartLBA, 0, 1, (uint32_t)bpbbuff);
+    memcpy_s(pBpbinfo, bpbbuff, sizeof(FAT32_BPB_Struct));
     // asm("cli");
     // TRACEFS("ahci_read fs:%d\n",swcount);
     // TRACEFS("ahci_read BPB_RsvdSecCnt:0x%x\n",pBpbinfo->BPB_RsvdSecCnt);
@@ -80,27 +80,238 @@ void initFS()
     // TRACEFS("ahci_read BPB_TotSec32:0x%x\n",pBpbinfo->BPB_TotSec32);
     // asm("sti");
     volumeInfo.RootDirSectors = 0;
-    volumeInfo.FirstDataSector = partioninfo.fsStartLBA+pBpbinfo->BPB_RsvdSecCnt+pBpbinfo->BPB_NumFATs*pBpbinfo->BPB_FATSz32;
-    volumeInfo.DataSec =pBpbinfo->BPB_TotSec32-(pBpbinfo->BPB_RsvdSecCnt+pBpbinfo->BPB_NumFATs*pBpbinfo->BPB_FATSz32);
-    volumeInfo.CountofClusters = volumeInfo.DataSec/pBpbinfo->BPB_SecPerClus;
+    volumeInfo.FirstDataSector = partioninfo.fsStartLBA + pBpbinfo->BPB_RsvdSecCnt + pBpbinfo->BPB_NumFATs * pBpbinfo->BPB_FATSz32;
+    volumeInfo.DataSec = pBpbinfo->BPB_TotSec32 - (pBpbinfo->BPB_RsvdSecCnt + pBpbinfo->BPB_NumFATs * pBpbinfo->BPB_FATSz32);
+    volumeInfo.CountofClusters = volumeInfo.DataSec / pBpbinfo->BPB_SecPerClus;
     asm("cli");
-    TRACEFS("FS FirstDataSector:0x%x DataSec:0x%x CountofClusters:0x%x\n",volumeInfo.FirstDataSector,volumeInfo.DataSec,volumeInfo.CountofClusters);
+    TRACEFS("FS FirstDataSector:0x%x DataSec:0x%x CountofClusters:0x%x\n", volumeInfo.FirstDataSector, volumeInfo.DataSec, volumeInfo.CountofClusters);
     asm("sti");
-    currentDir.descbuff = kernel_malloc(sizeof(Fat32EntryInfo));
-    currentDir.descsize = sizeof(Fat32EntryInfo);
-    memset_s(currentDir.descbuff,0,sizeof(Fat32EntryInfo));
-    Fat32EntryInfo *rootdir = currentDir.descbuff;
-    rootdir->DIR_FstClusLO = 2;
-    rootdir->DIR_Name[0]='/';
+    currentDir = kernel_malloc(sizeof(FsNode));
+    memset_s(currentDir, 0, sizeof(FsNode));
 }
 
 int get_dir_item_count(const char *dirpath)
 {
     size_t len = strlen_s(dirpath);
-    if(len < 1)
+    if (len < 1)
         return -1;
-    char *pPathStr = dirpath;     
-    if( *pPathStr !='/'&& *pPathStr !='.')
-        return -1;
-    
+    char *pPathStr = dirpath;
+    for (size_t index = 0; index < len; index++)
+    {
+    }
+}
+int _get_dir_item_count(uint32_t firstclusternum)
+{
+    uint32_t dirCluster = firstclusternum;
+    uint32_t dirClusterSecIndex = (dirCluster - 2) * pBpbinfo->BPB_SecPerClus + volumeInfo.FirstDataSector;
+    uint32_t dirClusterSecEnd = dirClusterSecIndex + pBpbinfo->BPB_SecPerClus;
+
+    uint32_t thisFATSecNum = 0;
+    uint32_t thisFATEntOffset = 0;
+    char fatsectordata[512] = {0};
+
+    int dirItemCount = 0;
+    char sectordata[512] = {0};
+
+    while (1)
+    {
+        if (dirClusterSecIndex >= dirClusterSecEnd)
+        {
+            uint32_t temp = partioninfo.fsStartLBA + pBpbinfo->BPB_RsvdSecCnt + (dirCluster * 4) / pBpbinfo->BPB_BytsPerSec;
+            // TRACEFS("fs read thisFATSecNum:%d temp:%d\n",thisFATSecNum,temp);
+            if (thisFATSecNum != temp)
+            {
+                thisFATSecNum = temp;
+                if (ahci_read(0, thisFATSecNum, 0, 1, fatsectordata) != 1)
+                    return -1;
+            }
+            thisFATEntOffset = (dirCluster * 4) % pBpbinfo->BPB_BytsPerSec;
+            dirCluster = *(uint32_t *)(&(fatsectordata[thisFATEntOffset])) & 0x0FFFFFFF;
+            // TRACEFS("fs read thisFATSecNum:%d thisFATEntOffset:%d dirCluster:%d\n",thisFATSecNum,thisFATEntOffset,dirCluster);
+            if (dirCluster >= 0x0FFFFFF8)
+                return dirItemCount;
+            dirClusterSecIndex = (dirCluster - 2) * pBpbinfo->BPB_SecPerClus + volumeInfo.FirstDataSector;
+            dirClusterSecEnd = dirClusterSecIndex + pBpbinfo->BPB_SecPerClus;
+        }
+        // TRACEFS("fs read dirCluIndex:%d dirClusterSecEnd:%d\n",dirClusterSecIndex,dirClusterSecEnd);
+        if (ahci_read(0, dirClusterSecIndex++, 0, 1, sectordata) != 1)
+            return -1;
+        uint32_t entryindex = 0;
+        while (entryindex < 512)
+        {
+            // TRACEFS("fs read item entry[0]:0x%x dirItemCount:%d\n",(uint8_t)(sectordata[entryindex]),dirItemCount);
+            if ((uint8_t)(sectordata[entryindex]) == 0)
+                return dirItemCount;
+
+            if ((uint8_t)(sectordata[entryindex]) == (uint8_t)0xE5)
+            {
+                entryindex += 0x20;
+                continue;
+            }
+            Fat32LongEntryInfo *plongnameentry = &(sectordata[entryindex]);
+            if (plongnameentry->LDIR_Attr == ATTR_LONG_NAME)
+            {
+                entryindex += 0x20;
+                continue;
+            }
+            dirItemCount++;
+            entryindex += 0x20;
+        }
+    }
+    return dirItemCount;
+}
+int _get_dir_item_descsize(uint32_t firstclusternum, uint32_t itemIndex)
+{
+    uint32_t dirCluster = firstclusternum;
+    uint32_t dirClusterSecIndex = (dirCluster - 2) * pBpbinfo->BPB_SecPerClus + volumeInfo.FirstDataSector;
+    uint32_t dirClusterSecEnd = dirClusterSecIndex + pBpbinfo->BPB_SecPerClus;
+
+    uint32_t thisFATSecNum = 0;
+    uint32_t thisFATEntOffset = 0;
+    char fatsectordata[512] = {0};
+
+    int dirItemIndex = 0;
+    int descBuffSize = 0;
+    char sectordata[512] = {0};
+
+    while (1)
+    {
+        if (dirClusterSecIndex >= dirClusterSecEnd)
+        {
+            uint32_t temp = partioninfo.fsStartLBA + pBpbinfo->BPB_RsvdSecCnt + (dirCluster * 4) / pBpbinfo->BPB_BytsPerSec;
+            // TRACEFS("fs read thisFATSecNum:%d temp:%d\n",thisFATSecNum,temp);
+            if (thisFATSecNum != temp)
+            {
+                thisFATSecNum = temp;
+                if (ahci_read(0, thisFATSecNum, 0, 1, fatsectordata) != 1)
+                    return -1;
+            }
+            thisFATEntOffset = (dirCluster * 4) % pBpbinfo->BPB_BytsPerSec;
+            dirCluster = *(uint32_t *)(&(fatsectordata[thisFATEntOffset])) & 0x0FFFFFFF;
+            // TRACEFS("fs read thisFATSecNum:%d thisFATEntOffset:%d dirCluster:%d\n",thisFATSecNum,thisFATEntOffset,dirCluster);
+            if (dirCluster >= 0x0FFFFFF8)
+                return -1;
+            dirClusterSecIndex = (dirCluster - 2) * pBpbinfo->BPB_SecPerClus + volumeInfo.FirstDataSector;
+            dirClusterSecEnd = dirClusterSecIndex + pBpbinfo->BPB_SecPerClus;
+        }
+        // TRACEFS("fs read dirCluIndex:%d dirClusterSecEnd:%d\n",dirClusterSecIndex,dirClusterSecEnd);
+        if (ahci_read(0, dirClusterSecIndex++, 0, 1, sectordata) != 1)
+            return -1;
+        uint32_t entryindex = 0;
+        while (entryindex < 512)
+        {
+            // TRACEFS("fs read item entry[0]:0x%x dirItemCount:%d\n",(uint8_t)(sectordata[entryindex]),dirItemCount);
+            if ((uint8_t)(sectordata[entryindex]) == 0)
+                return -1;
+
+            if ((uint8_t)(sectordata[entryindex]) == (uint8_t)0xE5)
+            {
+                descBuffSize = 0;
+                entryindex += 0x20;
+                continue;
+            }
+            Fat32LongEntryInfo *plongnameentry = &(sectordata[entryindex]);
+            if (plongnameentry->LDIR_Attr == ATTR_LONG_NAME)
+            {
+                entryindex += 0x20;
+                descBuffSize += 0x20;
+                continue;
+            }
+            if (dirItemIndex == itemIndex)
+            {
+                descBuffSize += 0x20;
+                return descBuffSize;
+            }
+            descBuffSize = 0;
+            dirItemIndex++;
+            entryindex += 0x20;
+        }
+    }
+    return descBuffSize;
+}
+
+int _get_dir_item_descdata(uint32_t firstclusternum, uint32_t itemIndex, char *descbuff, uint32_t descbufflen)
+{
+    uint32_t dirCluster = firstclusternum;
+    uint32_t dirClusterSecIndex = (dirCluster - 2) * pBpbinfo->BPB_SecPerClus + volumeInfo.FirstDataSector;
+    uint32_t dirClusterSecEnd = dirClusterSecIndex + pBpbinfo->BPB_SecPerClus;
+
+    uint32_t thisFATSecNum = 0;
+    uint32_t thisFATEntOffset = 0;
+    char fatsectordata[512] = {0};
+
+    int dirItemIndex = 0;
+    int descBuffIndex = 0;
+    char sectordata[512] = {0};
+    int descBuffSize = 0;
+    while (1)
+    {
+        if (dirClusterSecIndex >= dirClusterSecEnd)
+        {
+            uint32_t temp = partioninfo.fsStartLBA + pBpbinfo->BPB_RsvdSecCnt + (dirCluster * 4) / pBpbinfo->BPB_BytsPerSec;
+            // TRACEFS("fs read thisFATSecNum:%d temp:%d\n",thisFATSecNum,temp);
+            if (thisFATSecNum != temp)
+            {
+                thisFATSecNum = temp;
+                if (ahci_read(0, thisFATSecNum, 0, 1, fatsectordata) != 1)
+                    return -1;
+            }
+            thisFATEntOffset = (dirCluster * 4) % pBpbinfo->BPB_BytsPerSec;
+            dirCluster = *(uint32_t *)(&(fatsectordata[thisFATEntOffset])) & 0x0FFFFFFF;
+            // TRACEFS("fs read thisFATSecNum:%d thisFATEntOffset:%d dirCluster:%d\n",thisFATSecNum,thisFATEntOffset,dirCluster);
+            if (dirCluster >= 0x0FFFFFF8)
+                return -1;
+            dirClusterSecIndex = (dirCluster - 2) * pBpbinfo->BPB_SecPerClus + volumeInfo.FirstDataSector;
+            dirClusterSecEnd = dirClusterSecIndex + pBpbinfo->BPB_SecPerClus;
+        }
+        // TRACEFS("fs read dirCluIndex:%d dirClusterSecEnd:%d\n",dirClusterSecIndex,dirClusterSecEnd);
+        if (ahci_read(0, dirClusterSecIndex++, 0, 1, sectordata) != 1)
+            return -1;
+        uint32_t entryindex = 0;
+        while (entryindex < 512)
+        {
+            // TRACEFS("fs read item entry[0]:0x%x dirItemCount:%d\n",(uint8_t)(sectordata[entryindex]),dirItemCount);
+            if ((uint8_t)(sectordata[entryindex]) == 0)
+                return -1;
+
+            if ((uint8_t)(sectordata[entryindex]) == (uint8_t)0xE5)
+            {
+                descBuffIndex = 0;
+                descBuffSize = 0;
+                entryindex += 0x20;
+                continue;
+            }
+            Fat32LongEntryInfo *plongnameentry = &(sectordata[entryindex]);
+            if (plongnameentry->LDIR_Attr == ATTR_LONG_NAME)
+            {
+                entryindex += 0x20;
+                descBuffSize += 0x20;
+                if (descBuffIndex <= descbufflen - 0x20)
+                {
+                    memcpy_s(descbuff + descBuffIndex, plongnameentry, 0x20);
+                    descBuffIndex += 0x20;
+                }
+                continue;
+            }
+
+            if (dirItemIndex == itemIndex)
+            {
+                descBuffSize += 0x20;
+                if (descBuffIndex <= descbufflen - 0x20)
+                {
+                    memcpy_s(descbuff + descBuffIndex, plongnameentry, 0x20);
+                    descBuffIndex += 0x20;
+                }
+                if (descBuffIndex == descBuffSize)
+                    return descBuffSize;
+                else
+                    return -1;
+            }
+            descBuffIndex = 0;
+            descBuffSize = 0;
+            dirItemIndex++;
+            entryindex += 0x20;
+        }
+    }
+    return -1;
 }
