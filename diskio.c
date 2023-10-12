@@ -106,7 +106,7 @@ DRESULT disk_read(
 	DRESULT res;
 	if (pdrv >= sataDevCount)
 		return RES_PARERR;
-	if(ahci_read(pdrv,sector,0,count,buff) == count)
+	if(ahci_read(pdrv,(DWORD)(sector&0xffffffff),(DWORD)((sector>>32)&0xffffffff),count,buff) == count)
 		return RES_OK;
 	return RES_ERROR;
 }
@@ -127,7 +127,7 @@ DRESULT disk_write(
 	DRESULT res;
 	if (pdrv >= sataDevCount)
 		return RES_PARERR;
-	if(ahci_write(pdrv,sector,0,count,buff) == count)
+	if(ahci_write(pdrv,(DWORD)(sector&0xffffffff),(DWORD)((sector>>32)&0xffffffff),count,buff) == count)
 		return RES_OK;
 	return RES_ERROR;
 }

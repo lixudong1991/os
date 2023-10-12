@@ -17,6 +17,7 @@ typedef unsigned char uint8_t;
 typedef unsigned int size_t;
 
 typedef int BOOL;
+
 #define TRUE 1
 #define FALSE 0
 
