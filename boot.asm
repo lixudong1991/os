@@ -383,8 +383,8 @@ sysInLong:
 	ret
 sysOutLong:
 	push edx
-	mov edx,[esp+0xc]
-	mov eax,[esp+0x10]
+	mov edx,[esp+0x8]
+	mov eax,[esp+0xc]
 	out dx,eax
 	pop edx
 	ret
@@ -398,8 +398,8 @@ sysInChar:
 	ret
 sysOutChar:
 	push edx
-	mov edx,[esp+0xc]
-	mov eax,[esp+0x10]
+	mov edx,[esp+0x8]
+	mov eax,[esp+0xc]
 	out dx,al
 	pop edx
 	ret

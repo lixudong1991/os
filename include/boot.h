@@ -245,9 +245,8 @@ extern int wrmsr_fence(uint32 msrid, uint32 eax, uint32 edx);
 
 extern uint32_t sysInLong(uint32_t port);
 extern void sysOutLong(uint32_t port, uint32_t val);
-extern char sysInChar(uint32_t port);
+extern uint32_t sysInChar(uint32_t port);
 extern void sysOutChar(uint32_t port, uint32_t val);
-
 
 void setBit(uint32 *addr, uint32 nr);
 void resetBit(uint32 *addr, uint32 nr);
@@ -350,4 +349,16 @@ extern int unlock(uint32 *lobj);
 void releaseLock(LockObj *lobj);
 extern LockObj *lockBuff;
 
+typedef struct _SYSTEMTIME {
+    WORD wYear;
+    WORD wMonth;
+    WORD wDayOfWeek;
+    WORD wDay;
+    WORD wHour;
+    WORD wMinute;
+    WORD wSecond;
+    WORD wMilliseconds;
+} SYSTEMTIME;
+
+void getCmosDateTime(SYSTEMTIME *datetime);
 #endif

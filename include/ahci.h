@@ -281,6 +281,7 @@ typedef struct tagHBA_CMD_TBL
 
 typedef struct Sata_Device{
     uint32_t port;
+    char *pIdentifyBuff;// size 512
     HBA_PORT *pPortMem; 
 }Sata_Device;
 

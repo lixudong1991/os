@@ -295,6 +295,23 @@ void initAHCI()
         TRACEAHCI("Capabilities=0x%x interrupt pin=0x%x line=0x%x\n", *(uint8_t *)(baseAddr + 0x34), *(uint8_t *)(baseAddr + 0x3c), *(uint8_t *)(baseAddr + 0x3d));
         TRACEAHCI("hba cap:0x%x ghc:0x%x IS:0x%x PI:0x%x VS:0x%x CCC_CTL:0x%X CCC_PORTS:0x%x EM_LOC:0x%x EM_CTL:0x%x CAP2:0x%x BOHC:0x%x\n",
                   pHbaMem->cap, pHbaMem->ghc, pHbaMem->is, pHbaMem->pi, pHbaMem->vs, pHbaMem->ccc_ctl, pHbaMem->ccc_pts, pHbaMem->em_loc, pHbaMem->em_ctl, pHbaMem->cap2, pHbaMem->bohc);
+       
+       //获取sata设备的信息
+        memset_s(0x3000,0,0x1000);
+        for(int devid=0;devid<sataDevCount;devid++)
+        {
+            sataDev[devid].pIdentifyBuff =NULL;
+            int ret = get_dev_info(0,0x3000,512);
+            TRACEAHCI("getDevinfo:%d\n",ret);
+            if(ret == TRUE)
+            {
+                sataDev[devid].pIdentifyBuff = kernel_malloc(512); 
+	            memcpy_s(sataDev[devid].pIdentifyBuff,0x3000,512);
+                char *temp = sataDev[devid].pIdentifyBuff;
+	            TRACEAHCI("totosec:0x%x Phs/Log SectorSize:0x%x LogicalSectorSize 117:0x%x 118:0x%x Max48BitLBA 0:0x%x 1:0x%x\n",*(uint32_t*)(temp+60*2),*(uint16_t*)(temp+106*2),
+	            *(uint16_t*)(temp+117*2),*(uint16_t*)(temp+118*2),*(uint32_t*)(temp+100*2),*(uint32_t*)(temp+102*2));
+            }   
+        }
     }
 }
 
@@ -771,7 +788,7 @@ int get_dev_info(uint32_t devid, char *infobuff, uint32_t buffsize)
     {
         pcmdtb->prdt_entry[i].dba = (DWORD)((uint32_t)infobuff & 0xFFFFFFFF);
         pcmdtb->prdt_entry[i].dbau = 0;
-        pcmdtb->prdt_entry[i].DesInfo = 511;
+        pcmdtb->prdt_entry[i].DesInfo = buffsize-1;
         //  TRACEAHCI("prdtl entry:%d dba:%x DesInfo:%d\n", i, pcmdtb->prdt_entry[i].dba, pcmdtb->prdt_entry[i].DesInfo);
         //    if (i == prdtl - 1)
         //       pcmdtb->prdt_entry[i].DesInfo |= 0x80000000; // 最后一个prd条目生成中断

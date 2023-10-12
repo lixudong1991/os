@@ -27,12 +27,16 @@ typedef uint16_t WORD;
 typedef uint32_t DWORD;
 typedef uint64_t QWORD;
 
+typedef uint16_t USHORT;
+typedef uint8_t  UCHAR;
+typedef uint32_t ULONG;
 
 typedef uint32_t phys_addr_t;
 typedef uint32_t phys_size_t;
 
 
 typedef unsigned short wchar_t;
+typedef wchar_t WCHAR;
 
 #define PAGE_ADDR_MASK 0xFFFFF000
 

@@ -16,6 +16,7 @@
 #include "ahci.h"
 #include "stdlib.h"
 #include "fat32.h"
+#include "ff.h"
 #define STACKLIMIT_G1(a) ((((uint32)(a)) - 1) >> 12) // gdt 表项粒度为1的段界限
 
 volatile BootParam bootparam;
@@ -25,6 +26,8 @@ AParg *aparg = (AParg *)AP_ARG_ADDR;
 ProcessorInfo processorinfo;
 TaskCtrBlock **procCurrTask = NULL;
 LockObj *lockBuff = NULL;
+FATFS *fsobject=NULL;   //一定是一个全局变量
+BYTE *fswork=NULL;//[FF_MAX_SS]; //一定是一个全局变量
 char *hexstr32(char buff[9], uint32 val)
 {
 	char hexs[] = "0123456789ABCDEF";
@@ -609,43 +612,55 @@ void testAHCI()
 		// 					   sataDev[0].pPortMem->serr,sataDev[0].pPortMem->sact, sataDev[0].pPortMem->tfd, sataDev[0].pPortMem->ci);
 	}
 }
-void testFS()
+void testFATfs()
 {
-	char inputbuff[1024] = {0};
-	char *testbuff = kernel_malloc(512);
-	memset_s(testbuff,0,512);
-	uint32_t dircluster=0,itemindex =0;
-	while (1)
+	fsobject = kernel_malloc(sizeof(FATFS));
+	FRESULT  res ;   //局部变量
+	FIL fp;
+	res = f_mount(&fsobject,  "0:",  0);   //挂载文件系统 ， "1:"就是挂载的设备号为1的设备
+	if(res == FR_NO_FILESYSTEM)  //FR_NO_FILESYSTEM值为13，表示没有有效的设备
 	{
-		asm("cli");
-		printf("input dir cluster:");
-		asm("sti");
-		int len = fgets(inputbuff, 1024);
-		inputbuff[len - 1] = 0;
-		dircluster =atoi(inputbuff);
-		int ret = _get_dir_item_count(dircluster);
-		if(ret ==-1)
-			continue;
-		asm("cli");
-		printf("dir cluster:%d itemcount:%d\n",dircluster,ret);
-		asm("sti");
+		fswork = kernel_malloc(FF_MAX_SS);
+		res = f_mkfs("0:",0,fswork,FF_MAX_SS);
+		// printf("f_mkfs  is  over\r\n");
+		// printf("res = %d\r\n",res);
+		res = f_mount(NULL,  "0:",  0);   //取消文件系统
+		res = f_mount(&fsobject,  "0:",  0);   //挂载文件系统
+ 	}
 
-		asm("cli");
-		printf("input dir itemIndex:");
-		asm("sti");
-		len = fgets(inputbuff, 1024);
-		inputbuff[len - 1] = 0;
-		itemindex =atoi(inputbuff);
-		ret = _get_dir_item_descdata_fromindex(dircluster,itemindex,testbuff,512);
-		if(ret ==-1)
-			continue;
-		Fat32EntryInfo *pFileEntry = testbuff;
-		memcpy_s(inputbuff,pFileEntry[ret/0x20-1].DIR_Name,11);
-		inputbuff[11]=0;
-		asm("cli");
-		printf("Dir cluster %d item:%d descSize:%d shortName:%s attr: 0x%x filesize:0x%x\n",4,itemindex,ret,inputbuff,pFileEntry[ret/0x20-1].DIR_Attr,pFileEntry[ret/0x20-1].DIR_FileSize);
-		asm("sti");
-	}
+	char *testbuff = kernel_malloc(1024);
+	memset_s(testbuff,0,1024);
+	uint32_t br=0,wr;
+
+	res = f_open(&fp , "0:diskdata.txt" , FA_OPEN_ALWAYS|FA_READ |FA_WRITE);
+	printf("open file res = %d \n",res);
+
+	if(res == FR_OK)
+	{
+		res = f_read(&fp,testbuff,f_size(&fp),&br);
+		if(res == FR_OK)
+		{
+			testbuff[br]=0;
+			printf(" read data size %d  %s\n",br,testbuff);
+		}
+		f_close(&fp);
+	}		
+
+	res = f_open(&fp , "0:diskdata1.txt" , FA_OPEN_ALWAYS|FA_READ |FA_WRITE);
+	printf("open w file res = %d \n",res);
+
+	if(res == FR_OK)
+	{
+		res = f_write(&fp,testbuff,br,&wr);
+		if(res == FR_OK)
+		{
+			printf(" wirte data success\n");
+		}
+		f_close(&fp);
+	}	
+	DWORD count=0;
+	f_getfree("0",&count,&fsobject);
+	printf("empty sec count:0x%x\n",count);	
 }
 int _start(void *argv)
 {
@@ -758,9 +773,18 @@ int _start(void *argv)
 	asm("cli");
 	printf("ps2Deviceinit =%d\n", ps2DeviceInit());
 	asm("sti");
-	initFS();
+
+	//initFS();
 	// printf("support:monitor/mwait = %d\n", cpufeatures[cpu_support_monitor_mwait]);
-	testFS();
+
+	SYSTEMTIME currtime;
+	memset(&currtime,0,sizeof(SYSTEMTIME));
+	getCmosDateTime(&currtime);
+	printf("year:%d month:%d day:%d hour:%d minute:%d second:%d\n",currtime.wYear,currtime.wMonth,currtime.wDay,
+	currtime.wHour,currtime.wMinute,currtime.wSecond);
+	//testFS();
+
+	testFATfs();
 	while (1)
 	{
 		// printf("BSP empty\n");
@@ -776,4 +800,44 @@ void TerminateProgram(uint32 retval)
 	char num[16];
 	puts("\nUserProgram Exit code:");
 	puts(hexstr32(num, retval));
+}
+
+void getCmosDateTime(SYSTEMTIME *datetime)
+{
+	uint8_t secondBcd = 0;
+	uint8_t minuteBcd = 0;
+	uint8_t hourBcd = 0;
+	uint8_t dayBcd = 0;
+	uint8_t monthBcd = 0;
+	uint8_t yearBcd = 0;
+	//秒
+	sysOutChar(0x70,0);
+	secondBcd = (uint8_t)sysInChar(0x71);
+
+	//分
+	sysOutChar(0x70,2);
+	minuteBcd =  (uint8_t)sysInChar(0x71);
+
+	//时
+	sysOutChar(0x70,4);
+	hourBcd =  (uint8_t)sysInChar(0x71);
+
+	//日
+	sysOutChar(0x70,7);
+	dayBcd =  (uint8_t)sysInChar(0x71);
+
+	//月
+	sysOutChar(0x70,8);
+	monthBcd =  (uint8_t)sysInChar(0x71);
+
+	//年
+	sysOutChar(0x70,9);
+	yearBcd =  (uint8_t)sysInChar(0x71);
+	datetime->wSecond =  (((uint8_t)0xf0&secondBcd)>>4)*10+((uint8_t)0xf&secondBcd);
+	datetime->wMinute =  (((uint8_t)0xf0&minuteBcd)>>4)*10+((uint8_t)0xf&minuteBcd);
+	datetime->wHour =  (((uint8_t)0xf0&hourBcd)>>4)*10+((uint8_t)0xf&hourBcd);
+	datetime->wDay =  (((uint8_t)0xf0&dayBcd)>>4)*10+((uint8_t)0xf&dayBcd);
+	datetime->wMonth =  (((uint8_t)0xf0&monthBcd)>>4)*10+((uint8_t)0xf&monthBcd);
+	datetime->wYear =  (((uint8_t)0xf0&yearBcd)>>4)*10+((uint8_t)0xf&yearBcd);
+	datetime->wYear+= 2000;
 }

@@ -1,6 +1,7 @@
 #ifndef FAT_32_H_H
 #define FAT_32_H_H
 
+#if 0
 #include "stdint.h"
 #pragma pack(1)
 typedef struct MbrPartition
@@ -112,4 +113,8 @@ int _get_dir_item_count(uint32_t firstclusternum);
 int _get_dir_item_descsize(uint32_t firstclusternum,uint32_t itemIndex);
 int _get_dir_item_descdata_fromindex(uint32_t firstclusternum, uint32_t itemIndex, char *descbuff, uint32_t descbufflen);
 int _get_dir_item_descdata_fromname(uint32_t firstclusternum, const char* itemname, char *descbuff, uint32_t descbufflen);
+
+void testFS();
+#endif
+
 #endif
