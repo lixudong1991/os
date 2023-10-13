@@ -23,22 +23,22 @@ r:		mov bx,0600h
 		retf
 		times 446-($-$$) db 0
 
-; fsActive		db 0x80
-; fsStartHead		db 0x20
-; fsStartCylSect	dw 0x21
-; fsPartType		db 0x0c
-; fsEndHead		db 0xfe
-; fsEndCylSect 	dw 0xffff
-; fsStartLBA		dd 0x800
-; fsSize			dd 0x4000000-0x800
-fsActive		db 0x00
+fsActive		db 0x80
 fsStartHead		db 0x20
 fsStartCylSect	dw 0x21
-fsPartType		db 0x07
+fsPartType		db 0x0c
 fsEndHead		db 0xfe
 fsEndCylSect 	dw 0xffff
 fsStartLBA		dd 0x800
-fsSize			dd 0x1d1c4800
+fsSize			dd 0x4000000-0x800
+; fsActive		db 0x00
+; fsStartHead		db 0x20
+; fsStartCylSect	dw 0x21
+; fsPartType		db 0x07
+; fsEndHead		db 0xfe
+; fsEndCylSect 	dw 0xffff
+; fsStartLBA		dd 0x800
+; fsSize			dd 0x1d1c4800
 		times 48 db 0
 		db 55h,0aah
 osstart:mov ax,0
@@ -653,12 +653,18 @@ apLoadSeg 			    equ      0x8600 ;ap加载内存起始地址
 ;fontStartSection      equ      320     ;加载起始扇区
 ;fontLoadSeg		  	  equ      0x6100 ;字体数据加载内存起始地址
 
-
 stdos:  
 		;call setVGAPalete  ;设置vga调色板 0-15号颜色
 		cli
-		mov ax,[0x40E]
-		mov [0600h+EBDAseg-osstart],ax
+
+
+		xor ax,ax
+		mov es,ax
+		mov di,0600h+vbe_info_structure-osstart
+		mov ax,0x4f00
+		int 0x10
+		cmp ax,0x004f
+		jne readKDataErr
 
 		mov ah,0x41
 		mov bx,0x55AA
@@ -855,10 +861,12 @@ stdos3:	mov [ebx],edx
 		;call read_ata_st
 		;jle goKernel
 		;hlt
-		push dword 0600h+proEntry-osstart
+		push dword 0600h+vbe_info_structure-osstart
 		push dword 0600h+proEntry-osstart
 		
-		jmp [0600h+proEntry-osstart]
+		call [0600h+proEntry-osstart]
+		cli 
+		hlt
 
 initPageStat:
 		push eax 
@@ -1482,43 +1490,11 @@ db 0x00, 0x00, 0x84 ;/* 12:暗青 */
 db 0x84, 0x00, 0x84 ;/* 13:暗紫 */
 db 0x00, 0x84, 0x84 ;/* 14:浅暗蓝 */
 db 0x84, 0x84, 0x84;/* 15:暗灰 */
-;Elf32_Ehdr 
-;e_ident times 16 db 0
-;e_type  dw 0
-;e_machine dw 0;		/* Architecture */
-;e_version dd 0;		/* Object file version */
-;e_entry dd 0;		/* Entry point virtual address */
-;e_phoff dd 0;		/* Program header table file offset */
-;e_shoff dd 0;		/* Section header table file offset */
-;e_flags dd 0;		/* Processor-specific flags */
-;e_ehsize dw 0;		/* ELF header size in bytes */
-;e_phentsize dw 0;		/* Program header table entry size */
-;e_phnum dw 0;		/* Program header table entry count */
-;e_shentsize dw 0;		/* Section header table entry size */
-;e_shnum dw 0;		/* Section header table entry count */
-;e_shstrndx dw 0;		/* Section header string table index */
-;
-;;Elf32_Phdr
-;p_type dd 0;			/* Segment type */
-;p_offset dd 0;		/* Segment file offset */
-;p_vaddr dd 0;		/* Segment virtual address */
-;p_paddr dd 0;		/* Segment physical address */
-;p_filesz dd 0;		/* Segment size in file */
-;p_memsz dd 0;		/* Segment size in memory */
-;p_flags dd 0;		/* Segment flags */
-;p_align dd 0;		/* Segment alignment */
-;
-;Elf32_Shdr
-;sh_name dd 0;		/* Section name (string tbl index) */
-;sh_type dd 0;		/* Section type */
-;sh_flags dd 0;		/* Section flags */
-;sh_addr dd 0;		/* Section virtual addr at execution */
-;sh_offset dd 0;		/* Section file offset */
-;sh_size dd 0;		/* Section size in bytes */
-;sh_link dd 0;		/* Link to another section */
-;sh_info dd 0;		/* Additional section information */
-;sh_addralign dd 0;		/* Section alignment */
-;sh_entsize dd 0;		/* Entry size if section holds table */
 
+
+
+vbe_info_structure  db "VBE2"
+times 512-4 db 0
+vbe_mode_info_structure times 256 db 0
 
 osstartend:times 512 db 0 

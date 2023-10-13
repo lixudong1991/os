@@ -46,4 +46,7 @@ size_t strlen (const char *);
 
 char *strerror (int);
 
+
+//从指定位置查找字符串
+int IndexStr_KMP(char *str, int strsize, const char *dest, int *nextbuff, int destsize);
 #endif

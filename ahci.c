@@ -17,7 +17,6 @@ volatile uint32_t gHbaSupportPortCount = 0;
 volatile uint32_t gPortMaxPrdtlCount = 0;
 Physical_entry *gMaxPhyentryBuff = NULL;
 #define HBA_PORT_COUNT gHbaSupportPortCount
-#define TRACE_AHCI
 #ifdef TRACE_AHCI
 #define TRACEAHCI(...) printf(__VA_ARGS__)
 #else
@@ -250,7 +249,7 @@ void initAHCI()
         //  TRACEAHCI("pcie config addr:0x%x bus:%d device:%d vendorID: 0x%x  deviceID:0x%x\n", pcieConfigInfos[i].pConfigPage, pcieConfigInfos[i].bus,
         //         pcieConfigInfos[i].device, pcieConfigInfos[i].pConfigPage->VendorID, pcieConfigInfos[i].pConfigPage->deviceID);
         //  asm("sti");
-#if 1
+#if 0
         if (pcieConfigInfos[i].pConfigPage->VendorID == 0x8086 && pcieConfigInfos[i].pConfigPage->deviceID == 0xa282)
         {
             ahciconfig = &(pcieConfigInfos[i]);

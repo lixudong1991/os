@@ -106,7 +106,12 @@ DRESULT disk_read(
 	DRESULT res;
 	if (pdrv >= sataDevCount)
 		return RES_PARERR;
-	if(ahci_read(pdrv,(DWORD)(sector&0xffffffff),(DWORD)((sector>>32)&0xffffffff),count,buff) == count)
+#if FF_LBA64
+	DWORD starl=(DWORD)(sector&0xffffffff),starth =(DWORD)((sector>>32)&0xffffffff);
+#else
+	DWORD starl=sector,starth =0;
+#endif
+	if(ahci_read(pdrv,starl,starth,count,buff) == count)
 		return RES_OK;
 	return RES_ERROR;
 }
@@ -127,7 +132,12 @@ DRESULT disk_write(
 	DRESULT res;
 	if (pdrv >= sataDevCount)
 		return RES_PARERR;
-	if(ahci_write(pdrv,(DWORD)(sector&0xffffffff),(DWORD)((sector>>32)&0xffffffff),count,buff) == count)
+#if FF_LBA64
+	DWORD starl=(DWORD)(sector&0xffffffff),starth =(DWORD)((sector>>32)&0xffffffff);
+#else
+	DWORD starl=sector,starth =0;
+#endif
+	if(ahci_write(pdrv,starl,starth,count,buff) == count)
 		return RES_OK;
 	return RES_ERROR;
 }

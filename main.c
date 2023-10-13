@@ -17,6 +17,7 @@
 #include "stdlib.h"
 #include "fat32.h"
 #include "ff.h"
+#include "vbe.h"
 #define STACKLIMIT_G1(a) ((((uint32)(a)) - 1) >> 12) // gdt 表项粒度为1的段界限
 
 volatile BootParam bootparam;
@@ -611,10 +612,11 @@ void testAHCI()
 	}
 }
 extern void testFATfs();
-int _start(void *argv)
+int _start(void *bargv,void *vbe)
 {
 	// clearscreen();
-	memcpy_s((char *)&bootparam, (char *)argv, sizeof(BootParam));
+	memcpy_s((char *)&bootparam, (char *)bargv, sizeof(BootParam));
+	memcpy_s(g_vbebuff, (char *)vbe, VBE_BUFF_SIZE);
 	kernelData.gdtInfo.base = bootparam.gdt_base;
 	kernelData.gdtInfo.limit = bootparam.gdt_size;
 	kernelData.gdtInfo.type = 0;
@@ -728,7 +730,7 @@ int _start(void *argv)
 
 	
 	//testFS();
-
+	dumpVbeInfo();
 	testFATfs();
 	while (1)
 	{

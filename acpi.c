@@ -16,56 +16,9 @@ extern BootParam bootparam;
 #else
 #	define TRACEACPI(...)
 #endif
-static void getnext_KMP(const char *dest, int next[], int len)
+char *findRSDPAddr(uint32_t startaddr, uint32_t endaddr)
 {
-    int i = 0, j = -1;
-    next[0] = j;
-    while (i < len - 1)
-    {
-        if (j == -1 || dest[i] == dest[j])
-        {
-            ++i;
-            ++j;
-            if (dest[i] != dest[j])
-            {
-                next[i] = j;
-            }
-            else
-                next[i] = next[j];
-        }
-        else
-            j = next[j];
-    }
-}
-static int IndexStr_KMP(char *str, int strsize, const char *dest, int *nextbuff, int destsize)
-{
-    int len = destsize;
-    int *next = nextbuff;
-    memset_s(next, 0, len * sizeof(int));
-    getnext_KMP(dest, next, len);
-    int size1 = strsize;
-    int i = 0, j = 0;
-    while (i < size1 && j < len)
-    {
-        if (j == -1 || str[i] == dest[j])
-        {
-            ++i;
-            ++j;
-        }
-        else
-        {
-            j = next[j];
-        }
-    }
-
-    if (j == len)
-        return i - len;
-    return -1;
-}
-
-char *findRSDPAddr(uint32 startaddr, uint32 endaddr)
-{
-    uint32 findstart = startaddr & PAGE_ADDR_MASK, findend = endaddr & PAGE_ADDR_MASK;
+    uint32_t findstart = startaddr & PAGE_ADDR_MASK, findend = endaddr & PAGE_ADDR_MASK;
     TRACEACPI("findstart:%x findend:%x \n", startaddr, findend);
     for (int i = findstart; i < findend; i += 0x1000)
     {
@@ -331,7 +284,7 @@ void initAcpiTable()
     memset_s(Madt_LOCALAPIC, 0, MAX_LOAPIC_COUNT * sizeof(LocalApicEntry *));
     memset_s(mcfgPciConfigSpace, 0, MAX_MCFG_PCICONFIG_COUNT * sizeof(pciConfigSpaceBaseAddr *));
 
-#if 1
+#if 0
 	
 	for (int i = 0; i < bootparam.memInfoSize; i++)
 	{
