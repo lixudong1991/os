@@ -40,5 +40,4 @@ typedef unsigned short wchar_t;
 typedef wchar_t WCHAR;
 
 #define PAGE_ADDR_MASK 0xFFFFF000
-
 #endif

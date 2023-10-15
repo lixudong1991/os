@@ -18,6 +18,7 @@
 #include "fat32.h"
 #include "ff.h"
 #include "vbe.h"
+
 #define STACKLIMIT_G1(a) ((((uint32)(a)) - 1) >> 12) // gdt 表项粒度为1的段界限
 
 volatile BootParam bootparam;
@@ -611,7 +612,7 @@ void testAHCI()
 		// 					   sataDev[0].pPortMem->serr,sataDev[0].pPortMem->sact, sataDev[0].pPortMem->tfd, sataDev[0].pPortMem->ci);
 	}
 }
-extern void testFATfs();
+extern void initFs();
 int _start(void *bargv,void *vbe)
 {
 	// clearscreen();
@@ -725,13 +726,45 @@ int _start(void *bargv,void *vbe)
 	printf("ps2Deviceinit =%d\n", ps2DeviceInit());
 	asm("sti");
 
-	//initFS();
+	initVbe();
 	// printf("support:monitor/mwait = %d\n", cpufeatures[cpu_support_monitor_mwait]);
 
-	
-	//testFS();
-	dumpVbeInfo();
-	testFATfs();
+	initFs();
+	initFont();
+
+	Pair screensize;
+	getScreenPixSize(&screensize);
+	Rect rect;
+	rect.left = 0;
+	rect.right = screensize.x-1;
+	rect.top = 0;
+	rect.bottom = screensize.y - 1;
+	fillRect(&rect, 0xffffff);
+
+	rect.left = 256;
+	rect.top = 256;
+	rect.right = 655;
+	rect.bottom = 655;
+	fillRect(&rect, 0xffff);
+
+	rect.left = 800;
+	rect.top = 800;
+	rect.right = 999;
+	rect.bottom = 999;
+	drawRect(&rect, 0xff,4);
+
+	rect.left = 20;
+	rect.top = 600;
+	rect.right = 1019;
+	rect.bottom = 1019;
+	drawRect(&rect, 0xff00, 1);
+	drawText("UserProgram",&rect, 0xff00ff,80);
+	rect.left =2;
+	rect.top = 2;
+	rect.right = 1921;
+	rect.bottom = 1081;
+	drawPngImage(&rect,"/img/imgdata");
+	//testFATfs();
 	while (1)
 	{
 		// printf("BSP empty\n");

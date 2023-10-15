@@ -3,9 +3,14 @@
 #include "stdint.h"
 
 
-extern void memcpy_s(char *des, char *src, uint32 size);
+extern void memcpy_s(char *des, char *src, size_t size);
+extern void memWordcpy_s(uint16_t *des, uint16_t *src, size_t count);
+extern void memDWordcpy_s(uint32_t *des,uint32_t *src, size_t count);
+
 extern int memcmp_s(char *src1, char *src2, uint32 size);
 extern void *memset_s(void *s, int c, size_t count);
+extern uint16_t *memWordset_s(uint16_t *s, int word, size_t count);
+extern uint32_t *memDWordset_s(uint32_t *s, int dword, size_t count);
 extern char *strcpy_s(char *dest, const char *src);
 extern uint32 strlen_s(const char *s);
 int strncmp_s(const char *cs, const char *ct, uint32 count);

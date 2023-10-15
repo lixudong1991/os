@@ -20,42 +20,58 @@ typedef struct vbe_info_structure
 
 typedef struct vbe_mode_info_structure
 {
-    uint16_t attributes;  // deprecated, only bit 7 should be of interest to you, and it indicates the mode supports a linear frame buffer.
-    uint8_t window_a;     // deprecated
-    uint8_t window_b;     // deprecated
-    uint16_t granularity; // deprecated; used while calculating bank numbers
-    uint16_t window_size;
-    uint16_t segment_a;
-    uint16_t segment_b;
-    uint32_t win_func_ptr; // deprecated; used to switch banks from protected mode without returning to real mode
-    uint16_t pitch;        // number of bytes per horizontal line
-    uint16_t width;        // width in pixels
-    uint16_t height;       // height in pixels
-    uint8_t w_char;        // unused...
-    uint8_t y_char;        // ...
-    uint8_t planes;
-    uint8_t bpp;   // bits per pixel in this mode
-    uint8_t banks; // deprecated; total number of banks in this mode
-    uint8_t memory_model;
-    uint8_t bank_size; // deprecated; size of a bank, almost always 64 KB but may be 16 KB...
-    uint8_t image_pages;
-    uint8_t reserved0;
+//; Mandatory information for all VBE revisions
+uint16_t ModeAttributes;//; mode attributes
+uint8_t WinAAttributes ;//; window A attributes
+uint8_t WinBAttributes ;//; window B attributes
+uint16_t WinGranularity ;//; window granularity
+uint16_t WinSize;//; window size
+uint16_t WinASegment;//; window A start segment
+uint16_t WinBSegment;//; window B start segment
+uint32_t WinFuncPtr;//; real mode pointer to window function
+uint16_t BytesPerScanLine;//; bytes per scan line
+// Mandatory information for VBE 1.2 and above
+uint16_t XResolution;//; horizontal resolution in pixels or characters3
+uint16_t YResolution;//; vertical resolution in pixels or characters
+uint8_t XCharSize ;//; character cell width in pixels
+uint8_t YCharSize ;//; character cell height in pixels
+uint8_t NumberOfPlanes ;//; number of memory planes
+uint8_t BitsPerPixel ;//; bits per pixel
+uint8_t NumberOfBanks ;//; number of banks
+uint8_t MemoryModel ;//; memory model type
+uint8_t BankSize ;//; bank size in KB
+uint8_t NumberOfImagePages ;//; number of images
+uint8_t Reserved0; //reserved for page function
+// Direct Color fields (required for direct/6 and YUV/7 memory models)
+uint8_t RedMaskSize;//; size of direct color red mask in bits
+uint8_t RedFieldPosition ;//; bit position of lsb of red mask
+uint8_t GreenMaskSize ;//; size of direct color green mask in bits
+uint8_t GreenFieldPosition ;//; bit position of lsb of green mask
+uint8_t BlueMaskSize ;//; size of direct color blue mask in bits
+uint8_t BlueFieldPosition ;//; bit position of lsb of blue mask
+uint8_t RsvdMaskSize ;//; size of direct color reserved mask in bits
+uint8_t RsvdFieldPosition ;//; bit position of lsb of reserved mask
+uint8_t DirectColorModeInfo ;//; direct color mode attributes
+// Mandatory information for VBE 2.0 and above
+uint32_t PhysBasePtr;//; physical address for flat memory frame buffer
+uint32_t Reserved1; //Reserved - always set to 0
+uint16_t Reserved2; //Reserved - always set to 0
 
-    uint8_t red_mask;
-    uint8_t red_position;
-    uint8_t green_mask;
-    uint8_t green_position;
-    uint8_t blue_mask;
-    uint8_t blue_position;
-    uint8_t reserved_mask;
-    uint8_t reserved_position;
-    uint8_t direct_color_attributes;
-
-    uint32_t framebuffer; // physical address of the linear frame buffer; write here to draw to the screen
-    uint32_t off_screen_mem_off;
-    uint16_t off_screen_mem_size; // size of memory in the framebuffer but not being displayed on the screen
-    uint8_t reserved1[206];
-} vbe_mode_info_structure;
+// Mandatory information for VBE 3.0 and above
+uint16_t LinBytesPerScanLine ;//; bytes per scan line for linear modes
+uint8_t BnkNumberOfImagePages ;//; number of images for banked modes
+uint8_t LinNumberOfImagePages ;//; number of images for linear modes
+uint8_t LinRedMaskSize ;//; size of direct color red mask (linear modes)
+uint8_t LinRedFieldPosition ;//; bit position of lsb of red mask (linear modes)
+uint8_t LinGreenMaskSize ;//; size of direct color green mask (linear modes)
+uint8_t LinGreenFieldPosition;//; bit position of lsb of green mask (linear modes)
+uint8_t LinBlueMaskSize ;//; size of direct color blue mask (linear modes)
+uint8_t LinBlueFieldPosition ;//; bit position of lsb of blue mask (linear modes)
+uint8_t LinRsvdMaskSize ;//; size of direct color reserved mask (linear modes)
+uint8_t LinRsvdFieldPosition ;//; bit position of lsb of reserved mask (linear modes)
+uint32_t MaxPixelClock ;//; maximum pixel clock (in Hz) for graphics mode
+//Reserved uint8_t 189 dup (?) ; remainder of ModeInfoBlock
+}vbe_mode_info_structure;
 
 typedef struct PMInfoBlock
 {
@@ -73,7 +89,43 @@ typedef struct PMInfoBlock
 
 #pragma pack()
 
-#define VBE_BUFF_SIZE 768
-void dumpVbeInfo();
+#define VBE_BUFF_SIZE 2048
+void initVbe();
 extern char g_vbebuff[VBE_BUFF_SIZE];
+
+void initFont();
+
+typedef struct Rect
+{
+    uint32_t top;
+    uint32_t left;
+    uint32_t bottom;
+    uint32_t right;
+}Rect;
+typedef struct Point
+{
+    uint32_t x;
+    uint32_t y;
+}Point,Pair;
+
+
+typedef enum BITMAP_FORMAT_TYPE
+{
+    BITMAP_FORMAT_TYPE_R5G6B5 =0,
+    BITMAP_FORMAT_TYPE_A8R8G8B8
+}BITMAP_FORMAT_TYPE;
+typedef struct Bitmap
+{
+    uint8_t *data;
+    BITMAP_FORMAT_TYPE format;
+    uint32_t width;
+    uint32_t height;
+}Bitmap;
+void getScreenPixSize(Pair* size);
+void fillRect(Rect* rect, uint32_t fillcolor);
+void drawRect(Rect* rect, uint32_t bordercolor, uint32_t borderwidth);
+void drawBitmap(Rect* rect,Bitmap *data);
+void drawText(const char* text, Rect* rect, uint32_t color, float pixels);
+int  rectIsVaild(Rect* rect);
+void drawPngImage(Rect* rect,const char *filepath);
 #endif

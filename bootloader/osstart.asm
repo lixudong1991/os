@@ -638,6 +638,32 @@ setVGAPalete1:
 		pop dx
 		ret
 
+;ds:di 存储XResolution YResolutiond的指针 
+;输入 ax 模式号
+;ax 返回状态
+getvbemodeResolution:
+		push es
+		push cx
+		push di
+		push ax
+		xor ax,ax
+		mov es,ax
+		mov di,0600h+vbe_mode_info_structure-osstart
+		pop cx
+		mov ax,0x4f01
+		int 0x10
+		pop di
+		cmp ax,0x004f
+		jne getvbemodeResolutionret	
+		mov cx,[0600h+vbe_mode_info_structure+18-osstart] ;XResolution
+		mov [ds:di],cx
+		mov cx,[0600h+vbe_mode_info_structure+20-osstart] ;YResolution
+		mov [ds:di+2],cx
+getvbemodeResolutionret:	
+		pop cx
+		pop es
+		ret	
+
 kernelSectionCount      equ      600    ;用户程序1+用户程序2+kernel的总扇区数
 kernelStartSection      equ      16     ;内核加载起始扇区
 kernelLoadSeg 			equ      0x3b00 ;内核加载内存起始地址
@@ -656,9 +682,8 @@ apLoadSeg 			    equ      0x8600 ;ap加载内存起始地址
 stdos:  
 		;call setVGAPalete  ;设置vga调色板 0-15号颜色
 		cli
-
-
 		xor ax,ax
+		mov ds,ax
 		mov es,ax
 		mov di,0600h+vbe_info_structure-osstart
 		mov ax,0x4f00
@@ -666,6 +691,99 @@ stdos:
 		cmp ax,0x004f
 		jne readKDataErr
 
+		xor ax,ax
+		mov ds,ax
+		mov es,ax
+		mov dl,10	
+		mov dh,1
+		mov cl,111b		
+		mov si,0600h+hexstrbuff-osstart			
+		push dx
+		mov ax,[0600h+vbe_info_video_modes-osstart]
+		mov dx,[0600h+vbe_info_video_modes+2-osstart]
+		call itohstr
+		pop dx
+		call showstr
+
+		xor ax,ax
+		mov ds,ax
+		mov ax,[0600h+vbe_info_video_modes+2-osstart]
+		mov es,ax
+		mov si,[0600h+vbe_info_video_modes-osstart]
+		mov di,0600h+vbemodeResolution-osstart
+		mov bx,0600h+vbemodbuff-osstart
+cpvbemodestart:
+		mov ax,[es:si]
+		mov [ds:bx],ax
+		add bx,2
+		add si,2
+		cmp ax,0xffff
+		je cpvbemodeend
+		call getvbemodeResolution
+		cmp ax,0x004f
+		jne readKDataErr
+		add di,4
+		jmp cpvbemodestart		
+ cpvbemodeend:
+		mov ax,[0600h+vbe_info_vendor+2-osstart]
+		mov es,ax
+		mov si,[0600h+vbe_info_vendor-osstart]
+cpvbevenstart:
+		mov al,[es:si]
+		mov [ds:bx],al
+		inc bx
+		inc si
+		cmp al,0
+		je cpvbevenend
+		jmp cpvbevenstart
+cpvbevenend:
+		mov byte [ds:bx-1],':'
+		mov ax,[0600h+vbe_info_product_name+2-osstart]
+		mov es,ax
+		mov si,[0600h+vbe_info_product_name-osstart]
+cpvbepronamestart:
+		mov al,[es:si]
+		mov [ds:bx],al
+		inc bx
+		inc si
+		cmp al,0
+		je cpvbepronameend
+		jmp cpvbepronamestart
+cpvbepronameend:
+		mov byte [ds:bx-1],':'
+		mov ax,[0600h+vbe_info_product_rev+2-osstart]
+		mov es,ax
+		mov si,[0600h+vbe_info_product_rev-osstart]
+cpvbeprorevstart:
+		mov al,[es:si]
+		mov [ds:bx],al
+		inc bx
+		inc si
+		cmp al,0
+		je cpvbeprorevend
+		jmp cpvbeprorevstart
+cpvbeprorevend:
+
+		xor ax,ax
+		mov ds,ax
+		mov es,ax
+		mov di,0600h+vbe_mode_info_structure-osstart
+		mov ax,0x4f01
+		mov cx,0x155 ;0x14c
+		int 0x10
+		cmp ax,0x004f
+		jne readKDataErr
+
+		mov ax, 0x4F02	; set VBE mode
+		mov bx, 0x4155 ;0x414c	; VBE mode number; notice that bits 0-13 contain the mode number and bit 14 (LFB) is set and bit 15 (DM) is clear.
+		int 0x10			; call VBE BIOS
+		cmp ax, 0x004F	; test for error
+		jne readKDataErr
+
+
+		xor ax,ax
+		mov es,ax
+		mov ds,ax
 		mov ah,0x41
 		mov bx,0x55AA
 		mov dl,0x80
@@ -1494,7 +1612,20 @@ db 0x84, 0x84, 0x84;/* 15:暗灰 */
 
 
 vbe_info_structure  db "VBE2"
-times 512-4 db 0
-vbe_mode_info_structure times 256 db 0
+vbe_info_version dw 0;      // VBE version; high byte is major version, low byte is minor version
+vbe_info_oem dd 0;          // segment:offset pointer to OEM
+vbe_info_capabilities dd 0; // bitfield that describes card capabilities
+vbe_info_video_modes dd 0;  // segment:offset pointer to list of supported video modes
+vbe_info_video_memory dw 0; // amount of video memory in 64KB blocks
+vbe_info_software_rev dw 0; // software revision
+vbe_info_vendor dd 0;       // segment:offset to card vendor string
+vbe_info_product_name dd 0; // segment:offset to card model name
+vbe_info_product_rev dd 0;  // segment:offset pointer to product revision
+times 222 db 0;    // reserved for future expansion
+vbe_info_oem_data times 256 db 0;    // OEM BIOSes store their strings in this area
 
+vbe_mode_info_structure times 256 db 0
+vbemodbuff  dw 0xffff
+times 510 db 0
+vbemodeResolution times 768 db 0
 osstartend:times 512 db 0 

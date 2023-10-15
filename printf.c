@@ -15,7 +15,7 @@
 
 #include "boot.h"
 #include "printf.h"
-
+#include "string.h"
 int printf(const char *fmt, ...)
 {
 	char printf_buf[1024];
@@ -68,8 +68,7 @@ void putchar(int _Character)
 		pos = 1920;
 		memcpy_s((char *)0xb8000, (char *)0xb80a0, 3840);
 		short *pchar = (short *)(0xb8000 + 3840);
-		for (int i = 0; i < 80; i++)
-			*pchar++ = 0x0720;
+		memWordset_s(pchar,0x0720,80);
 	}
 	setcursor(pos);
 }

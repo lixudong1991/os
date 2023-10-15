@@ -5,14 +5,49 @@
 #include "string.h"
 #include "ps2device.h"
 #include "diskio.h"
-static FATFS *FatFs=NULL;   //一定是一个全局变量
-static BYTE *Buff=NULL;//[FF_MAX_SS]; //一定是一个全局变量
+#include "stdio.h"
+
+
+
+
+#ifdef TEST_FATFS
+static FATFS* FatFs = NULL;   //一定是一个全局变量
+static BYTE* Buff = NULL;//[FF_MAX_SS]; //一定是一个全局变量
 #define Buff_LEN 4096
-static DIR  *Dir=NULL;
+static DIR* Dir = NULL;
 static char *Line = NULL;				/* Console input buffer */
 static FIL *File[2];
 static FILINFO *Finfo=NULL;
 
+void initFATfsObj()
+{
+	//     static FATFS *FatFs=NULL;   //一定是一个全局变量
+	// static BYTE *Buff=NULL;//[FF_MAX_SS]; //一定是一个全局变量
+	// static DIR  *Dir=NULL;
+	// static char *Line = NULL;				/* Console input buffer */
+	// static FIL *File[2];
+	// static FILINFO *Finfo=NULL;
+
+	FatFs = kernel_malloc(sizeof(FATFS));
+	memset(FatFs, 0, sizeof(FATFS));
+
+	Buff = kernel_malloc(Buff_LEN);
+	memset(Buff, 0, Buff_LEN);
+
+	Dir = kernel_malloc(sizeof(DIR));
+	memset(Dir, 0, sizeof(DIR));
+
+	Line = kernel_malloc(256);
+	memset(Line, 0, 256);
+
+	File[0] = kernel_malloc(sizeof(FIL));
+	memset(File[0], 0, sizeof(FIL));
+	File[1] = kernel_malloc(sizeof(FIL));
+	memset(File[1], 0, sizeof(FIL));
+
+	Finfo = kernel_malloc(sizeof(FILINFO));
+	memset(Finfo, 0, sizeof(FILINFO));
+}
 
 static FRESULT scan_files (
 	char* path,		/* Pointer to the path name working buffer */
@@ -99,38 +134,8 @@ const char HelpMsg[] =
 	" mf <addr> <value> <count> - Fill memory\n"
 	" me[b|h|w] <addr> [<value> ...] - Edit memory\n"
 	" t [<year> <mon> <mday> <hour> <min> <sec>] - Set/Show RTC\n"
+	" v <name> vbeinfo wirte\n"
 	"\n";
-
-void initFATfsObj()
-{
-//     static FATFS *FatFs=NULL;   //一定是一个全局变量
-// static BYTE *Buff=NULL;//[FF_MAX_SS]; //一定是一个全局变量
-// static DIR  *Dir=NULL;
-// static char *Line = NULL;				/* Console input buffer */
-// static FIL *File[2];
-// static FILINFO *Finfo=NULL;
-
-    FatFs = kernel_malloc(sizeof(FATFS));
-    memset(FatFs,0,sizeof(FATFS));
-
-    Buff = kernel_malloc(Buff_LEN);
-    memset(Buff,0,Buff_LEN);
-
-    Dir = kernel_malloc(sizeof(DIR));
-    memset(Dir,0,sizeof(DIR));
-
-    Line = kernel_malloc(256);
-    memset(Line,0,256);
-
-    File[0]= kernel_malloc(sizeof(FIL));
-    memset(File[0],0,sizeof(FIL));
-    File[1]= kernel_malloc(sizeof(FIL));
-    memset(File[1],0,sizeof(FIL));
-
-    Finfo= kernel_malloc(sizeof(FILINFO));
-    memset(Finfo,0,sizeof(FILINFO));
-}
-
 
 #define xputs puts
 #define xprintf  printf
@@ -234,6 +239,7 @@ int xatoi (			/* 0:Failed, 1:Successful */
 	*res = val;
 	return 1;
 }
+void wirteVBEinfo(char *filename);
 void testFATfs()
 {
     initFATfsObj();
@@ -535,7 +541,7 @@ void testFATfs()
 			case 'r' :	/* fr <len> - read file */
 				if (!xatoi(&ptr, &p1)) break;
 				p2 = 0;
-				Timer = 0;
+				Timer = 1;
 				while (p1) {
 					if ((UINT)p1 >= blen) {
 						cnt = blen; p1 -= blen;
@@ -554,7 +560,7 @@ void testFATfs()
 				if (!xatoi(&ptr, &p1) || !xatoi(&ptr, &p2)) break;
 				memset(Buff, (BYTE)p2, blen);
 				p2 = 0;
-				Timer = 0;
+				Timer = 1;
 				while (p1) {
 					if ((UINT)p1 >= blen) {
 						cnt = blen; p1 -= blen;
@@ -628,7 +634,7 @@ void testFATfs()
 					break;
 				}
 				xprintf("Copying file...");
-				Timer = 0;
+				Timer = 1;
 				p1 = 0;
 				for (;;) {
 					res = f_read(File[0], Buff, blen, &s1);
@@ -708,6 +714,84 @@ void testFATfs()
 	        currtime.wHour,currtime.wMinute,currtime.wSecond);
 			break;
         }
+		case 'v':
+		{
+			while (*ptr == ' ') ptr++;
+			wirteVBEinfo(ptr);
+		}
 		}
 	}
 }
+void wirteVBEinfo(char *filename)
+{
+
+}
+#else
+static FATFS* gFatFs = NULL;   //一定是一个全局变量
+//static DIR* gCurrentDir = NULL;
+void initFs()
+{
+	gFatFs = kernel_malloc(sizeof(FATFS));
+	memset(gFatFs, 0, sizeof(FATFS));
+	//gCurrentDir = kernel_malloc(sizeof(DIR));
+	//memset(gCurrentDir, 0, sizeof(DIR));
+
+	FRESULT  res;   //局部变量
+	disk_initialize(0);
+
+	res = f_mount(gFatFs, "", 0);   //挂载文件系统 ， "1:"就是挂载的设备号为1的设备
+	if (res != FR_OK)  //FR_NO_FILESYSTEM值为13，表示没有有效的设备
+	{
+		//fswork = kernel_malloc(FF_MAX_SS);
+		//res = f_mkfs("0:", 0, fswork, FF_MAX_SS);
+		// printf("f_mkfs  is  over\r\n");
+		// printf("res = %d\r\n",res);
+		//res = f_mount(NULL, "0:", 0);   //取消文件系统
+		//res = f_mount(&fsobject, "0:", 0);   //挂载文件系统
+		printf("initFs mount error\n");
+		return;
+	}
+	//res = f_opendir(gCurrentDir, "");
+	//if (res != FR_OK)
+	//{
+	//	printf("initFs opendir error\n");
+	//	return;
+//	}
+
+	/*
+	char* testbuff = kernel_malloc(1024);
+	uint32_t br = 0, wr;
+
+	res = f_open(&fp, "0:diskdata.txt", FA_OPEN_ALWAYS | FA_READ | FA_WRITE);
+	printf("open file res = %d \n", res);
+
+	if (res == FR_OK)
+	{
+		res = f_read(&fp, testbuff, f_size(&fp), &br);
+		if (res == FR_OK)
+		{
+			testbuff[br] = 0;
+			printf(" read data size %d  %s\n", br, testbuff);
+		}
+		f_close(&fp);
+	}	
+	res = f_open(&fp, "0:diskdata1.txt", FA_OPEN_ALWAYS | FA_READ | FA_WRITE);
+	printf("open w file res = %d \n", res);
+
+	if (res == FR_OK)
+	{
+		res = f_write(&fp, testbuff, br, &wr);
+		if (res == FR_OK)
+		{
+			printf(" wirte data success\n");
+		}
+		f_close(&fp);
+	}
+	DWORD count = 0;
+	f_getfree("0", &count, &fsobject);
+	printf("empty sec count:0x%x\n", count);
+
+	*/
+}
+
+#endif

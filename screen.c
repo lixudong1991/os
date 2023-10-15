@@ -1,3 +1,5 @@
+#if 0
+
 #include "screen.h"
 #include "boot.h"
 #include "memcachectl.h"
@@ -127,3 +129,5 @@ void fontInit()
 
     memcpy_s(0xa0000,bitmap,320*200);
 }
+
+#endif
