@@ -447,7 +447,7 @@ void drawText(const char *text, Rect *rect, uint32_t color, float pixels)
         kern = stbtt_GetCodepointKernAdvance(g_fontinfo, text[i], text[i + 1]);
         x += roundf(kern * scale);
     }
-   // drawGTextBuff(rect->top, rect->left, color);
+    drawGTextBuff(rect->top, rect->left, color);
    
 }
 /**

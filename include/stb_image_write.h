@@ -242,7 +242,7 @@ STBIWDEF void stbi_flip_vertically_on_write(int flip_boolean);
 
 #ifndef STBIW_ASSERT
 #include <assert.h>
-#define STBIW_ASSERT(x) assert(x)
+#define STBIW_ASSERT(x) kassert(x)
 #endif
 
 #define STBIW_UCHAR(x) (unsigned char) ((x) & 0xff)

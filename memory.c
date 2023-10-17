@@ -5,14 +5,14 @@
 #define START_PHY_MEM_PAGE 0x100
 extern BootParam bootparam;
 extern KernelData kernelData;
-char *allocate_memory(TaskCtrBlock *task, uint32 size, uint32 prop)
+char* allocate_memory(TaskCtrBlock* task, uint32 size, uint32 prop)
 {
 	char* ret = NULL;
 	uint32 sizealign = size;
 	if (sizealign % ALLOC_ALIGN != 0)
 		sizealign = (sizealign / ALLOC_ALIGN + 1) * ALLOC_ALIGN;
 	sizealign += 4;
-	TaskFreeMemList* pFreeMem =(TaskFreeMemList*)(*(task->pFreeListAddr));
+	TaskFreeMemList* pFreeMem = (TaskFreeMemList*)(*(task->pFreeListAddr));
 	while (pFreeMem)
 	{
 		if (pFreeMem->status == TaskFreeMemListNodeUnUse)
@@ -22,15 +22,15 @@ char *allocate_memory(TaskCtrBlock *task, uint32 size, uint32 prop)
 		}
 		if (pFreeMem->memSize > sizealign)
 		{
-			ret = allocateVirtual4kPage(sizealign,&(pFreeMem->memAddr), prop);
+			ret = allocateVirtual4kPage(sizealign, &(pFreeMem->memAddr), prop);
 			pFreeMem->memSize -= sizealign;
 			pFreeMem->memAddr += sizealign;
-			if (pFreeMem->memSize<8)
+			if (pFreeMem->memSize < 8)
 			{
 				sizealign += pFreeMem->memSize;
-				*(uint32_t*)ret = sizealign;
 				pFreeMem->status = TaskFreeMemListNodeUnUse;
 			}
+			*(uint32_t*)ret = sizealign;
 			ret += 4;
 			break;
 		}
@@ -40,21 +40,26 @@ char *allocate_memory(TaskCtrBlock *task, uint32 size, uint32 prop)
 			*(uint32_t*)ret = sizealign;
 			pFreeMem->status = TaskFreeMemListNodeUnUse;
 			ret += 4;
+			break;
 		}
 		pFreeMem = pFreeMem->next;
 	}
-	
+
 	return ret;
 }
-void free_memory(TaskCtrBlock* task, void* addr)//4字节对齐
+void free_memory(TaskCtrBlock* task, void* addr) // 4字节对齐
 {
-	uint32_t startaddr =(uint32_t)addr;
+	uint32_t startaddr = (uint32_t)addr;
 	startaddr -= 4;
-	uint32_t size = *(uint32_t*)startaddr,endaddr= startaddr+ size;
+	uint32_t size = *(uint32_t*)startaddr, endaddr = startaddr + size;
 
-
-	TaskFreeMemList * pFreeMem = (TaskFreeMemList*)(*(task->pFreeListAddr));
+	uint32_t pageStart = startaddr & PAGE_ADDR_MASK, pageEnd = endaddr & PAGE_ADDR_MASK;
+	TaskFreeMemList* pFreeMem = (TaskFreeMemList*)(*(task->pFreeListAddr));
 	TaskFreeMemList* punUseNode = NULL;
+	TaskFreeMemList* pMergeNodeEnd = NULL, * pMergeNodeStart = NULL;
+
+	int pageStartStat = 0;
+	int pageEndStat = 0;
 	while (pFreeMem)
 	{
 		if (pFreeMem->status == TaskFreeMemListNodeUnUse)
@@ -63,23 +68,157 @@ void free_memory(TaskCtrBlock* task, void* addr)//4字节对齐
 			punUseNode = pFreeMem;
 			continue;
 		}
-		if (pFreeMem->memAddr == endaddr)
+		if (pMergeNodeEnd == NULL && pMergeNodeStart == NULL)
 		{
-			pFreeMem->memAddr = startaddr;
-			pFreeMem->memSize += size;
-			return;
+			if ((pFreeMem->memAddr == endaddr))
+			{
+				pMergeNodeEnd = pFreeMem;
+			}
+			else if ((pFreeMem->memAddr < startaddr) && ((pFreeMem->memAddr + pFreeMem->memSize) == startaddr))
+			{
+				pMergeNodeStart = pFreeMem;
+			}
 		}
-
+		if (startaddr != pageStart)
+		{
+			if ((pFreeMem->memAddr <= pageStart) && ((pFreeMem->memAddr + pFreeMem->memSize) >= startaddr))
+			{
+				pageStartStat = 1;
+			}
+		}
+		if (endaddr != pageEnd)
+		{
+			if ((pFreeMem->memAddr <= endaddr) && ((pFreeMem->memAddr + pFreeMem->memSize) >= (pageEnd + 0x1000)))
+			{
+				pageEndStat = 1;
+			}
+		}
+		pFreeMem = pFreeMem->next;
 	}
+	if (pMergeNodeStart != NULL)
+	{
+		pMergeNodeStart->memSize += size;
+	}
+	else if (pMergeNodeEnd != NULL)
+	{
+		pMergeNodeEnd->memAddr = startaddr;
+		pMergeNodeEnd->memSize += size;
+	}
+	else
+	{
+		if (punUseNode)
+		{
+			punUseNode->memAddr = startaddr;
+			punUseNode->memSize = size;
+			punUseNode->status = TaskFreeMemListNodeUse;
+		}
+		else
+		{
+			TaskFreeMemList* ptempNode = kernel_malloc(sizeof(TaskFreeMemList));
+			ptempNode->memAddr = startaddr;
+			ptempNode->memSize = size;
+			ptempNode->status = TaskFreeMemListNodeUse;
+			ptempNode->next = *(task->pFreeListAddr);
+			*(task->pFreeListAddr) = ptempNode;
+		}
+	}
+	if ((startaddr == pageStart) && (endaddr == pageEnd))
+	{
+		while (pageStart < pageEnd)
+		{
+			mem4k_unmap(pageStart, TRUE);
+			pageStart += 0x1000;
+		}
+	}
+	else if ((startaddr != pageStart) && (endaddr == pageEnd))
+	{
+		if (!pageStartStat)
+			pageStart += 0x1000;
+		while (pageStart < pageEnd)
+		{
+			mem4k_unmap(pageStart, TRUE);
+			pageStart += 0x1000;
+		}
+	}
+	else if ((startaddr == pageStart) && (endaddr != pageEnd))
+	{
+		if (pageEndStat)
+			pageEnd += 0x1000;
+		while (pageStart < pageEnd)
+		{
+			mem4k_unmap(pageStart, TRUE);
+			pageStart += 0x1000;
+		}
+	}
+	else
+	{
+		if (!pageStartStat)
+			pageStart += 0x1000;
+		if (pageEndStat)
+			pageEnd += 0x1000;
+		while (pageStart < pageEnd)
+		{
+			mem4k_unmap(pageStart, TRUE);
+			pageStart += 0x1000;
+		}
+	}
+
 }
-char *allocate_memory_align(TaskCtrBlock *task, uint32 size, uint32 prop,uint32 alignsize)
+char *allocate_memory_align(TaskCtrBlock *task, uint32 size, uint32 prop, uint32 alignsize)
 {
+	char* ret = NULL;
 	uint32 sizealign = size;
-	if (*(task->AllocateNextAddr) % alignsize != 0)
-		*(task->AllocateNextAddr) = (*(task->AllocateNextAddr) / alignsize + 1) * alignsize;
 	if (sizealign % alignsize != 0)
 		sizealign = (sizealign / alignsize + 1) * alignsize;
-	char *ret = allocateVirtual4kPage(sizealign, task->AllocateNextAddr, prop);
+	sizealign += 4;
+	TaskFreeMemList* pFreeMem = (TaskFreeMemList*)(*(task->pFreeListAddr));
+	while (pFreeMem)
+	{
+		if (pFreeMem->status == TaskFreeMemListNodeUnUse)
+		{
+			pFreeMem = pFreeMem->next;
+			continue;
+		}
+		if (pFreeMem->memSize > sizealign)
+		{
+			ret = allocateVirtual4kPage(sizealign, &(pFreeMem->memAddr), prop);
+			pFreeMem->memSize -= sizealign;
+			pFreeMem->memAddr += sizealign;
+			if (pFreeMem->memSize < 8)
+			{
+				sizealign += pFreeMem->memSize;
+				pFreeMem->status = TaskFreeMemListNodeUnUse;
+			}
+			*(uint32_t*)ret = sizealign;
+			ret += 4;
+			break;
+		}
+		else if (pFreeMem->memSize == sizealign)
+		{
+			ret = allocateVirtual4kPage(sizealign, &(pFreeMem->memAddr), prop);
+			*(uint32_t*)ret = sizealign;
+			pFreeMem->status = TaskFreeMemListNodeUnUse;
+			ret += 4;
+			break;
+		}
+		pFreeMem = pFreeMem->next;
+	}
+
+	return ret;
+}
+char* realloc_memory(TaskCtrBlock* task,uint32_t addr ,uint32 newsize, uint32 prop)
+{
+	char* ret = NULL;
+	if (addr)
+	{
+		uint32_t startaddr = (uint32_t)addr;
+		startaddr -= 4;
+		uint32_t size = *(uint32_t*)startaddr;
+		ret = allocate_memory(task, newsize, prop);
+		if(ret)
+			memcpy(ret,addr, size-4);
+		free_memory(task,addr);
+	}
 	return ret;
 }
 char *allocateVirtual4kPage(uint32 size, uint32 *pAddr, uint32 prop)
@@ -177,15 +316,16 @@ int mem4k_map(uint32 linearaddr, uint32 phyaddr, int memcachType, uint32 prop)
 }
 void *kernel_realloc(void *mem_address, unsigned int newsize)
 {
-	//if(kernelData.taskList.tcb_Frist->AllocateNextAddr)
+	// if(kernelData.taskList.tcb_Frist->AllocateNextAddr)
+	return realloc_memory(kernelData.taskList.tcb_Frist, mem_address, newsize, PAGE_RW);
 }
 void *kernel_malloc(uint32 size)
 {
 	return allocate_memory(kernelData.taskList.tcb_Frist, size, PAGE_RW);
 }
-void* kernel_malloc_align(uint32 size,uint32 alignsize)
+void *kernel_malloc_align(uint32 size, uint32 alignsize)
 {
-	return allocate_memory_align(kernelData.taskList.tcb_Frist, size, PAGE_RW,alignsize);
+	return allocate_memory_align(kernelData.taskList.tcb_Frist, size, PAGE_RW, alignsize);
 }
 void kernel_free(void *p)
 {
@@ -218,7 +358,7 @@ int mem4k_unmap(uint32 linearaddr, int isFreePhyPage)
 	resetcr3();
 	return TRUE;
 }
-int get_4kpage_phyaddr(phys_addr_t linearaddr,phys_addr_t *phyaddr)
+int get_4kpage_phyaddr(phys_addr_t linearaddr, phys_addr_t *phyaddr)
 {
 	uint32 pageDiraddr = linearaddr >> 22;
 	pageDiraddr = pageDiraddr << 2;
@@ -233,39 +373,38 @@ int get_4kpage_phyaddr(phys_addr_t linearaddr,phys_addr_t *phyaddr)
 	asm("mfence");
 	if (((*pagePhyAddr) & 1) != 1)
 		return 0;
-	*phyaddr = (*pagePhyAddr)&PAGE_ADDR_MASK;
+	*phyaddr = (*pagePhyAddr) & PAGE_ADDR_MASK;
 	return 1;
 }
-int get_memory_map_etc(phys_addr_t address, size_t numBytes,Physical_entry* table, uint32* _numEntries)
+int get_memory_map_etc(phys_addr_t address, size_t numBytes, Physical_entry *table, uint32 *_numEntries)
 {
 	uint32 numEntries = *_numEntries;
 	*_numEntries = 0;
 	phys_addr_t addr = address;
-	phys_addr_t startPage=addr&PAGE_ADDR_MASK,endPage=(addr+numBytes-1)&PAGE_ADDR_MASK;
-	uint32_t tableIndex=0;
-	uint32_t size=0;
-	int status =0;
-	for(phys_addr_t index=startPage;index<=endPage;index+=0x1000)
-	{	
-		if(tableIndex >=numEntries)
+	phys_addr_t startPage = addr & PAGE_ADDR_MASK, endPage = (addr + numBytes - 1) & PAGE_ADDR_MASK;
+	uint32_t tableIndex = 0;
+	uint32_t size = 0;
+	int status = 0;
+	for (phys_addr_t index = startPage; index <= endPage; index += 0x1000)
+	{
+		if (tableIndex >= numEntries)
 			return 0;
-		status = get_4kpage_phyaddr(index,&(table[tableIndex].address))+(addr-index);
-		if(status==0)
+		status = get_4kpage_phyaddr(index, &(table[tableIndex].address)) + (addr - index);
+		if (status == 0)
 			return 0;
-		table[tableIndex].address+=(addr-index);
-		size = (index+0x1000)-addr;
-		if(numBytes<=size)
+		table[tableIndex].address += (addr - index);
+		size = (index + 0x1000) - addr;
+		if (numBytes <= size)
 		{
-			table[tableIndex++].size=numBytes;
+			table[tableIndex++].size = numBytes;
 			break;
 		}
 		else
 		{
-			table[tableIndex++].size=size;
-			numBytes-=size;
+			table[tableIndex++].size = size;
+			numBytes -= size;
 		}
-		addr+=size;
-
+		addr += size;
 	}
 	*_numEntries = tableIndex;
 	return TRUE;

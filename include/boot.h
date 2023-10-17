@@ -283,6 +283,7 @@ extern uint32 getcursor();
 char *allocate_memory(TaskCtrBlock *task, uint32 size, uint32 prop);//4字节对齐
 void free_memory(TaskCtrBlock* task,void *addr);//4字节对齐
 char *allocate_memory_align(TaskCtrBlock *task, uint32 size, uint32 prop,uint32 alignsize);
+char* realloc_memory(TaskCtrBlock* task, uint32_t addr, uint32 size, uint32 prop);
 
 extern char *allocatePhy4kPage(uint32 startPhyPage);
 extern uint32 freePhy4kPage(uint32 page);

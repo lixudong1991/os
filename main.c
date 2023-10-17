@@ -225,7 +225,7 @@ void createTask(TcbList *taskList, int taskStartSection, int SectionCount)
 
 	newTask->pFreeListAddr = (uint32*)allocUnCacheMem(sizeof(uint32));
 	TaskFreeMemList* pFreeList = kernel_malloc(sizeof(TaskFreeMemList));
-	*(newTask->AllocateNextAddr)= pFreeList;
+	*(newTask->pFreeListAddr)= pFreeList;
 	pFreeList->memAddr =prodata.vir_end + 1;
 	pFreeList->next = NULL;
 	pFreeList->memSize = USERMALLOCEND - pFreeList->memAddr;
@@ -659,10 +659,10 @@ int _start(void *bargv,void *vbe)
 	createCallGate(&kernelData);
 	initLockBlock(&bootparam);
 	((uint32_t*)(ATOMIC_BUFF_ADDR))[UC_VAR_LOCK]=ATOMIC_BUFF_ADDR+4*LOCK_COUNT;
-	tcbhead->AllocateNextAddr = ((uint32_t*)(ATOMIC_BUFF_ADDR))[UC_VAR_LOCK];
+	tcbhead->pFreeListAddr = ((uint32_t*)(ATOMIC_BUFF_ADDR))[UC_VAR_LOCK];
 	((uint32_t*)(ATOMIC_BUFF_ADDR))[UC_VAR_LOCK]+=4;
 	TaskFreeMemList *kernelFreeListHead = allocateVirtual4kPage(sizeof(TaskFreeMemList), &(bootparam.kernelAllocateNextAddr), PAGE_G|PAGE_RW);
-	*(tcbhead->AllocateNextAddr) = kernelFreeListHead;
+	*(tcbhead->pFreeListAddr) = kernelFreeListHead;
 	kernelFreeListHead->next = NULL;
 	kernelFreeListHead->memAddr = bootparam.kernelAllocateNextAddr;
 	kernelFreeListHead->memSize = KERNELMALLOCEND-bootparam.kernelAllocateNextAddr;

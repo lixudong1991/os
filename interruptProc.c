@@ -81,7 +81,7 @@ static void xApicTimeOut()
             apic->InitialCount[0] = 0xfffff;
         interruptPrintf("jump 0x%x\n",nextTask);
         xapicwriteEOI();
-        callTss(&(nextTask->AllocateNextAddr));
+        //callTss(&(nextTask->AllocateNextAddr));
     }
     else
     {
