@@ -7,14 +7,70 @@ extern BootParam bootparam;
 extern KernelData kernelData;
 char *allocate_memory(TaskCtrBlock *task, uint32 size, uint32 prop)
 {
-
+	char* ret = NULL;
 	uint32 sizealign = size;
-	if (*(task->AllocateNextAddr) % ALLOC_ALIGN != 0)
-		*(task->AllocateNextAddr) = (*(task->AllocateNextAddr) / ALLOC_ALIGN + 1) * ALLOC_ALIGN;
 	if (sizealign % ALLOC_ALIGN != 0)
 		sizealign = (sizealign / ALLOC_ALIGN + 1) * ALLOC_ALIGN;
-	char *ret = allocateVirtual4kPage(sizealign,task->AllocateNextAddr, prop);
+	sizealign += 4;
+	TaskFreeMemList* pFreeMem =(TaskFreeMemList*)(*(task->pFreeListAddr));
+	while (pFreeMem)
+	{
+		if (pFreeMem->status == TaskFreeMemListNodeUnUse)
+		{
+			pFreeMem = pFreeMem->next;
+			continue;
+		}
+		if (pFreeMem->memSize > sizealign)
+		{
+			ret = allocateVirtual4kPage(sizealign,&(pFreeMem->memAddr), prop);
+			pFreeMem->memSize -= sizealign;
+			pFreeMem->memAddr += sizealign;
+			if (pFreeMem->memSize<8)
+			{
+				sizealign += pFreeMem->memSize;
+				*(uint32_t*)ret = sizealign;
+				pFreeMem->status = TaskFreeMemListNodeUnUse;
+			}
+			ret += 4;
+			break;
+		}
+		else if (pFreeMem->memSize == sizealign)
+		{
+			ret = allocateVirtual4kPage(sizealign, &(pFreeMem->memAddr), prop);
+			*(uint32_t*)ret = sizealign;
+			pFreeMem->status = TaskFreeMemListNodeUnUse;
+			ret += 4;
+		}
+		pFreeMem = pFreeMem->next;
+	}
+	
 	return ret;
+}
+void free_memory(TaskCtrBlock* task, void* addr)//4×Ö½Ú¶ÔÆë
+{
+	uint32_t startaddr =(uint32_t)addr;
+	startaddr -= 4;
+	uint32_t size = *(uint32_t*)startaddr,endaddr= startaddr+ size;
+
+
+	TaskFreeMemList * pFreeMem = (TaskFreeMemList*)(*(task->pFreeListAddr));
+	TaskFreeMemList* punUseNode = NULL;
+	while (pFreeMem)
+	{
+		if (pFreeMem->status == TaskFreeMemListNodeUnUse)
+		{
+			pFreeMem = pFreeMem->next;
+			punUseNode = pFreeMem;
+			continue;
+		}
+		if (pFreeMem->memAddr == endaddr)
+		{
+			pFreeMem->memAddr = startaddr;
+			pFreeMem->memSize += size;
+			return;
+		}
+
+	}
 }
 char *allocate_memory_align(TaskCtrBlock *task, uint32 size, uint32 prop,uint32 alignsize)
 {
@@ -119,7 +175,10 @@ int mem4k_map(uint32 linearaddr, uint32 phyaddr, int memcachType, uint32 prop)
 	resetcr3();
 	return TRUE;
 }
-
+void *kernel_realloc(void *mem_address, unsigned int newsize)
+{
+	//if(kernelData.taskList.tcb_Frist->AllocateNextAddr)
+}
 void *kernel_malloc(uint32 size)
 {
 	return allocate_memory(kernelData.taskList.tcb_Frist, size, PAGE_RW);
@@ -130,6 +189,7 @@ void* kernel_malloc_align(uint32 size,uint32 alignsize)
 }
 void kernel_free(void *p)
 {
+	free_memory(kernelData.taskList.tcb_Frist, p);
 }
 void kassert(int expression)
 {

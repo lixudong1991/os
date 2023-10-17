@@ -23,7 +23,8 @@
 
 #define IDA_ADDR 0x7000
 
-
+#define KERNELMALLOCEND 0xe0000000
+#define USERMALLOCEND 0xc0000000
 //0x7000idt
 // 0x8000~0x9000 全局页目录
 //0x9000~0xb000 初始页表

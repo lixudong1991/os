@@ -223,8 +223,12 @@ void createTask(TcbList *taskList, int taskStartSection, int SectionCount)
 	prodata.vir_base = 0xffffffff;
 	loadElf(elfdata, &prodata, PRIVILEGUSER);
 
-	newTask->AllocateNextAddr = allocUnCacheMem(sizeof(uint32));
-	*(newTask->AllocateNextAddr) =prodata.vir_end + 1;
+	newTask->pFreeListAddr = (uint32*)allocUnCacheMem(sizeof(uint32));
+	TaskFreeMemList* pFreeList = kernel_malloc(sizeof(TaskFreeMemList));
+	*(newTask->AllocateNextAddr)= pFreeList;
+	pFreeList->memAddr =prodata.vir_end + 1;
+	pFreeList->next = NULL;
+	pFreeList->memSize = USERMALLOCEND - pFreeList->memAddr;
 	uint32 stacksize = 1, stack0size = 1, stack1size = 1, stack2size = 1;
 	char *stack = allocate_memory(newTask, stacksize * 4096, PAGE_ALL_PRIVILEG | PAGE_RW);
 	char *stack0 = allocate_memory(newTask, stack0size * 4096, PAGE_RW);
@@ -657,8 +661,12 @@ int _start(void *bargv,void *vbe)
 	((uint32_t*)(ATOMIC_BUFF_ADDR))[UC_VAR_LOCK]=ATOMIC_BUFF_ADDR+4*LOCK_COUNT;
 	tcbhead->AllocateNextAddr = ((uint32_t*)(ATOMIC_BUFF_ADDR))[UC_VAR_LOCK];
 	((uint32_t*)(ATOMIC_BUFF_ADDR))[UC_VAR_LOCK]+=4;
-	*(tcbhead->AllocateNextAddr) = bootparam.kernelAllocateNextAddr;
-
+	TaskFreeMemList *kernelFreeListHead = allocateVirtual4kPage(sizeof(TaskFreeMemList), &(bootparam.kernelAllocateNextAddr), PAGE_G|PAGE_RW);
+	*(tcbhead->AllocateNextAddr) = kernelFreeListHead;
+	kernelFreeListHead->next = NULL;
+	kernelFreeListHead->memAddr = bootparam.kernelAllocateNextAddr;
+	kernelFreeListHead->memSize = KERNELMALLOCEND-bootparam.kernelAllocateNextAddr;
+	kernelFreeListHead->status = TaskFreeMemListNodeUse;
 	createLock(&(lockBuff[KERNEL_LOCK]));
 	createLock(&(lockBuff[PRINT_LOCK]));
 	createLock(&(lockBuff[MTRR_LOCK]));
@@ -666,7 +674,7 @@ int _start(void *bargv,void *vbe)
 	createLock(&(lockBuff[AHCI_LOCK]));
 	createLock(&(lockBuff[UC_VAR_LOCK]));
 
-	printf("addr1:0x%x addr2:0x%x value:0x%x value2:0x%x\n",bootparam.kernelAllocateNextAddr,tcbhead->AllocateNextAddr,*(tcbhead->AllocateNextAddr),((uint32_t*)(ATOMIC_BUFF_ADDR))[UC_VAR_LOCK]);
+	//printf("addr1:0x%x addr2:0x%x value:0x%x value2:0x%x\n",bootparam.kernelAllocateNextAddr,tcbhead->AllocateNextAddr,*(tcbhead->AllocateNextAddr),((uint32_t*)(ATOMIC_BUFF_ADDR))[UC_VAR_LOCK]);
 	// initScreen();
 	//  fontInit();
 
@@ -740,7 +748,7 @@ int _start(void *bargv,void *vbe)
 	rect.top = 0;
 	rect.bottom = screensize.y - 1;
 	fillRect(&rect, 0xffffff);
-
+	//drawPngImage(&rect,"/img/imgdata");
 	rect.left = 256;
 	rect.top = 256;
 	rect.right = 655;
@@ -758,12 +766,7 @@ int _start(void *bargv,void *vbe)
 	rect.right = 1019;
 	rect.bottom = 1019;
 	drawRect(&rect, 0xff00, 1);
-	drawText("UserProgram",&rect, 0xff00ff,80);
-	rect.left =2;
-	rect.top = 2;
-	rect.right = 1921;
-	rect.bottom = 1081;
-	drawPngImage(&rect,"/img/imgdata");
+	drawText("UserProgra",&rect, 0xff00ff,24);
 	//testFATfs();
 	while (1)
 	{

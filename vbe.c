@@ -7,6 +7,8 @@
 #include "string.h"
 #include "ff.h"
 
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "stb_image_write.h" /* http://nothings.org/stb/stb_image_write.h */
 #define STB_TRUETYPE_IMPLEMENTATION
 #include "stb_truetype.h"
 
@@ -445,7 +447,8 @@ void drawText(const char *text, Rect *rect, uint32_t color, float pixels)
         kern = stbtt_GetCodepointKernAdvance(g_fontinfo, text[i], text[i + 1]);
         x += roundf(kern * scale);
     }
-    drawGTextBuff(rect->top, rect->left, color);
+   // drawGTextBuff(rect->top, rect->left, color);
+   
 }
 /**
  * Parse PNG format into pixels. Returns NULL or error, otherwise the returned data looks like
@@ -498,7 +501,7 @@ void drawPngImage(Rect* rect,const char *filepath)
         }  
     } 
     g_BitmapCache.format = BITMAP_FORMAT_TYPE_A8R8G8B8;
-    g_BitmapCache.width = 1920;
-    g_BitmapCache.height = 1080;
+    g_BitmapCache.width = rect->right-rect->left+1;
+    g_BitmapCache.height = rect->bottom-rect->top+1;
     drawBitmap(rect, &g_BitmapCache);
 }

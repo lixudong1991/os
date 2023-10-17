@@ -122,11 +122,21 @@ typedef struct TssHead
 	uint16 empty;
 	uint16 ioPermission;
 } TssHead;
+#define TaskFreeMemListNodeUse     1
+#define TaskFreeMemListNodeUnUse   0
+typedef struct TaskFreeMemList
+{
+	struct TaskFreeMemList* next;
+	uint32_t memAddr;
+	uint32_t memSize;
+	uint32_t status;
+}
+TaskFreeMemList;
 typedef struct TaskCtrBlock
 {
 	struct TaskCtrBlock *next;
 	struct TaskCtrBlock *prior;
-	uint32 *AllocateNextAddr;
+	uint32 *pFreeListAddr;
 	uint32 tssSel;
 	uint32 taskStats;
 	TssHead TssData;
@@ -271,6 +281,7 @@ extern void clearscreen();
 extern void setcursor(uint32 pos);
 extern uint32 getcursor();
 char *allocate_memory(TaskCtrBlock *task, uint32 size, uint32 prop);//4字节对齐
+void free_memory(TaskCtrBlock* task,void *addr);//4字节对齐
 char *allocate_memory_align(TaskCtrBlock *task, uint32 size, uint32 prop,uint32 alignsize);
 
 extern char *allocatePhy4kPage(uint32 startPhyPage);
@@ -294,6 +305,7 @@ int get_memory_map_etc( phys_addr_t address, size_t numBytes,Physical_entry* tab
 void* kernel_malloc(uint32 size);
 void* kernel_malloc_align(uint32 size,uint32 alignsize);
 void  kernel_free(void*);
+void *kernel_realloc(void *mem_address, unsigned int newsize);
 
 uint16 appendTableSegItem(Tableinfo *info, TableSegmentItem *item);
 BOOL getTableSegItem(Tableinfo *info, TableSegmentItem *item, uint16 SegSelect);
