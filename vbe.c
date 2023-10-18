@@ -417,7 +417,6 @@ void drawText(const char *text, Rect *rect, uint32_t color, float pixels)
     int c_x1, c_y1, c_x2, c_y2;
     /* 调整字距 */
     int kern = 0;
-    memDWordset_s(g_DrawTextBuff, 0, G_DRAW_TEXTBUFF_W * G_DRAW_TEXTBUFF_H / 4);
     for (int i = 0; i < len; i++)
     {
         /**
@@ -437,6 +436,7 @@ void drawText(const char *text, Rect *rect, uint32_t color, float pixels)
 
         /* 渲染字符 */
         //int byteOffset = x + roundf(leftSideBearing * scale) + (y * bitmap_w);
+        memDWordset_s(bitmap, 0, G_DRAW_TEXTBUFF_W * G_DRAW_TEXTBUFF_H / 4);
         stbtt_MakeCodepointBitmap(g_fontinfo, bitmap , c_x2 - c_x1, c_y2 - c_y1, bitmap_w, scale, scale, text[i]);
         drawGTextBuff(rect->top, x, color);
         x+=bitmap_w;
