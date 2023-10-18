@@ -766,7 +766,7 @@ int _start(void *bargv,void *vbe)
 	rect.right = 1019;
 	rect.bottom = 1019;
 	drawRect(&rect, 0xff00, 1);
-	drawText("UserProgra",&rect, 0xff00ff,24);
+	drawText("UserProgra",&rect, 0xff00ff,20);
 	//testFATfs();
 	while (1)
 	{

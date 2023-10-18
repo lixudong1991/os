@@ -5,14 +5,14 @@
 #define START_PHY_MEM_PAGE 0x100
 extern BootParam bootparam;
 extern KernelData kernelData;
-char* allocate_memory(TaskCtrBlock* task, uint32 size, uint32 prop)
+char *allocate_memory(TaskCtrBlock *task, uint32 size, uint32 prop)
 {
-	char* ret = NULL;
+	char *ret = NULL;
 	uint32 sizealign = size;
 	if (sizealign % ALLOC_ALIGN != 0)
 		sizealign = (sizealign / ALLOC_ALIGN + 1) * ALLOC_ALIGN;
 	sizealign += 4;
-	TaskFreeMemList* pFreeMem = (TaskFreeMemList*)(*(task->pFreeListAddr));
+	TaskFreeMemList *pFreeMem = (TaskFreeMemList *)(*(task->pFreeListAddr));
 	while (pFreeMem)
 	{
 		if (pFreeMem->status == TaskFreeMemListNodeUnUse)
@@ -20,25 +20,20 @@ char* allocate_memory(TaskCtrBlock* task, uint32 size, uint32 prop)
 			pFreeMem = pFreeMem->next;
 			continue;
 		}
-		if (pFreeMem->memSize > sizealign)
+		if (pFreeMem->memSize >= sizealign)
 		{
-			ret = allocateVirtual4kPage(sizealign, &(pFreeMem->memAddr), prop);
-			pFreeMem->memSize -= sizealign;
-			pFreeMem->memAddr += sizealign;
-			if (pFreeMem->memSize < 8)
+			if (pFreeMem->memSize - sizealign < 8)
 			{
-				sizealign += pFreeMem->memSize;
+				ret = allocateVirtual4kPage(pFreeMem->memSize, &(pFreeMem->memAddr), prop);
 				pFreeMem->status = TaskFreeMemListNodeUnUse;
+				*(uint32_t *)ret = pFreeMem->memSize;
 			}
-			*(uint32_t*)ret = sizealign;
-			ret += 4;
-			break;
-		}
-		else if (pFreeMem->memSize == sizealign)
-		{
-			ret = allocateVirtual4kPage(sizealign, &(pFreeMem->memAddr), prop);
-			*(uint32_t*)ret = sizealign;
-			pFreeMem->status = TaskFreeMemListNodeUnUse;
+			else
+			{
+				pFreeMem->memSize -= sizealign;
+				ret = allocateVirtual4kPage(sizealign, &(pFreeMem->memAddr), prop);
+				*(uint32_t *)ret = sizealign;
+			}
 			ret += 4;
 			break;
 		}
@@ -47,16 +42,16 @@ char* allocate_memory(TaskCtrBlock* task, uint32 size, uint32 prop)
 
 	return ret;
 }
-void free_memory(TaskCtrBlock* task, void* addr) // 4字节对齐
+void free_memory(TaskCtrBlock *task, void *addr) // 4字节对齐
 {
 	uint32_t startaddr = (uint32_t)addr;
 	startaddr -= 4;
-	uint32_t size = *(uint32_t*)startaddr, endaddr = startaddr + size;
+	uint32_t size = *(uint32_t *)startaddr, endaddr = startaddr + size;
 
 	uint32_t pageStart = startaddr & PAGE_ADDR_MASK, pageEnd = endaddr & PAGE_ADDR_MASK;
-	TaskFreeMemList* pFreeMem = (TaskFreeMemList*)(*(task->pFreeListAddr));
-	TaskFreeMemList* punUseNode = NULL;
-	TaskFreeMemList* pMergeNodeEnd = NULL, * pMergeNodeStart = NULL;
+	TaskFreeMemList *pFreeMem = (TaskFreeMemList *)(*(task->pFreeListAddr));
+	TaskFreeMemList *punUseNode = NULL;
+	TaskFreeMemList *pMergeNodeEnd = NULL, *pMergeNodeStart = NULL;
 
 	int pageStartStat = 0;
 	int pageEndStat = 0;
@@ -64,8 +59,8 @@ void free_memory(TaskCtrBlock* task, void* addr) // 4字节对齐
 	{
 		if (pFreeMem->status == TaskFreeMemListNodeUnUse)
 		{
-			pFreeMem = pFreeMem->next;
 			punUseNode = pFreeMem;
+			pFreeMem = pFreeMem->next;
 			continue;
 		}
 		if (pMergeNodeEnd == NULL && pMergeNodeStart == NULL)
@@ -114,7 +109,7 @@ void free_memory(TaskCtrBlock* task, void* addr) // 4字节对齐
 		}
 		else
 		{
-			TaskFreeMemList* ptempNode = kernel_malloc(sizeof(TaskFreeMemList));
+			TaskFreeMemList *ptempNode = kernel_malloc(sizeof(TaskFreeMemList));
 			ptempNode->memAddr = startaddr;
 			ptempNode->memSize = size;
 			ptempNode->status = TaskFreeMemListNodeUse;
@@ -162,16 +157,15 @@ void free_memory(TaskCtrBlock* task, void* addr) // 4字节对齐
 			pageStart += 0x1000;
 		}
 	}
-
 }
 char *allocate_memory_align(TaskCtrBlock *task, uint32 size, uint32 prop, uint32 alignsize)
 {
-	char* ret = NULL;
+	char *ret = NULL;
 	uint32 sizealign = size;
 	if (sizealign % alignsize != 0)
 		sizealign = (sizealign / alignsize + 1) * alignsize;
 	sizealign += 4;
-	TaskFreeMemList* pFreeMem = (TaskFreeMemList*)(*(task->pFreeListAddr));
+	TaskFreeMemList *pFreeMem = (TaskFreeMemList *)(*(task->pFreeListAddr));
 	while (pFreeMem)
 	{
 		if (pFreeMem->status == TaskFreeMemListNodeUnUse)
@@ -179,25 +173,20 @@ char *allocate_memory_align(TaskCtrBlock *task, uint32 size, uint32 prop, uint32
 			pFreeMem = pFreeMem->next;
 			continue;
 		}
-		if (pFreeMem->memSize > sizealign)
+		if (pFreeMem->memSize >= sizealign)
 		{
-			ret = allocateVirtual4kPage(sizealign, &(pFreeMem->memAddr), prop);
-			pFreeMem->memSize -= sizealign;
-			pFreeMem->memAddr += sizealign;
-			if (pFreeMem->memSize < 8)
+			if (pFreeMem->memSize - sizealign < 8)
 			{
-				sizealign += pFreeMem->memSize;
+				ret = allocateVirtual4kPage(pFreeMem->memSize, &(pFreeMem->memAddr), prop);
 				pFreeMem->status = TaskFreeMemListNodeUnUse;
+				*(uint32_t *)ret = pFreeMem->memSize;
 			}
-			*(uint32_t*)ret = sizealign;
-			ret += 4;
-			break;
-		}
-		else if (pFreeMem->memSize == sizealign)
-		{
-			ret = allocateVirtual4kPage(sizealign, &(pFreeMem->memAddr), prop);
-			*(uint32_t*)ret = sizealign;
-			pFreeMem->status = TaskFreeMemListNodeUnUse;
+			else
+			{
+				pFreeMem->memSize -= sizealign;
+				ret = allocateVirtual4kPage(sizealign, &(pFreeMem->memAddr), prop);
+				*(uint32_t *)ret = sizealign;
+			}
 			ret += 4;
 			break;
 		}
@@ -206,18 +195,66 @@ char *allocate_memory_align(TaskCtrBlock *task, uint32 size, uint32 prop, uint32
 
 	return ret;
 }
-char* realloc_memory(TaskCtrBlock* task,uint32_t addr ,uint32 newsize, uint32 prop)
+char *realloc_memory(TaskCtrBlock *task, uint32_t addr, uint32 newsize, uint32 prop)
 {
-	char* ret = NULL;
+char* ret = NULL;
 	if (addr)
 	{
 		uint32_t startaddr = (uint32_t)addr;
 		startaddr -= 4;
-		uint32_t size = *(uint32_t*)startaddr;
-		ret = allocate_memory(task, newsize, prop);
-		if(ret)
-			memcpy(ret,addr, size-4);
-		free_memory(task,addr);
+		uint32_t size = *(uint32_t*)startaddr, endaddr = startaddr + size;
+		if (newsize <= (size - 4))
+		{
+			ret = addr;
+		}
+		else
+		{
+			uint32_t sizealign = newsize;
+			if (sizealign % ALLOC_ALIGN != 0)
+				sizealign = (sizealign / ALLOC_ALIGN + 1) * ALLOC_ALIGN;
+			sizealign += 4;
+
+			TaskFreeMemList* pFreeMem = (TaskFreeMemList*)(*(task->pFreeListAddr));
+			while (pFreeMem)
+			{
+				if (pFreeMem->status == TaskFreeMemListNodeUnUse)
+				{
+					pFreeMem = pFreeMem->next;
+					continue;
+				}
+				if (pFreeMem->memAddr == endaddr)
+				{
+					if ((size + pFreeMem->memSize) >= sizealign)
+						break;
+				}
+				pFreeMem = pFreeMem->next;
+			}
+			if (pFreeMem)
+			{
+				if ((size + pFreeMem->memSize) >= sizealign)
+				{
+					if (pFreeMem->memSize - (sizealign - size) < 8)
+					{
+						allocateVirtual4kPage(pFreeMem->memSize, &(pFreeMem->memAddr), prop);
+						pFreeMem->status = TaskFreeMemListNodeUnUse;
+						*(uint32_t*)startaddr = (pFreeMem->memSize + size);
+					}
+					else
+					{
+						allocateVirtual4kPage((sizealign - size), &(pFreeMem->memAddr), prop);
+						pFreeMem->memSize -= (sizealign - size);
+						*(uint32_t*)startaddr = sizealign;
+					}
+					ret = addr;
+				}
+			}
+			else
+			{
+				ret = allocate_memory(task, newsize, prop);
+				memcpy(ret, addr, (size - 4));
+				free_memory(task, addr);
+			}
+		}
 	}
 	return ret;
 }

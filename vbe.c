@@ -7,8 +7,8 @@
 #include "string.h"
 #include "ff.h"
 
-#define STB_IMAGE_WRITE_IMPLEMENTATION
-#include "stb_image_write.h" /* http://nothings.org/stb/stb_image_write.h */
+//#define STB_IMAGE_WRITE_IMPLEMENTATION
+//#include "stb_image_write.h" /* http://nothings.org/stb/stb_image_write.h */
 #define STB_TRUETYPE_IMPLEMENTATION
 #include "stb_truetype.h"
 
@@ -17,8 +17,8 @@ char *gfontfilebuff = NULL;
 stbtt_fontinfo *g_fontinfo = NULL;
 static char *g_DrawTextBuff = NULL;
 static Bitmap g_BitmapCache;
-#define G_DRAW_TEXTBUFF_W 320
-#define G_DRAW_TEXTBUFF_H 240
+#define G_DRAW_TEXTBUFF_W 20
+#define G_DRAW_TEXTBUFF_H 40
 
 PMInfoBlock *findPMInfoBlock()
 {
@@ -411,7 +411,7 @@ void drawText(const char *text, Rect *rect, uint32_t color, float pixels)
     ascent = roundf(ascent * scale);
     descent = roundf(descent * scale);
 
-    int x = 0, y = 0; /*位图的x*/
+    int x = rect->left, y = 0; /*位图的x*/
     int advanceWidth = 0;
     int leftSideBearing = 0;
     int c_x1, c_y1, c_x2, c_y2;
@@ -433,21 +433,23 @@ void drawText(const char *text, Rect *rect, uint32_t color, float pixels)
         stbtt_GetCodepointBitmapBox(g_fontinfo, text[i], scale, scale, &c_x1, &c_y1, &c_x2, &c_y2);
 
         /* 计算位图的y (不同字符的高度不同） */
-        y = ascent + c_y1;
+       // y = ascent + c_y1;
 
         /* 渲染字符 */
-        int byteOffset = x + roundf(leftSideBearing * scale) + (y * bitmap_w);
-        stbtt_MakeCodepointBitmap(g_fontinfo, bitmap + byteOffset, c_x2 - c_x1, c_y2 - c_y1, bitmap_w, scale, scale, text[i]);
-
+        //int byteOffset = x + roundf(leftSideBearing * scale) + (y * bitmap_w);
+        stbtt_MakeCodepointBitmap(g_fontinfo, bitmap , c_x2 - c_x1, c_y2 - c_y1, bitmap_w, scale, scale, text[i]);
+        drawGTextBuff(rect->top, x, color);
+        x+=bitmap_w;
         /* 调整x */
-        x += roundf(advanceWidth * scale);
+       // x += roundf(advanceWidth * scale);
 
         /* 调整字距 */
-        int kern;
-        kern = stbtt_GetCodepointKernAdvance(g_fontinfo, text[i], text[i + 1]);
-        x += roundf(kern * scale);
+       // int kern;
+      //  kern = stbtt_GetCodepointKernAdvance(g_fontinfo, text[i], text[i + 1]);
+        //x += roundf(kern * scale);
+
     }
-    drawGTextBuff(rect->top, rect->left, color);
+    //drawGTextBuff(rect->top, rect->left, color);
    
 }
 /**
