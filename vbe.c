@@ -17,6 +17,7 @@ char *gfontfilebuff = NULL;
 stbtt_fontinfo *g_fontinfo = NULL;
 static char *g_DrawTextBuff = NULL;
 static Bitmap g_BitmapCache;
+static char* gConsoleFont32 = NULL;
 #define G_DRAW_TEXTBUFF_W 20
 #define G_DRAW_TEXTBUFF_H 40
 
@@ -135,11 +136,12 @@ void initVbe()
 
 void initFont()
 {
+#if 0
     FRESULT res; // 局部变量
     uint32_t br = 0, filesize = 0;
     FIL fp;
-    res = f_open(&fp, "/font/ARIALN.ttf", FA_OPEN_ALWAYS | FA_READ);
-    printf("open font file res = %d \n", res);
+    res = f_open(&fp, "/font/font32_12x24.bmp", FA_OPEN_ALWAYS | FA_READ);
+   // printf("open font file res = %d \n", res);
 
     if (res == FR_OK)
     {
@@ -153,6 +155,7 @@ void initFont()
         }
         f_close(&fp);
     }
+
     // g_fontinfo
     if (!stbtt_InitFont(g_fontinfo, gfontfilebuff, 0))
     {
@@ -161,6 +164,65 @@ void initFont()
     else
         printf("stb init font success\n");
     g_DrawTextBuff = kernel_malloc(G_DRAW_TEXTBUFF_W * G_DRAW_TEXTBUFF_H); // 最大40*40像素
+#endif
+    FRESULT res; // 局部变量
+    uint32_t br = 0, filesize = 0;
+    FIL fp;
+
+    if(gConsoleFont32 == NULL)
+        gConsoleFont32 = kernel_malloc(256*12*24*sizeof(uint32_t));
+
+    res = f_open(&fp, "/font/font32.bmp", FA_OPEN_ALWAYS | FA_READ);
+    if (res != FR_OK)
+        return NULL;
+    filesize = f_size(&fp);
+
+    char* filedata = kernel_malloc(filesize);
+    res = f_read(&fp, filedata, filesize, &br);
+    f_close(&fp);
+    if (res != FR_OK)
+    {
+        kernel_free(filedata);
+        return NULL;
+    }
+
+    BMPHeader* header = (BMPHeader*)filedata;
+    BMPInfoHeader* infoHeader = (BMPInfoHeader*)(filedata + sizeof(BMPHeader));
+    if (infoHeader->bitCount != 24)
+    {
+        kernel_free(filedata);
+        return NULL;
+    }
+    unsigned char* pixdata = (filedata + header->offset);
+    // 计算每行像素的字节数
+    int padding = (4 - (infoHeader->width * 3) % 4) % 4;
+    int rowSize = infoHeader->width * 3 + padding;
+    unsigned char* pdata = pixdata, * prowdata = pixdata;
+
+    uint32_t linestartchar = 0, columindex = 0;
+    for (int i = infoHeader->height - 1; i >= 0; i--)
+    {
+        prowdata = pdata + i * rowSize;
+        for (int j = 0; j < infoHeader->width; j++, prowdata += 3)
+        {
+            char* poutdata = gConsoleFont32+((linestartchar + j / 12) * 1152) + columindex * 48;
+            //poutdata[j%12+0]=
+            poutdata[j % 12+0] = prowdata[0];
+            poutdata[j % 12+1] = prowdata[1];
+            poutdata[j % 12+2] = prowdata[2];
+            poutdata[j % 12+3] = 0;
+        }
+        if ((columindex + 1) % 24 == 0)
+        {
+            columindex = 0;
+            linestartchar += 16;
+        }
+        else
+        {
+            columindex++;
+        }
+    }
+    kernel_free(filedata);
 }
 void getScreenPixSize(Pair *size)
 {
@@ -333,6 +395,23 @@ void drawBitmap(Rect *rect, Bitmap *bitmap)
         }
     }
 }
+static void putCharPix(char code, uint32_t top, uint32_t left)
+{
+    uint32* codefont = gConsoleFont32 + code * 1152;
+    vbe_info_structure* pvbeinfo = g_vbebuff;
+    vbe_mode_info_structure* pmodinfo = g_vbebuff + 512;
+    uint32_t* pvbeframbuff = pmodinfo->PhysBasePtr;
+    uint32_t textbuffindex = 0, yindex = (top)*pmodinfo->XResolution;
+    for (uint32_t i = 0; i < 24; ++i, textbuffindex += 12, yindex += pmodinfo->XResolution)
+    {
+        memDWordcpy_s(&(pvbeframbuff[yindex + left]), &(codefont[textbuffindex]), 12);
+    }
+}
+void drawText(const char* text, Rect* rect, uint32_t color, float pixels)
+{
+    putCharPix(text[0], rect->top, rect->left);
+}
+#if 0
 static void drawGTextBuff(uint32_t top, uint32_t left, uint32_t fillcolor)
 {
     vbe_info_structure *pvbeinfo = g_vbebuff;
@@ -383,6 +462,8 @@ static void drawGTextBuff(uint32_t top, uint32_t left, uint32_t fillcolor)
         }
     }
 }
+
+
 void drawText(const char *text, Rect *rect, uint32_t color, float pixels)
 {
     uint32_t len = strlen(text);
@@ -452,6 +533,7 @@ void drawText(const char *text, Rect *rect, uint32_t color, float pixels)
     //drawGTextBuff(rect->top, rect->left, color);
    
 }
+#endif
 /**
  * Parse PNG format into pixels. Returns NULL or error, otherwise the returned data looks like
  *   ret[2..] = 32 bit ARGB pixels (blue channel in the least significant byte, alpha channel in the most)

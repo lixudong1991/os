@@ -748,6 +748,12 @@ int _start(void *bargv,void *vbe)
 	rect.top = 0;
 	rect.bottom = screensize.y - 1;
 	fillRect(&rect, 0x707070);
+	Bitmap* bitmap = createBitmap32FromBMP24("/img/bg.bmp");
+	rect.left = 0;
+	rect.top = 0;
+	rect.right = bitmap->width - 1 + rect.left;
+	rect.bottom = bitmap->height - 1 + rect.left;
+	drawBitmap(&rect, bitmap);
 	//drawPngImage(&rect,"/img/imgdata");
 	rect.left = 256;
 	rect.top = 256;
@@ -768,13 +774,7 @@ int _start(void *bargv,void *vbe)
 	drawRect(&rect, 0xff00, 1);
 	drawText("UserProgra",&rect, 0xff00ff,20);
 	//testFATfs();
-	Bitmap* bitmap = createBitmap32FromBMP24("/img/bg.bmp");
-	rect.left =400;
-	rect.top = 400;
-	rect.right = bitmap->width - 1+ rect.left;
-	rect.bottom = bitmap->height - 1+ rect.left;
-	drawBitmap(&rect,bitmap);
-	bitmap = createBitmap32FromBMP24("/img/txt.bmp");
+	bitmap = createBitmap32FromBMP24("/font/font32.bmp");
 	rect.left = 600;
 	rect.top = 100;
 	rect.right = bitmap->width - 1 + rect.left;
