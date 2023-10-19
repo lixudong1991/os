@@ -507,3 +507,52 @@ void drawPngImage(Rect* rect,const char *filepath)
     g_BitmapCache.height = rect->bottom-rect->top+1;
     drawBitmap(rect, &g_BitmapCache);
 }
+
+Bitmap* createBitmap32FromBMP24(const char* bmpfilepath)
+{
+    FRESULT res; // 局部变量
+    uint32_t br = 0, filesize = 0;
+    FIL fp;
+    res = f_open(&fp, bmpfilepath, FA_OPEN_ALWAYS | FA_READ);
+    if (res != FR_OK)
+        return NULL;
+    filesize = f_size(&fp);
+    char* filedata = kernel_malloc(filesize);
+    res = f_read(&fp, filedata, filesize, &br);
+    f_close(&fp);
+    if (res != FR_OK)
+    {
+        kernel_free(filedata);
+        return NULL;
+    }
+        
+    BMPHeader *header = (BMPHeader*)filedata;
+    BMPInfoHeader *infoHeader = (BMPInfoHeader * )(filedata+ sizeof(BMPHeader));
+    if (infoHeader->bitCount!=24)
+    {
+        kernel_free(filedata);
+        return NULL;
+    }
+    unsigned char* pixdata = (filedata + header->offset);
+    // 计算每行像素的字节数
+    int padding = (4 - (infoHeader->width * 3) % 4) % 4;
+    int rowSize = infoHeader->width * 3 + padding;
+    unsigned char* pdata = pixdata, *prowdata = pixdata, *poutdata = g_BitmapCache.data;
+
+    for (int i = infoHeader->height-1; i >=0 ; i--)
+    {
+        prowdata = pdata+i*rowSize;
+        for (int j = 0; j < infoHeader->width; j++, prowdata += 3, poutdata += 4)
+        {
+            poutdata[0] = prowdata[0];
+            poutdata[1] = prowdata[1];
+            poutdata[2] = prowdata[2];
+            poutdata[3] = 0;
+        }
+    }
+    g_BitmapCache.format = BITMAP_FORMAT_TYPE_A8R8G8B8;
+    g_BitmapCache.width = infoHeader->width;
+    g_BitmapCache.height = infoHeader->height;
+    kernel_free(filedata);
+    return &g_BitmapCache;
+}

@@ -256,6 +256,10 @@ char* ret = NULL;
 			}
 		}
 	}
+	else
+	{
+		ret = allocate_memory(task, newsize, prop);
+	}
 	return ret;
 }
 char *allocateVirtual4kPage(uint32 size, uint32 *pAddr, uint32 prop)

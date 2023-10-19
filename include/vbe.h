@@ -121,6 +121,34 @@ typedef struct Bitmap
     uint32_t width;
     uint32_t height;
 }Bitmap;
+#pragma pack(2)
+typedef struct {
+    unsigned short type;      // 文件类型，固定为0x4D42（'BM'）
+    unsigned int size;        // 文件大小
+    unsigned short reserved1; // 保留字段1
+    unsigned short reserved2; // 保留字段2
+    unsigned int offset;      // 数据偏移量
+} BMPHeader;
+#pragma pack()
+
+// 定义BMP信息头结构
+#pragma pack(2)
+typedef struct {
+    unsigned int size;         // 信息头大小，固定为40
+    int width;                 // 图像宽度
+    int height;                // 图像高度
+    unsigned short planes;     // 颜色平面数，固定为1
+    unsigned short bitCount;   // 每像素位数，一般为24
+    unsigned int compression;  // 压缩方式，一般为0
+    unsigned int imageSize;    // 图像数据大小
+    int xPelsPerMeter;         // 水平分辨率
+    int yPelsPerMeter;         // 垂直分辨率
+    unsigned int clrUsed;      // 使用的颜色数
+    unsigned int clrImportant; // 重要的颜色数
+} BMPInfoHeader;
+#pragma pack()
+
+
 void getScreenPixSize(Pair* size);
 void fillRect(Rect* rect, uint32_t fillcolor);
 void drawRect(Rect* rect, uint32_t bordercolor, uint32_t borderwidth);
@@ -128,4 +156,5 @@ void drawBitmap(Rect* rect,Bitmap *data);
 void drawText(const char* text, Rect* rect, uint32_t color, float pixels);
 int  rectIsVaild(Rect* rect);
 void drawPngImage(Rect* rect,const char *filepath);
+Bitmap* createBitmap32FromBMP24(const char* bmpfilepath);
 #endif
