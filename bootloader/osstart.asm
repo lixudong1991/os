@@ -769,13 +769,13 @@ cpvbeprorevend:
 		mov es,ax
 		mov di,0600h+vbe_mode_info_structure-osstart
 		mov ax,0x4f01
-		mov cx,0x152;0x14f;0x155 ;0x14c
+		mov cx,0x14f;0x155;0x152 ;0x14c
 		int 0x10
 		cmp ax,0x004f
 		jne readKDataErr
 
 		mov ax, 0x4F02	; set VBE mode
-		mov bx, 0x4152;0x414f;0x4155 ;0x414c	; VBE mode number; notice that bits 0-13 contain the mode number and bit 14 (LFB) is set and bit 15 (DM) is clear.
+		mov bx, 0x414f ;0x4152;0x4155 ;0x414c	; VBE mode number; notice that bits 0-13 contain the mode number and bit 14 (LFB) is set and bit 15 (DM) is clear.
 		int 0x10			; call VBE BIOS
 		cmp ax, 0x004F	; test for error
 		jne readKDataErr

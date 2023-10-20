@@ -18,8 +18,39 @@ stbtt_fontinfo *g_fontinfo = NULL;
 static char *g_DrawTextBuff = NULL;
 static Bitmap g_BitmapCache;
 static char* gConsoleFont32 = NULL;
-#define G_DRAW_TEXTBUFF_W 20
-#define G_DRAW_TEXTBUFF_H 40
+// static uint32_t gTextBackColor = 0;
+//static uint32_t gTextColor = 0xffffff;
+//static uint32_t gCursorIndex = 0;
+//static uint32_t gConsoleMaxCharCount = 0;
+
+typedef struct ConsoleInfo
+{
+    uint32_t backColor;
+    uint32_t textBackColor;
+    uint32_t textColor;
+    uint32_t cursorIndex;
+    uint32_t consoleMaxCharCount;
+    uint32_t consoleLineCharCount;
+    Rect     rect;
+}ConsoleInfo;
+ConsoleInfo gConsoleinfo;
+#define CONSOLE_FONT_8X16
+
+#ifdef CONSOLE_FONT_12X24
+#define CONSOLE_FONT_IMAGE  "/font/font32.bmp"
+#define CONSOLE_PIX_SIZE 4
+#define CONSOLE_PIX_W 12
+#define CONSOLE_PIX_H 24
+#define CONSOLE_ASCII_CODE_COUNT 256
+#endif
+
+#ifdef CONSOLE_FONT_8X16
+#define CONSOLE_FONT_IMAGE  "/font/08x16_font32.bmp"
+#define CONSOLE_PIX_SIZE 4
+#define CONSOLE_PIX_W 8
+#define CONSOLE_PIX_H 16
+#define CONSOLE_ASCII_CODE_COUNT 256
+#endif
 
 PMInfoBlock *findPMInfoBlock()
 {
@@ -134,96 +165,6 @@ void initVbe()
      
 }
 
-void initFont()
-{
-#if 0
-    FRESULT res; // 局部变量
-    uint32_t br = 0, filesize = 0;
-    FIL fp;
-    res = f_open(&fp, "/font/font32_12x24.bmp", FA_OPEN_ALWAYS | FA_READ);
-   // printf("open font file res = %d \n", res);
-
-    if (res == FR_OK)
-    {
-        filesize = f_size(&fp);
-        printf("font file size 0x%x \n", filesize);
-        gfontfilebuff = kernel_malloc(filesize);
-        res = f_read(&fp, gfontfilebuff, filesize, &br);
-        if (res == FR_OK)
-        {
-            printf(" read font data size %x\n", br);
-        }
-        f_close(&fp);
-    }
-
-    // g_fontinfo
-    if (!stbtt_InitFont(g_fontinfo, gfontfilebuff, 0))
-    {
-        printf("stb init font failed\n");
-    }
-    else
-        printf("stb init font success\n");
-    g_DrawTextBuff = kernel_malloc(G_DRAW_TEXTBUFF_W * G_DRAW_TEXTBUFF_H); // 最大40*40像素
-#endif
-    FRESULT res; // 局部变量
-    uint32_t br = 0, filesize = 0;
-    FIL fp;
-
-    if(gConsoleFont32 == NULL)
-        gConsoleFont32 = kernel_malloc(256*12*24*sizeof(uint32_t));
-
-    res = f_open(&fp, "/font/font32.bmp", FA_OPEN_ALWAYS | FA_READ);
-    if (res != FR_OK)
-        return NULL;
-    filesize = f_size(&fp);
-
-    char* filedata = kernel_malloc(filesize);
-    res = f_read(&fp, filedata, filesize, &br);
-    f_close(&fp);
-    if (res != FR_OK)
-    {
-        kernel_free(filedata);
-        return NULL;
-    }
-
-    BMPHeader* header = (BMPHeader*)filedata;
-    BMPInfoHeader* infoHeader = (BMPInfoHeader*)(filedata + sizeof(BMPHeader));
-    if (infoHeader->bitCount != 24)
-    {
-        kernel_free(filedata);
-        return NULL;
-    }
-    unsigned char* pixdata = (filedata + header->offset);
-    // 计算每行像素的字节数
-    int padding = (4 - (infoHeader->width * 3) % 4) % 4;
-    int rowSize = infoHeader->width * 3 + padding;
-    unsigned char* pdata = pixdata, * prowdata = pixdata;
-
-    uint32_t linestartchar = 0, columindex = 0;
-    for (int i = infoHeader->height - 1; i >= 0; i--)
-    {
-        prowdata = pdata + i * rowSize;
-        for (int j = 0; j < infoHeader->width; j++, prowdata += 3)
-        {
-            char* poutdata = gConsoleFont32+((linestartchar + j / 12) * 1152) + columindex * 48;
-            //poutdata[j%12+0]=
-            poutdata[j % 12+0] = prowdata[0];
-            poutdata[j % 12+1] = prowdata[1];
-            poutdata[j % 12+2] = prowdata[2];
-            poutdata[j % 12+3] = 0;
-        }
-        if ((columindex + 1) % 24 == 0)
-        {
-            columindex = 0;
-            linestartchar += 16;
-        }
-        else
-        {
-            columindex++;
-        }
-    }
-    kernel_free(filedata);
-}
 void getScreenPixSize(Pair *size)
 {
     vbe_mode_info_structure *pmodinfo = g_vbebuff + 512;
@@ -394,22 +335,6 @@ void drawBitmap(Rect *rect, Bitmap *bitmap)
             }
         }
     }
-}
-static void putCharPix(char code, uint32_t top, uint32_t left)
-{
-    uint32* codefont = gConsoleFont32 + code * 1152;
-    vbe_info_structure* pvbeinfo = g_vbebuff;
-    vbe_mode_info_structure* pmodinfo = g_vbebuff + 512;
-    uint32_t* pvbeframbuff = pmodinfo->PhysBasePtr;
-    uint32_t textbuffindex = 0, yindex = (top)*pmodinfo->XResolution;
-    for (uint32_t i = 0; i < 24; ++i, textbuffindex += 12, yindex += pmodinfo->XResolution)
-    {
-        memDWordcpy_s(&(pvbeframbuff[yindex + left]), &(codefont[textbuffindex]), 12);
-    }
-}
-void drawText(const char* text, Rect* rect, uint32_t color, float pixels)
-{
-    putCharPix(text[0], rect->top, rect->left);
 }
 #if 0
 static void drawGTextBuff(uint32_t top, uint32_t left, uint32_t fillcolor)
@@ -637,4 +562,254 @@ Bitmap* createBitmap32FromBMP24(const char* bmpfilepath)
     g_BitmapCache.height = infoHeader->height;
     kernel_free(filedata);
     return &g_BitmapCache;
+}
+static void putCharPix(char code, uint32_t top, uint32_t left)
+{
+    uint32* codefont = (uint32*)(gConsoleFont32 + code * (CONSOLE_PIX_W * CONSOLE_PIX_H * CONSOLE_PIX_SIZE));
+    vbe_info_structure* pvbeinfo = g_vbebuff;
+    vbe_mode_info_structure* pmodinfo = g_vbebuff + 512;
+    uint32_t* pvbeframbuff = pmodinfo->PhysBasePtr;
+    uint32_t textbuffindex = 0, yindex = (top)*pmodinfo->XResolution;
+    for (uint32_t i = 0; i < CONSOLE_PIX_H; ++i, textbuffindex += CONSOLE_PIX_W, yindex += pmodinfo->XResolution)
+    {
+        memDWordcpy_s(&(pvbeframbuff[yindex + left]), &(codefont[textbuffindex]), CONSOLE_PIX_W);
+    }
+}
+void printText(const char* text, Rect* rect)
+{
+    char* pstr = text;
+    uint32_t x = rect->left;
+    while (*pstr != 0)
+    {
+        putCharPix(*pstr, rect->top, x);
+        x += CONSOLE_PIX_W;
+    }
+}
+void setConsoleTextColor(uint32_t color)
+{
+    if(gConsoleFont32)
+    {
+        uint32_t* pFontBuff = gConsoleFont32;
+        uint32_t countpix = CONSOLE_PIX_W * CONSOLE_PIX_H * CONSOLE_ASCII_CODE_COUNT;
+        for (uint32_t index=0;index< countpix;index++)
+        {
+            if (pFontBuff[index]== gConsoleinfo.textColor)
+            {
+                pFontBuff[index] = color;
+            }
+        }
+        gConsoleinfo.textColor = color;
+    }
+}
+void setConsoleTextBackColor(uint32_t color)
+{
+    if (gConsoleFont32)
+    {
+        uint32_t* pFontBuff = gConsoleFont32;
+        uint32_t countpix = CONSOLE_PIX_W * CONSOLE_PIX_H * CONSOLE_ASCII_CODE_COUNT;
+        for (uint32_t index = 0; index < countpix; index++)
+        {
+            if (pFontBuff[index] == gConsoleinfo.textBackColor)
+            {
+                pFontBuff[index] = color;
+            }
+        }
+        gConsoleinfo.textBackColor = color;
+    }
+}
+
+static void initConsoleFont()
+{
+#if 0
+    FRESULT res; // 局部变量
+    uint32_t br = 0, filesize = 0;
+    FIL fp;
+    res = f_open(&fp, "/font/font32_12x24.bmp", FA_OPEN_ALWAYS | FA_READ);
+    // printf("open font file res = %d \n", res);
+
+    if (res == FR_OK)
+    {
+        filesize = f_size(&fp);
+        printf("font file size 0x%x \n", filesize);
+        gfontfilebuff = kernel_malloc(filesize);
+        res = f_read(&fp, gfontfilebuff, filesize, &br);
+        if (res == FR_OK)
+        {
+            printf(" read font data size %x\n", br);
+        }
+        f_close(&fp);
+    }
+
+    // g_fontinfo
+    if (!stbtt_InitFont(g_fontinfo, gfontfilebuff, 0))
+    {
+        printf("stb init font failed\n");
+    }
+    else
+        printf("stb init font success\n");
+    g_DrawTextBuff = kernel_malloc(G_DRAW_TEXTBUFF_W * G_DRAW_TEXTBUFF_H); // 最大40*40像素
+#endif
+    FRESULT res; // 局部变量
+    uint32_t br = 0, filesize = 0;
+    FIL fp;
+
+    if (gConsoleFont32 == NULL)
+        gConsoleFont32 = kernel_malloc(CONSOLE_ASCII_CODE_COUNT * CONSOLE_PIX_W * CONSOLE_PIX_H * CONSOLE_PIX_SIZE);
+    res = f_open(&fp, CONSOLE_FONT_IMAGE, FA_OPEN_ALWAYS | FA_READ);
+    if (res != FR_OK)
+        return;
+    filesize = f_size(&fp);
+
+    char* filedata = kernel_malloc(filesize);
+    res = f_read(&fp, filedata, filesize, &br);
+    f_close(&fp);
+    if (res != FR_OK)
+    {
+        kernel_free(filedata);
+        return;
+    }
+
+    BMPHeader* header = (BMPHeader*)filedata;
+    BMPInfoHeader* infoHeader = (BMPInfoHeader*)(filedata + sizeof(BMPHeader));
+    if (infoHeader->bitCount != 24)
+    {
+        kernel_free(filedata);
+        return;
+    }
+    unsigned char* pixdata = (filedata + header->offset);
+    // 计算每行像素的字节数
+    int padding = (4 - (infoHeader->width * 3) % 4) % 4;
+    int rowSize = infoHeader->width * 3 + padding;
+    unsigned char* pdata = pixdata, * prowdata = pixdata;
+
+    uint32_t linestartchar = 0, columindex = 0;
+    for (int i = infoHeader->height - 1; i >= 0; i--)
+    {
+        prowdata = pdata + i * rowSize;
+        for (int j = 0; j < infoHeader->width; j++, prowdata += 3)
+        {
+            char* poutdata = gConsoleFont32 + ((linestartchar + j / CONSOLE_PIX_W) * (CONSOLE_PIX_W * CONSOLE_PIX_H * CONSOLE_PIX_SIZE)) + columindex * (CONSOLE_PIX_W * CONSOLE_PIX_SIZE);
+            //poutdata[j%12+0]=
+            if (prowdata[0] != 0xff || prowdata[1] != 0xff || prowdata[2] != 0xff)
+            {
+                //poutdata[(j % 12) * 4 + 0] = 0;
+                //poutdata[(j % 12) * 4 + 1] = 0;
+                //poutdata[(j % 12) * 4 + 2] = 0;
+                //poutdata[(j % 12) * 4 + 3] = 0;
+                *(uint32_t*)(&(poutdata[(j % CONSOLE_PIX_W) * CONSOLE_PIX_SIZE])) = gConsoleinfo.textBackColor;
+            }
+            else
+            {
+                //poutdata[(j % 12) * 4 + 0] = 0xff;
+                //poutdata[(j % 12) * 4 + 1] = 0xff;
+                //poutdata[(j % 12) * 4 + 2] = 0xff;
+                //poutdata[(j % 12) * 4 + 3] = 0;
+                *(uint32_t*)(&(poutdata[(j % CONSOLE_PIX_W) * CONSOLE_PIX_SIZE])) = gConsoleinfo.textColor;
+            }
+        }
+        if ((columindex + 1) % CONSOLE_PIX_H == 0)
+        {
+            columindex = 0;
+            linestartchar += (infoHeader->width / CONSOLE_PIX_W);
+        }
+        else
+        {
+            columindex++;
+        }
+    }
+    kernel_free(filedata);
+}
+void initConsole()
+{
+    memset(&gConsoleinfo, 0, sizeof(ConsoleInfo));
+    Pair screensize;
+    getScreenPixSize(&screensize);
+    gConsoleinfo.rect.left = 200;
+    gConsoleinfo.rect.right = 999;
+    gConsoleinfo.rect.top = 200;
+    gConsoleinfo.rect.bottom = 839;
+    gConsoleinfo.textColor = 0xFFff00;
+    gConsoleinfo.textBackColor = 0;
+    gConsoleinfo.backColor = 0;
+    fillRect(&(gConsoleinfo.rect), gConsoleinfo.backColor);
+    initConsoleFont();
+
+    uint32_t xCharcount = (gConsoleinfo.rect.right+1- gConsoleinfo.rect.left) / (CONSOLE_PIX_W), yCharcount = (gConsoleinfo.rect.bottom + 1 - gConsoleinfo.rect.top) / (CONSOLE_PIX_H);
+    gConsoleinfo.consoleLineCharCount = xCharcount;
+    gConsoleinfo.consoleMaxCharCount = xCharcount * yCharcount;
+}
+void moveRect(Rect* rect, uint32_t top, uint32_t left)
+{
+    vbe_info_structure* pvbeinfo = g_vbebuff;
+    vbe_mode_info_structure* pmodinfo = g_vbebuff + 512;
+}
+void scrollConsole(uint32_t line)
+{
+    vbe_info_structure* pvbeinfo = g_vbebuff;
+    vbe_mode_info_structure* pmodinfo = g_vbebuff + 512;
+    uint32_t* pvbeframbuff = pmodinfo->PhysBasePtr;
+    uint32_t textbuffindex = 0, yindex = (gConsoleinfo.rect.top + line *CONSOLE_PIX_H)*pmodinfo->XResolution;
+    uint32 destindex = (gConsoleinfo.rect.top) * pmodinfo->XResolution;
+    uint32 scrollCount = (gConsoleinfo.consoleMaxCharCount / gConsoleinfo.consoleLineCharCount- line)* CONSOLE_PIX_H;
+    for (uint32_t i = 0; i < scrollCount; ++i, destindex += pmodinfo->XResolution, yindex += pmodinfo->XResolution)
+    {
+        memDWordcpy_s(&(pvbeframbuff[destindex + gConsoleinfo.rect.left]), &(pvbeframbuff[yindex + gConsoleinfo.rect.left]), gConsoleinfo.rect.right- gConsoleinfo.rect.left+1);
+    }
+    Rect rect;
+    rect.left = gConsoleinfo.rect.left;
+    rect.top = gConsoleinfo.rect.top+ scrollCount;
+    rect.right = gConsoleinfo.rect.right;
+    rect.bottom = gConsoleinfo.rect.bottom;
+    fillRect(&rect, gConsoleinfo.backColor);
+}
+void consolePuts(const char* str)
+{
+    char* pstr = str;
+    char c = 0;
+    uint32_t left =0;
+    uint32_t top =0;
+    while (*pstr != 0)
+    {
+        c = *pstr++;
+       // putCharPix(*pstr, rect->top, x);
+        if (c == 0x0d)
+            continue;
+        if (c == 0x0a)
+        {
+            gConsoleinfo.cursorIndex = ((gConsoleinfo.cursorIndex) / gConsoleinfo.consoleLineCharCount) * gConsoleinfo.consoleLineCharCount+ gConsoleinfo.consoleLineCharCount;
+        }
+        else
+        {
+             left = gConsoleinfo.rect.left + (gConsoleinfo.cursorIndex % gConsoleinfo.consoleLineCharCount) * CONSOLE_PIX_W;
+             top = gConsoleinfo.rect.top + (gConsoleinfo.cursorIndex / gConsoleinfo.consoleLineCharCount) * CONSOLE_PIX_H;
+             putCharPix(c,top,left);
+             gConsoleinfo.cursorIndex++;
+        }
+        if (gConsoleinfo.cursorIndex >= gConsoleinfo.consoleMaxCharCount)
+        {
+            gConsoleinfo.cursorIndex = gConsoleinfo.consoleMaxCharCount- gConsoleinfo.consoleLineCharCount;
+            scrollConsole(1);
+        }
+    }
+}
+
+void setConsoleBackColor(uint32_t color)
+{
+
+}
+void setConsoleRect(Rect* rect)
+{
+
+}
+int consolePrintf(const char* fmt, ...)
+{
+    char printf_buf[1024];
+    va_list args;
+    int printed;
+
+    va_start(args, fmt);
+    printed = vsprintf(printf_buf, fmt, args);
+    va_end(args);
+    consolePuts(printf_buf);
+    return printed;
 }

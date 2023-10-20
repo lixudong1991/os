@@ -738,19 +738,23 @@ int _start(void *bargv,void *vbe)
 	// printf("support:monitor/mwait = %d\n", cpufeatures[cpu_support_monitor_mwait]);
 
 	initFs();
-	initFont();
-
+	Rect rect;
 	Pair screensize;
 	getScreenPixSize(&screensize);
-	Rect rect;
 	rect.left = 0;
 	rect.right = screensize.x-1;
 	rect.top = 0;
-	rect.bottom = screensize.y - 1;
+	rect.bottom = screensize.y-1;
 	fillRect(&rect, 0x707070);
+	initConsole();
+
+	consolePrintf("The Intel386 processor was the first 32-bit processor in the IA-32 architecture family\n");
+	for(int i=0;i<30;i++)
+	consolePrintf("The Intel386 processor was the first 32-bit processor in the IA-32 architecture family. It introduced 32-bit registers for use both to hold operands and for addressing. The lower half of each 32-bit Intel386 register retains the properties of the 16-bit registers of earlier generations, permitting backward compatibility. The processor also provides a virtual-8086 mode that allows for even greater efficiency when executing programs created for 8086/8088 processors.    [END]\n");
+	/*
 	Bitmap* bitmap = createBitmap32FromBMP24("/img/bg.bmp");
-	rect.left = 0;
-	rect.top = 0;
+	rect.left = 400;
+	rect.top = 400;
 	rect.right = bitmap->width - 1 + rect.left;
 	rect.bottom = bitmap->height - 1 + rect.left;
 	drawBitmap(&rect, bitmap);
@@ -767,12 +771,12 @@ int _start(void *bargv,void *vbe)
 	rect.bottom = 999;
 	drawRect(&rect, 0xff,4);
 
-	rect.left = 20;
-	rect.top = 600;
-	rect.right = 1019;
-	rect.bottom = 1019;
-	drawRect(&rect, 0xff00, 1);
-	drawText("UserProgra",&rect, 0xff00ff,20);
+	rect.left = 0;
+	rect.top = 0;
+	//rect.right = 1019;
+	//rect.bottom = 1019;
+//	drawRect(&rect, 0xff00, 1);
+
 	//testFATfs();
 	bitmap = createBitmap32FromBMP24("/font/font32.bmp");
 	rect.left = 600;
@@ -780,6 +784,7 @@ int _start(void *bargv,void *vbe)
 	rect.right = bitmap->width - 1 + rect.left;
 	rect.bottom = bitmap->height - 1 + rect.left;
 	drawBitmap(&rect, bitmap);
+		*/
 	while (1)
 	{
 		// printf("BSP empty\n");

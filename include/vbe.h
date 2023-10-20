@@ -93,8 +93,6 @@ typedef struct PMInfoBlock
 void initVbe();
 extern char g_vbebuff[VBE_BUFF_SIZE];
 
-void initFont();
-
 typedef struct Rect
 {
     uint32_t top;
@@ -148,13 +146,20 @@ typedef struct {
 } BMPInfoHeader;
 #pragma pack()
 
-
+void initConsole();
 void getScreenPixSize(Pair* size);
 void fillRect(Rect* rect, uint32_t fillcolor);
 void drawRect(Rect* rect, uint32_t bordercolor, uint32_t borderwidth);
+void moveRect(Rect* rect, uint32_t top, uint32_t left);
 void drawBitmap(Rect* rect,Bitmap *data);
-void drawText(const char* text, Rect* rect, uint32_t color, float pixels);
+void printText(const char* text, Rect* rect);
+void consolePuts(const char* str);
+void setConsoleRect(Rect* rect);
+void setConsoleTextColor(uint32_t color);
+void setConsoleTextBackColor(uint32_t color);
+void setConsoleBackColor(uint32_t color);
 int  rectIsVaild(Rect* rect);
 void drawPngImage(Rect* rect,const char *filepath);
 Bitmap* createBitmap32FromBMP24(const char* bmpfilepath);
+int consolePrintf(const char* fmt, ...);
 #endif
