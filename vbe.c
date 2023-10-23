@@ -22,7 +22,7 @@ static char* gConsoleFont32 = NULL;
 //static uint32_t gTextColor = 0xffffff;
 //static uint32_t gCursorIndex = 0;
 //static uint32_t gConsoleMaxCharCount = 0;
-
+#define DUMP_VBEINF
 typedef struct ConsoleInfo
 {
     uint32_t backColor;
@@ -87,68 +87,8 @@ PMInfoBlock *findPMInfoBlock()
 void initVbe()
 {
     PMInfoBlock *ppminfo = findPMInfoBlock();
-
-    // asm("cli");
-    char temp = g_vbebuff[4];
-    g_vbebuff[4] = 0;
-    printf("VBE  signature=%s\n", g_vbebuff);
-    g_vbebuff[4] = temp;
-    vbe_info_structure *pvbeinfo = g_vbebuff;
-    uint32_t vbeAddr = (((pvbeinfo->video_modes >> 16) & 0xffff) << 4) + (pvbeinfo->video_modes & 0xffff);
-    mem4k_map(vbeAddr & PAGE_ADDR_MASK, vbeAddr & PAGE_ADDR_MASK, MEM_UC, PAGE_G | PAGE_RW);
-    printf("VBE  video_modesAddr=0x%x modes:", vbeAddr);
-    uint16_t *pmodelist = g_vbebuff + 768;
-    uint32_t modecount = 0;
-    uint32_t *pModesResolutionBuff = g_vbebuff + (VBE_BUFF_SIZE - 768);
-    while (*pmodelist != 0xffff)
-    {
-        if (*pmodelist != 0)
-        {
-            printf("0x%x:0x%x ", *pmodelist, *pModesResolutionBuff);
-            modecount++;
-        }
-        pmodelist++;
-        pModesResolutionBuff++;
-    }
-    pmodelist++;
-    char *buffstr = (char *)pmodelist;
+    vbe_info_structure* pvbeinfo = g_vbebuff;
     vbe_mode_info_structure *pmodinfo = g_vbebuff + 512;
-#if 0
-    printf("modecount %d\n", modecount);
-    printf("VBE  version=0x%x\n", pvbeinfo->version);
-    printf("VBE  oem=0x%x\n", pvbeinfo->oem);
-    printf("VBE  capabilities=0x%x\n", pvbeinfo->capabilities);
-    printf("VBE  video_memory=0x%x\n", pvbeinfo->video_memory);
-    printf("VBE  software_rev=0x%x\n", pvbeinfo->software_rev);
-    vbeAddr = (((pvbeinfo->vendor >> 16) & 0xffff) << 4) + (pvbeinfo->vendor & 0xffff);
-    printf("VBE  vendor addr=0x%x\n", vbeAddr);
-    vbeAddr = (((pvbeinfo->product_name >> 16) & 0xffff) << 4) + (pvbeinfo->product_name & 0xffff);
-    printf("VBE  product_name addr=0x%x\n", vbeAddr);
-    vbeAddr = (((pvbeinfo->product_rev >> 16) & 0xffff) << 4) + (pvbeinfo->product_rev & 0xffff);
-    printf("VBE  product_rev addr=0x%x\n", vbeAddr);
-  
-    printf("VBE  vendor:product_name:product_rev string=%s\n", buffstr);
-    if (ppminfo)
-    {
-        char pmsigstr[8];
-        memcpy_s(pmsigstr, ppminfo->Signature, 4);
-        pmsigstr[4] = 0;
-        printf("PMInfoBlock sig=%s\n", pmsigstr);
-    }
-#endif
-    printf("VBE  mode  attr:0x%x\n", pmodinfo->ModeAttributes);
-    printf("VBE  mode  BytesPerScanLine:0x%x XResolution:0x%x YResolution 0x%x\n", pmodinfo->BytesPerScanLine, pmodinfo->XResolution, pmodinfo->YResolution);
-    printf("VBE  mode  XCharSize:0x%x YCharSize 0x%x\n", pmodinfo->XCharSize, pmodinfo->YCharSize);
-    printf("VBE  mode  NumberOfPlanes:0x%x BitsPerPixel:0x%x NumberOfBanks:0x%x MemoryModel:0x%x BankSize:0x%x NumberOfImagePages:0x%x\n", pmodinfo->NumberOfPlanes, pmodinfo->BitsPerPixel, pmodinfo->NumberOfBanks, pmodinfo->MemoryModel, pmodinfo->BankSize, pmodinfo->NumberOfImagePages);
-    printf("VBE  mode  RedMaskSize:0x%x RedFieldPosition:0x%x GreenMaskSize:0x%x GreenFieldPosition:0x%x BlueMaskSize:0x%x BlueFieldPosition:0x%x DirectColorModeInfo:0x%x PhysBasePtr:0x%x Reserved1:%x Reserved2:%x\n", pmodinfo->RedMaskSize, pmodinfo->RedFieldPosition, pmodinfo->GreenMaskSize, pmodinfo->GreenFieldPosition,
-           pmodinfo->BlueMaskSize, pmodinfo->BlueFieldPosition, pmodinfo->DirectColorModeInfo, pmodinfo->PhysBasePtr, pmodinfo->Reserved1, pmodinfo->Reserved2);
-    if (pvbeinfo->version >= 0x300)
-    {
-        printf("VBE3.0 LinBytesPerScanLine:0x%x BnkNumberOfImagePages:0x%x LinNumberOfImagePages 0x%x MaxPixelClock:0x%x\n", pmodinfo->LinBytesPerScanLine, pmodinfo->BnkNumberOfImagePages, pmodinfo->LinNumberOfImagePages, pmodinfo->MaxPixelClock);
-        printf("VBE3.0 LinRedMaskSize:0x%x LinRedFieldPosition:0x%x LinGreenMaskSize:0x%x LinGreenFieldPosition:0x%x LinBlueMaskSize:0x%x LinBlueFieldPosition:0x%x\n", pmodinfo->LinRedMaskSize, pmodinfo->LinRedFieldPosition, pmodinfo->LinGreenMaskSize, pmodinfo->LinGreenFieldPosition,
-               pmodinfo->LinBlueMaskSize, pmodinfo->LinBlueFieldPosition);
-    }
-
     // asm("sti");
     // sizeof(vbe_mode_info_structure)
     if (pmodinfo->PhysBasePtr)
@@ -164,7 +104,57 @@ void initVbe()
     }
      
 }
-
+void dumpVbeinfo()
+{
+    char temp = g_vbebuff[4];
+    g_vbebuff[4] = 0;
+    consolePrintf("VBE  signature=%s\n", g_vbebuff);
+    g_vbebuff[4] = temp;
+    vbe_info_structure* pvbeinfo = g_vbebuff;
+    uint32_t vbeAddr = (((pvbeinfo->video_modes >> 16) & 0xffff) << 4) + (pvbeinfo->video_modes & 0xffff);
+    consolePrintf("VBE  video_modesAddr=0x%x modes:", vbeAddr);
+    uint16_t* pmodelist = g_vbebuff + 768;
+    uint32_t modecount = 0;
+    uint32_t* pModesResolutionBuff = g_vbebuff + (VBE_BUFF_SIZE - 768);
+    while (*pmodelist != 0xffff)
+    {
+        if (*pmodelist != 0)
+        {
+            consolePrintf("0x%x:0x%x ", *pmodelist, *pModesResolutionBuff);
+            modecount++;
+        }
+        pmodelist++;
+        pModesResolutionBuff++;
+    }
+    pmodelist++;
+    char* buffstr = (char*)pmodelist;
+    vbe_mode_info_structure* pmodinfo = g_vbebuff + 512;
+    consolePrintf("modecount %d\n", modecount);
+    consolePrintf("VBE  version=0x%x\n", pvbeinfo->version);
+    consolePrintf("VBE  oem=0x%x\n", pvbeinfo->oem);
+    consolePrintf("VBE  capabilities=0x%x\n", pvbeinfo->capabilities);
+    consolePrintf("VBE  video_memory=0x%x\n", pvbeinfo->video_memory);
+    consolePrintf("VBE  software_rev=0x%x\n", pvbeinfo->software_rev);
+    vbeAddr = (((pvbeinfo->vendor >> 16) & 0xffff) << 4) + (pvbeinfo->vendor & 0xffff);
+    consolePrintf("VBE  vendor addr=0x%x\n", vbeAddr);
+    vbeAddr = (((pvbeinfo->product_name >> 16) & 0xffff) << 4) + (pvbeinfo->product_name & 0xffff);
+    consolePrintf("VBE  product_name addr=0x%x\n", vbeAddr);
+    vbeAddr = (((pvbeinfo->product_rev >> 16) & 0xffff) << 4) + (pvbeinfo->product_rev & 0xffff);
+    consolePrintf("VBE  product_rev addr=0x%x\n", vbeAddr);
+    consolePrintf("VBE  vendor:product_name:product_rev string=%s\n", buffstr);
+    consolePrintf("VBE  mode  attr:0x%x\n", pmodinfo->ModeAttributes);
+    consolePrintf("VBE  mode  BytesPerScanLine:0x%x XResolution:0x%x YResolution 0x%x\n", pmodinfo->BytesPerScanLine, pmodinfo->XResolution, pmodinfo->YResolution);
+    consolePrintf("VBE  mode  XCharSize:0x%x YCharSize 0x%x\n", pmodinfo->XCharSize, pmodinfo->YCharSize);
+    consolePrintf("VBE  mode  NumberOfPlanes:0x%x BitsPerPixel:0x%x NumberOfBanks:0x%x MemoryModel:0x%x BankSize:0x%x NumberOfImagePages:0x%x\n", pmodinfo->NumberOfPlanes, pmodinfo->BitsPerPixel, pmodinfo->NumberOfBanks, pmodinfo->MemoryModel, pmodinfo->BankSize, pmodinfo->NumberOfImagePages);
+    consolePrintf("VBE  mode  RedMaskSize:0x%x RedFieldPosition:0x%x GreenMaskSize:0x%x GreenFieldPosition:0x%x BlueMaskSize:0x%x BlueFieldPosition:0x%x DirectColorModeInfo:0x%x PhysBasePtr:0x%x Reserved1:%x Reserved2:%x\n", pmodinfo->RedMaskSize, pmodinfo->RedFieldPosition, pmodinfo->GreenMaskSize, pmodinfo->GreenFieldPosition,
+        pmodinfo->BlueMaskSize, pmodinfo->BlueFieldPosition, pmodinfo->DirectColorModeInfo, pmodinfo->PhysBasePtr, pmodinfo->Reserved1, pmodinfo->Reserved2);
+    if (pvbeinfo->version >= 0x300)
+    {
+        consolePrintf("VBE3.0 LinBytesPerScanLine:0x%x BnkNumberOfImagePages:0x%x LinNumberOfImagePages 0x%x MaxPixelClock:0x%x\n", pmodinfo->LinBytesPerScanLine, pmodinfo->BnkNumberOfImagePages, pmodinfo->LinNumberOfImagePages, pmodinfo->MaxPixelClock);
+        consolePrintf("VBE3.0 LinRedMaskSize:0x%x LinRedFieldPosition:0x%x LinGreenMaskSize:0x%x LinGreenFieldPosition:0x%x LinBlueMaskSize:0x%x LinBlueFieldPosition:0x%x\n", pmodinfo->LinRedMaskSize, pmodinfo->LinRedFieldPosition, pmodinfo->LinGreenMaskSize, pmodinfo->LinGreenFieldPosition,
+            pmodinfo->LinBlueMaskSize, pmodinfo->LinBlueFieldPosition);
+    }
+}
 void getScreenPixSize(Pair *size)
 {
     vbe_mode_info_structure *pmodinfo = g_vbebuff + 512;
@@ -725,7 +715,7 @@ void initConsole()
     Pair screensize;
     getScreenPixSize(&screensize);
     gConsoleinfo.rect.left = 200;
-    gConsoleinfo.rect.right = 999;
+    gConsoleinfo.rect.right = 1159;
     gConsoleinfo.rect.top = 200;
     gConsoleinfo.rect.bottom = 839;
     gConsoleinfo.textColor = 0xFFff00;
@@ -737,6 +727,11 @@ void initConsole()
     uint32_t xCharcount = (gConsoleinfo.rect.right+1- gConsoleinfo.rect.left) / (CONSOLE_PIX_W), yCharcount = (gConsoleinfo.rect.bottom + 1 - gConsoleinfo.rect.top) / (CONSOLE_PIX_H);
     gConsoleinfo.consoleLineCharCount = xCharcount;
     gConsoleinfo.consoleMaxCharCount = xCharcount * yCharcount;
+
+#ifdef  DUMP_VBEINF
+    dumpVbeinfo();
+#endif //  DUMP_VBEINF
+
 }
 void moveRect(Rect* rect, uint32_t top, uint32_t left)
 {
@@ -761,6 +756,40 @@ void scrollConsole(uint32_t line)
     rect.right = gConsoleinfo.rect.right;
     rect.bottom = gConsoleinfo.rect.bottom;
     fillRect(&rect, gConsoleinfo.backColor);
+}
+void consoleClrchar(int count)
+{
+    for (int start = gConsoleinfo.cursorIndex - count; start < gConsoleinfo.cursorIndex; start++)
+    {
+        uint32_t left = gConsoleinfo.rect.left + (start % gConsoleinfo.consoleLineCharCount) * CONSOLE_PIX_W;
+        uint32_t top = gConsoleinfo.rect.top + (start / gConsoleinfo.consoleLineCharCount) * CONSOLE_PIX_H;
+        putCharPix(' ', top, left);
+    }
+    gConsoleinfo.cursorIndex = gConsoleinfo.cursorIndex - count;
+}
+void consolePutchar(int _Character)
+{
+    // putCharPix(*pstr, rect->top, x);
+    char c = _Character;
+
+    if (c == 0x0d)
+        return;
+    if (c == 0x0a)
+    {
+        gConsoleinfo.cursorIndex = ((gConsoleinfo.cursorIndex) / gConsoleinfo.consoleLineCharCount) * gConsoleinfo.consoleLineCharCount + gConsoleinfo.consoleLineCharCount;
+    }
+    else
+    {
+        uint32_t left = gConsoleinfo.rect.left + (gConsoleinfo.cursorIndex % gConsoleinfo.consoleLineCharCount) * CONSOLE_PIX_W;
+        uint32_t top = gConsoleinfo.rect.top + (gConsoleinfo.cursorIndex / gConsoleinfo.consoleLineCharCount) * CONSOLE_PIX_H;
+        putCharPix(c, top, left);
+        gConsoleinfo.cursorIndex++;
+    }
+    if (gConsoleinfo.cursorIndex >= gConsoleinfo.consoleMaxCharCount)
+    {
+        gConsoleinfo.cursorIndex = gConsoleinfo.consoleMaxCharCount - gConsoleinfo.consoleLineCharCount;
+        scrollConsole(1);
+    }
 }
 void consolePuts(const char* str)
 {
@@ -810,6 +839,10 @@ int consolePrintf(const char* fmt, ...)
     va_start(args, fmt);
     printed = vsprintf(printf_buf, fmt, args);
     va_end(args);
+    asm("cli");
+    spinlock(lockBuff[PRINT_LOCK].plock);
     consolePuts(printf_buf);
+    unlock(lockBuff[PRINT_LOCK].plock);
+    asm("sti");
     return printed;
 }

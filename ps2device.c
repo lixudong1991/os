@@ -1,9 +1,9 @@
 #include "ps2device.h"
 #include "osdataPhyAddr.h"
 #include "boot.h"
-#include "printf.h"
+//#include "printf.h"
 #include "string.h"
-
+#include "vbe.h"
 extern uint32 ps2Controllerinit();
 
 enum VariousKeyIndex
@@ -217,7 +217,7 @@ void ps2KeyInterruptProc(uint32_t code)
                     {
                         pkeyBoardStruct->ps2KeyCodeBuffIndex--;
                         pkeyBoardStruct->ps2KeyCodeBuff[pkeyBoardStruct->ps2KeyCodeBuffIndex] = 0;
-                        clearChars(1);
+                        consoleClrchar(1);
                     }
                 }
                 break;
@@ -258,7 +258,7 @@ void ps2KeyInterruptProc(uint32_t code)
                     else
                         pkeyBoardStruct->ps2KeyCodeBuff[pkeyBoardStruct->ps2KeyCodeBuffIndex] = c;
                 }
-                putchar(pkeyBoardStruct->ps2KeyCodeBuff[pkeyBoardStruct->ps2KeyCodeBuffIndex]);
+                consolePutchar(pkeyBoardStruct->ps2KeyCodeBuff[pkeyBoardStruct->ps2KeyCodeBuffIndex]);
                 pkeyBoardStruct->ps2KeyCodeBuffIndex++;
             }
         }
@@ -276,7 +276,7 @@ void ps2KeyInterruptProc(uint32_t code)
             if (pkeyBoardStruct->ps2KeyCodeBuffIndex == KEY_BUFF_SIZE - 64)
                 pkeyBoardStruct->ps2KeyCodeBuffIndex = 0;
             pkeyBoardStruct->ps2KeyCodeBuff[pkeyBoardStruct->ps2KeyCodeBuffIndex] = '\n';
-            putchar(pkeyBoardStruct->ps2KeyCodeBuff[pkeyBoardStruct->ps2KeyCodeBuffIndex]);
+            consolePutchar(pkeyBoardStruct->ps2KeyCodeBuff[pkeyBoardStruct->ps2KeyCodeBuffIndex]);
             pkeyBoardStruct->ps2KeyCodeBuffIndex++;
             pkeyBoardStruct->ps2ScanIndex = 0;
         }
@@ -293,7 +293,7 @@ void ps2KeyInterruptProc(uint32_t code)
             if (pkeyBoardStruct->ps2KeyCodeBuffIndex == KEY_BUFF_SIZE - 64)
                 pkeyBoardStruct->ps2KeyCodeBuffIndex = 0;
             pkeyBoardStruct->ps2KeyCodeBuff[pkeyBoardStruct->ps2KeyCodeBuffIndex] = '/';
-            putchar(pkeyBoardStruct->ps2KeyCodeBuff[pkeyBoardStruct->ps2KeyCodeBuffIndex]);
+            consolePutchar(pkeyBoardStruct->ps2KeyCodeBuff[pkeyBoardStruct->ps2KeyCodeBuffIndex]);
             pkeyBoardStruct->ps2KeyCodeBuffIndex++;
             pkeyBoardStruct->ps2ScanIndex = 0;
         }

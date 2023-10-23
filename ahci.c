@@ -249,7 +249,7 @@ void initAHCI()
         //  TRACEAHCI("pcie config addr:0x%x bus:%d device:%d vendorID: 0x%x  deviceID:0x%x\n", pcieConfigInfos[i].pConfigPage, pcieConfigInfos[i].bus,
         //         pcieConfigInfos[i].device, pcieConfigInfos[i].pConfigPage->VendorID, pcieConfigInfos[i].pConfigPage->deviceID);
         //  asm("sti");
-#if 0
+#if 1
         if (pcieConfigInfos[i].pConfigPage->VendorID == 0x8086 && pcieConfigInfos[i].pConfigPage->deviceID == 0xa282)
         {
             ahciconfig = &(pcieConfigInfos[i]);

@@ -392,6 +392,7 @@ void releaseLock(LockObj *lobj)
 }
 void APproc(uint32 argv)
 {
+	setCpuHwp();
 	uint32_t eax = 0, edx = 0;
 	rdmsr_fence(IA32_APIC_BASE_MSR, &eax, &edx);
 	setidtr(&(kernelData.idtInfo));
@@ -617,8 +618,10 @@ void testAHCI()
 	}
 }
 extern void initFs();
+extern void testFATfs();
 int _start(void *bargv,void *vbe)
 {
+	setCpuHwp();
 	// clearscreen();
 	memcpy_s((char *)&bootparam, (char *)bargv, sizeof(BootParam));
 	memcpy_s(g_vbebuff, (char *)vbe, VBE_BUFF_SIZE);
@@ -747,10 +750,8 @@ int _start(void *bargv,void *vbe)
 	rect.bottom = screensize.y-1;
 	fillRect(&rect, 0x707070);
 	initConsole();
-
-	consolePrintf("The Intel386 processor was the first 32-bit processor in the IA-32 architecture family\n");
-	for(int i=0;i<30;i++)
-	consolePrintf("The Intel386 processor was the first 32-bit processor in the IA-32 architecture family. It introduced 32-bit registers for use both to hold operands and for addressing. The lower half of each 32-bit Intel386 register retains the properties of the 16-bit registers of earlier generations, permitting backward compatibility. The processor also provides a virtual-8086 mode that allows for even greater efficiency when executing programs created for 8086/8088 processors.    [END]\n");
+	check_cpuHwp();
+	testFATfs();
 	/*
 	Bitmap* bitmap = createBitmap32FromBMP24("/img/bg.bmp");
 	rect.left = 400;

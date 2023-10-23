@@ -1,7 +1,7 @@
 #include "ff.h"
 #include "stdint.h"
 #include "boot.h"
-#include "printf.h"
+#include "vbe.h"
 #include "string.h"
 #include "ps2device.h"
 #include "diskio.h"
@@ -10,8 +10,8 @@
 
 
 
-#ifdef TEST_FATFS
 static FATFS* FatFs = NULL;   //一定是一个全局变量
+
 static BYTE* Buff = NULL;//[FF_MAX_SS]; //一定是一个全局变量
 #define Buff_LEN 4096
 static DIR* Dir = NULL;
@@ -28,8 +28,8 @@ void initFATfsObj()
 	// static FIL *File[2];
 	// static FILINFO *Finfo=NULL;
 
-	FatFs = kernel_malloc(sizeof(FATFS));
-	memset(FatFs, 0, sizeof(FATFS));
+	//FatFs = kernel_malloc(sizeof(FATFS));
+	//memset(FatFs, 0, sizeof(FATFS));
 
 	Buff = kernel_malloc(Buff_LEN);
 	memset(Buff, 0, Buff_LEN);
@@ -93,7 +93,7 @@ void put_rc (FRESULT rc)
 	for (i = 0; i != rc && *str; i++) {
 		while (*str++) ;
 	}
-	printf("rc=%u FR_%s\n", (UINT)rc, str);
+	consolePrintf("rc=%u FR_%s\n", (UINT)rc, str);
 }
 static
 const char HelpMsg[] =
@@ -137,9 +137,9 @@ const char HelpMsg[] =
 	" v <name> vbeinfo wirte\n"
 	"\n";
 
-#define xputs puts
-#define xprintf  printf
-#define xputc putchar
+#define xputs consolePuts
+#define xprintf  consolePrintf
+#define xputc consolePutchar
 #define xgets fgets
 
 void put_dump (
@@ -239,7 +239,6 @@ int xatoi (			/* 0:Failed, 1:Successful */
 	*res = val;
 	return 1;
 }
-void wirteVBEinfo(char *filename);
 void testFATfs()
 {
     initFATfsObj();
@@ -714,32 +713,21 @@ void testFATfs()
 	        currtime.wHour,currtime.wMinute,currtime.wSecond);
 			break;
         }
-		case 'v':
-		{
-			while (*ptr == ' ') ptr++;
-			wirteVBEinfo(ptr);
-		}
 		}
 	}
 }
-void wirteVBEinfo(char *filename)
-{
-
-}
-#else
-static FATFS* gFatFs = NULL;   //一定是一个全局变量
 //static DIR* gCurrentDir = NULL;
 void initFs()
 {
-	gFatFs = kernel_malloc(sizeof(FATFS));
-	memset(gFatFs, 0, sizeof(FATFS));
+	FatFs = kernel_malloc(sizeof(FATFS));
+	memset(FatFs, 0, sizeof(FATFS));
 	//gCurrentDir = kernel_malloc(sizeof(DIR));
 	//memset(gCurrentDir, 0, sizeof(DIR));
 
 	FRESULT  res;   //局部变量
 	disk_initialize(0);
 
-	res = f_mount(gFatFs, "", 0);   //挂载文件系统 ， "1:"就是挂载的设备号为1的设备
+	res = f_mount(FatFs, "", 0);   //挂载文件系统 ， "1:"就是挂载的设备号为1的设备
 	if (res != FR_OK)  //FR_NO_FILESYSTEM值为13，表示没有有效的设备
 	{
 		//fswork = kernel_malloc(FF_MAX_SS);
@@ -793,5 +781,3 @@ void initFs()
 
 	*/
 }
-
-#endif

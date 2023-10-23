@@ -154,6 +154,8 @@ void moveRect(Rect* rect, uint32_t top, uint32_t left);
 void drawBitmap(Rect* rect,Bitmap *data);
 void printText(const char* text, Rect* rect);
 void consolePuts(const char* str);
+void consolePutchar(int _Character);
+void consoleClrchar(int count);
 void setConsoleRect(Rect* rect);
 void setConsoleTextColor(uint32_t color);
 void setConsoleTextBackColor(uint32_t color);
@@ -162,4 +164,5 @@ int  rectIsVaild(Rect* rect);
 void drawPngImage(Rect* rect,const char *filepath);
 Bitmap* createBitmap32FromBMP24(const char* bmpfilepath);
 int consolePrintf(const char* fmt, ...);
+
 #endif

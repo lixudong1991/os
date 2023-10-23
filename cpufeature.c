@@ -3,6 +3,7 @@
 #include "apic.h"
 #include "memcachectl.h"
 #include "printf.h"
+#include "vbe.h"
 int cpufeatures[cpu_feature_size] = {0};
 
 void check_cpu_features()
@@ -52,5 +53,68 @@ void check_cpu_features()
 	{
 		cpuidcall(5, &eax, &ebx, &ecx, &edx);
 		printf("cpuid[5] EAX:0x%x EBX:0x%x smallsize:0x%x largestsize:0x%x\n", eax, ebx, ecx & 0x0000ffff, edx & 0x0000ffff);
+	}
+}
+void setCpuHwp()
+{
+	uint32_t eax = 0, ebx = 0, ecx = 0, edx = 0;
+	cpuidcall(6, &eax, &ebx, &ecx, &edx);
+	if (eax & 0x80)
+	{
+		wrmsrcall(IA32_PM_ENABLE, 1, 0);
+		if (eax & 0x400)
+		{
+			//设置cpu为性能优先 Minimum_Performance = Maximum_Performance = 4000MHZ   Desired_Performance =4000MHZ
+			wrmsrcall(IA32_HWP_REQUEST, 0x282828, edx);
+		}
+	}
+}
+void check_cpuHwp()
+{
+	uint32_t eax = 0, ebx = 0, ecx = 0, edx = 0;
+	cpuidcall(6, &eax, &ebx, &ecx, &edx);
+	consolePrintf("cpuid call 6  eax:0x%x ecx:0x%x\n",eax, ecx);
+	uint32_t temp = eax;
+	if (ecx & 8)
+	{
+		rdmsrcall(IA32_ENERGY_PERF_BIAS, &eax, &edx);
+		consolePrintf("IA32_ENERGY_PERF_BIAS  eax:0x%x edx:0x%x\n", eax, edx);
+	}
+	 
+	if (temp &0x80)
+	{
+		rdmsrcall(IA32_PM_ENABLE, &eax, &edx);
+		consolePrintf("IA32_PM_ENABLE  eax:0x%x edx:0x%x\n", eax, edx);
+		rdmsrcall(IA32_HWP_CAPABILITIES, &eax, &edx);
+		consolePrintf("IA32_HWP_CAPABILITIES  eax:0x%x edx:0x%x\n", eax, edx);
+		rdmsrcall(IA32_HWP_REQUEST, &eax, &edx);
+		consolePrintf("IA32_HWP_REQUEST  eax:0x%x edx:0x%x\n", eax, edx);
+		rdmsrcall(IA32_HWP_STATUS, &eax, &edx);
+		consolePrintf("IA32_HWP_STATUS  eax:0x%x edx:0x%x\n", eax, edx);
+		
+		//rdmsrcall(IA32_THERM_STATUS, &eax, &edx);
+		//consolePrintf("IA32_THERM_STATUS  eax:0x%x edx:0x%x\n", eax, edx);
+		//rdmsrcall(MSR_PPERF, &eax, &edx);
+		//consolePrintf("MSR_PPERF  eax:0x%x edx:0x%x\n", eax, edx);
+	}
+	if (temp &0x400000)
+	{
+		rdmsrcall(IA32_HWP_CTL, &eax, &edx);
+		consolePrintf("IA32_HWP_CTL  eax:0x%x edx:0x%x\n", eax, edx);
+	}
+	if (temp & 0x10000)
+	{
+		rdmsrcall(IA32_HWP_PECI_REQUEST_INFO, &eax, &edx);
+		consolePrintf("IA32_HWP_PECI_REQUEST_INFO  eax:0x%x edx:0x%x\n", eax, edx);
+	}
+	if (temp & 0x100)
+	{
+		rdmsrcall(IA32_HWP_INTERRUPT, &eax, &edx);
+		consolePrintf("IA32_HWP_INTERRUPT  eax:0x%x edx:0x%x\n", eax, edx);
+	}
+	if (temp & 0x800)
+	{
+		rdmsrcall(IA32_HWP_REQUEST_PKG, &eax, &edx);
+		consolePrintf("IA32_HWP_REQUEST_PKG  eax:0x%x edx:0x%x\n", eax, edx);
 	}
 }
