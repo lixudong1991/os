@@ -750,7 +750,7 @@ int _start(void *bargv,void *vbe)
 	rect.bottom = screensize.y-1;
 	fillRect(&rect, 0x707070);
 	initConsole();
-	check_cpuHwp();
+	//check_cpuHwp();
 	testFATfs();
 	/*
 	Bitmap* bitmap = createBitmap32FromBMP24("/img/bg.bmp");

@@ -284,7 +284,7 @@ void initAcpiTable()
     memset_s(Madt_LOCALAPIC, 0, MAX_LOAPIC_COUNT * sizeof(LocalApicEntry *));
     memset_s(mcfgPciConfigSpace, 0, MAX_MCFG_PCICONFIG_COUNT * sizeof(pciConfigSpaceBaseAddr *));
 
-#if 1
+#if 0
 	
 	for (int i = 0; i < bootparam.memInfoSize; i++)
 	{
