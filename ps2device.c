@@ -14,8 +14,7 @@ enum VariousKeyIndex
 	SHIFT_INDEX,
 	ALT_INDEX,
 	CONTROL_INDEX,
-	ENTER_PRESS,
-	BACKSPACE_INDEX
+	ENTER_PRESS
 };
 
 #pragma pack(1)
@@ -41,7 +40,7 @@ uint32 ps2DeviceInit()
 	scanSet2Map = kernel_malloc(320);
 	memset_s(scanSet2Map, 0, 320);
 
-	scanSet2Map[0x66] = 0x8; //	back pressed
+	//scanSet2Map[0x66] = 0x8; //	back pressed
 	scanSet2Map[0x5A] = '\n'; //	enter pressed
 	scanSet2Map[0x0D] = 0x9;  // tab pressed
 	scanSet2Map[0x0E] = '`';  //(back tick) pressed
@@ -107,7 +106,7 @@ uint32 ps2DeviceInit()
 	scanSet2Map[0x7C] = '*';  //(keypad)  pressed
 	scanSet2Map[0x7B] = '-';  //(keypad)  pressed
 
-	scanSet2Map[0x66] |= ((uint16_t)0x8) << 8; //	back pressed
+	//scanSet2Map[0x66] |= ((uint16_t)0x8) << 8; //	back pressed
 	scanSet2Map[0x5A] |= ((uint16_t)'\n') << 8; //	enter pressed
 	scanSet2Map[0x0D] |= ((uint16_t)0x9) << 8;  // tab pressed
 	scanSet2Map[0x15] |= ((uint16_t)'Q') << 8;  // pressed
@@ -211,6 +210,16 @@ void ps2KeyInterruptProc(uint32_t code)
 				break;
 				case 0x77: //	NumberLock pressed
 				{
+				}
+				break;
+				case 0x66:
+				{
+					if (pkeyBoardStruct->ps2KeyCodeBuffIndex > 0)
+					{
+						pkeyBoardStruct->ps2KeyCodeBuffIndex--;
+						pkeyBoardStruct->ps2KeyCodeBuff[pkeyBoardStruct->ps2KeyCodeBuffIndex] = 0;
+						consoleClrchar(1);
+					}
 				}
 				break;
 				default:
@@ -333,7 +342,7 @@ uint32 getchar()
 {
 	while (1)
 	{
-		/*
+		
 		if (pkeyBoardStruct->Various[ENTER_PRESS])
 		{
 			if (pkeyBoardStruct->ps2KeyCodeBuffIndex != 0)
@@ -355,15 +364,7 @@ uint32 getchar()
 				pkeyBoardStruct->Various[ENTER_PRESS] = 0;
 			}
 		}
-		*/
-		asm("cli")
-		if (pkeyBoardStruct->ps2KeyCodeBuffIndex != 0)
-		{
-			char ret = pkeyBoardStruct->ps2KeyCodeBuff[pkeyBoardStruct->ps2KeyCodeBuffIndex];
-			pkeyBoardStruct->ps2KeyCodeBuffIndex = 0;
-			asm("sti");
-			return ret;
-		}
+		
 		asm("sti");
 		asm("hlt");
 	}
