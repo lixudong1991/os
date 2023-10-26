@@ -154,6 +154,7 @@ void dumpVbeinfo()
         consolePrintf("VBE3.0 LinRedMaskSize:0x%x LinRedFieldPosition:0x%x LinGreenMaskSize:0x%x LinGreenFieldPosition:0x%x LinBlueMaskSize:0x%x LinBlueFieldPosition:0x%x\n", pmodinfo->LinRedMaskSize, pmodinfo->LinRedFieldPosition, pmodinfo->LinGreenMaskSize, pmodinfo->LinGreenFieldPosition,
             pmodinfo->LinBlueMaskSize, pmodinfo->LinBlueFieldPosition);
     }
+    consolePrintf("VBE  pixelclock:0x%x\n", *(uint32_t*)(g_vbebuff+2044));
 }
 void getScreenPixSize(Pair *size)
 {
@@ -643,8 +644,7 @@ static void initConsoleFont()
     uint32_t br = 0, filesize = 0;
     FIL fp;
 
-    if (gConsoleFont32 == NULL)
-        gConsoleFont32 = kernel_malloc(CONSOLE_ASCII_CODE_COUNT * CONSOLE_PIX_W * CONSOLE_PIX_H * CONSOLE_PIX_SIZE);
+    gConsoleFont32 = kernel_malloc(CONSOLE_ASCII_CODE_COUNT * CONSOLE_PIX_W * CONSOLE_PIX_H * CONSOLE_PIX_SIZE);
     res = f_open(&fp, CONSOLE_FONT_IMAGE, FA_OPEN_ALWAYS | FA_READ);
     if (res != FR_OK)
         return;
