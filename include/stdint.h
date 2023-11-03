@@ -35,6 +35,8 @@ typedef uint32_t ULONG;
 typedef uint32_t phys_addr_t;
 typedef uint32_t phys_size_t;
 
+typedef uint32_t vir_addr_t;
+typedef uint32_t vir_size_t;
 
 typedef unsigned short wchar_t;
 typedef wchar_t WCHAR;

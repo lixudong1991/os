@@ -23,22 +23,22 @@ r:		mov bx,0600h
 		retf
 		times 446-($-$$) db 0
 
-;fsActive		db 0x80
-;fsStartHead		db 0x20
-;fsStartCylSect	dw 0x21
-;fsPartType		db 0x0c
-;fsEndHead		db 0xfe
-;fsEndCylSect 	dw 0xffff
-;fsStartLBA		dd 0x800
-;fsSize			dd 0x4000000-0x800
-fsActive		db 0x00
+fsActive		db 0x80
 fsStartHead		db 0x20
 fsStartCylSect	dw 0x21
-fsPartType		db 0x07
+fsPartType		db 0x0c
 fsEndHead		db 0xfe
 fsEndCylSect 	dw 0xffff
 fsStartLBA		dd 0x800
-fsSize			dd 0x1d1c4800
+fsSize			dd 0x4000000-0x800
+;fsActive		db 0x00
+;fsStartHead		db 0x20
+;fsStartCylSect	dw 0x21
+;fsPartType		db 0x07
+;fsEndHead		db 0xfe
+;fsEndCylSect 	dw 0xffff
+;fsStartLBA		dd 0x800
+;fsSize			dd 0x1d1c4800
 		times 48 db 0
 		db 55h,0aah
 osstart:mov ax,0
@@ -769,29 +769,29 @@ cpvbeprorevend:
 		mov es,ax
 		mov di,0600h+vbe_mode_info_structure-osstart
 		mov ax,0x4f01
-		mov cx,0x14a;0x14f;0x152;0x155 ;0x14c
+		mov cx,0x14f;0x14a;0x152;0x155 ;0x14c
 		int 0x10
 		cmp ax,0x004f
 		jne readKDataErr
 
-		mov ax, 0x4F0B
-		xor bx,bx
-		mov ecx,0x6D1CD00
-		mov dx,0x14a
-		int 0x10
-		cmp ax,0x004f
-		jne readKDataErr
-		mov dword [0600h+vbepixelclock-osstart],ecx
+	;	mov ax, 0x4F0B
+	;	xor bx,bx
+	;	mov ecx,0x6402FA8
+		mov dx,0x14f;0x14a;
+	;	int 0x10
+	;	cmp ax,0x004f
+	;	jne readKDataErr
+	;	mov dword [0600h+vbepixelclock-osstart],ecx
 
-		xor ax,ax
-		mov es,ax
-		mov di,0600h+CRTCInfoBlock-osstart
-		mov ax, 0x4F02	; set VBE mode
-		mov bx,0x494A;0x414f;0x4155 ;0x414c	; VBE mode number; notice that bits 0-13 contain the mode number and bit 14 (LFB) is set and bit 15 (DM) is clear.
+;		xor ax,ax
+;		mov es,ax
+;		mov di,0600h+CRTCInfoBlock-osstart
+;		mov ax, 0x4F02	; set VBE mode
+;		mov bx,0x414f;0x494A;0x4155 ;0x414c	; VBE mode number; notice that bits 0-13 contain the mode number and bit 14 (LFB) is set and bit 15 (DM) is clear.
 		
-		int 0x10			; call VBE BIOS
-		cmp ax, 0x004F	; test for error
-		jne readKDataErr
+;		int 0x10			; call VBE BIOS
+;		cmp ax, 0x004F	; test for error
+;		jne readKDataErr
 
 
 		xor ax,ax

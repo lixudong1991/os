@@ -122,6 +122,10 @@ typedef struct TssHead
 	uint16 empty;
 	uint16 ioPermission;
 } TssHead;
+typedef struct TssPointer {
+	TssHead* pTssdata;
+	uint32	tsssel;
+}TssPointer;
 #define TaskFreeMemListNodeUse     1
 #define TaskFreeMemListNodeUnUse   0
 typedef struct TaskFreeMemList
@@ -132,21 +136,81 @@ typedef struct TaskFreeMemList
 	uint32_t status;
 }
 TaskFreeMemList;
+
+typedef struct {
+	uint32 eip;
+	uint32 eflags;
+	uint32 eax;
+	uint32 ecx;
+	uint32 edx;
+	uint32 ebx;
+	uint32 esp;
+	uint32 esp0;
+	uint32 ebp;
+	uint32 esi;
+	uint32 edi;
+}cpu_thread_status_t;
+typedef struct {
+	uint32 es;
+	uint32 cs;
+	uint32 ss;
+	uint32 ds;
+	uint32 fs;
+	uint32 gs;
+	uint32 ss0;
+	uint32 cr3;
+	uint32 ioPermission;
+}cpu_process_status_t;
+
+typedef enum {
+	READY,
+	RUNNING,
+	SLEEPING,
+	WAIT,
+	DEAD
+} status_t;
+
+
+#define NAME_MAX_LEN 32
+
+typedef struct{
+	size_t tid;
+	cpu_thread_status_t context;
+	status_t status;
+	uint64_t wake_time;
+	uint32 sched_priority;
+	struct thread_t* next;
+} thread_t;
+
+typedef struct
+{
+	size_t pid;
+	cpu_process_status_t context;
+	thread_t* threads;
+	char name[NAME_MAX_LEN];
+}process_t;
+
 typedef struct TaskCtrBlock
 {
 	struct TaskCtrBlock *next;
 	struct TaskCtrBlock *prior;
 	uint32 *pFreeListAddr;
-	uint32 tssSel;
-	uint32 taskStats;
-	TssHead TssData;
+	process_t processdata;
 } TaskCtrBlock;
 
 typedef struct TcbList
 {
 	TaskCtrBlock *tcb_Frist;
 	TaskCtrBlock *tcb_Last;
-	uint32 size;
+	TaskCtrBlock* pcurrTask;
+	uint32_t size;
+	uint32_t es;
+	uint32_t cs;
+	uint32_t ss;
+	uint32_t ds;
+	uint32_t fs;
+	uint32_t gs;
+	uint32_t ss0;
 } TcbList;
 typedef struct ProgramaData
 {
@@ -161,7 +225,7 @@ typedef struct KernelData
 	uint32 *pageDirectory;
 	Tableinfo idtInfo;
 	TcbList taskList;
-	TaskCtrBlock *nextTask;
+	TssHead*  tssdata;
 	uint32 gataSize;
 	GateInfo gateInfo[MAX_GATECOUNT];
 } KernelData;
@@ -351,6 +415,7 @@ enum Lock_ID
 	UPDATE_GDT_CR3,
 	AHCI_LOCK,
 	UC_VAR_LOCK,
+	CREATE_TASK_LOCK,
 	LOCK_COUNT
 };
 
@@ -374,4 +439,6 @@ typedef struct _SYSTEMTIME {
 } SYSTEMTIME;
 
 void getCmosDateTime(SYSTEMTIME *datetime);
+
+extern void switchStack(uint32_t* oldss,uint32_t *oldesp, uint32_t newss,uint32_t newesp, uint32_t cr3dat);
 #endif

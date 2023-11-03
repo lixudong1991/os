@@ -5,8 +5,9 @@
 #include "memcachectl.h"
 #include "osdataPhyAddr.h"
 extern KernelData kernelData;
-extern TaskCtrBlock **mainTask;
-extern TaskCtrBlock **procCurrTask;
+extern TcbList* cpuTaskList;
+extern TaskCtrBlock** pEmptyTask;
+extern TssPointer* cpuTssdata;
 extern ProcessorInfo processorinfo;
 extern AParg *aparg;
 int general_exeption_no_code(uint32 eno,uint32 addr)
@@ -52,6 +53,47 @@ static void x2ApicTimeOut()
 }
 static void xApicTimeOut()
 {
+    LOCAL_APIC* apic = (LOCAL_APIC*)getXapicAddr();
+    uint32_t apid = apic->ID[0] >> 24;
+    TaskCtrBlock* pTask = cpuTaskList[apid].pcurrTask;
+
+    if (pTask->processdata.threads->status != SLEEPING)
+        pTask->processdata.threads->status = READY;
+
+    TaskCtrBlock* nextTask = NULL;
+     
+    pTask = pTask->next;
+    while (1)
+    {
+        if (pTask == NULL)
+            pTask = cpuTaskList[apid].tcb_Frist;
+        if (pTask->processdata.threads->status == READY)
+        {
+            nextTask = pTask;
+            break;
+        }
+    }
+    if (nextTask ==NULL)
+    {
+        nextTask = pEmptyTask[apid];
+    }
+    if (nextTask == cpuTaskList[apid].pcurrTask)
+    {
+        apic->InitialCount[0] = 0xffffff;
+        nextTask->processdata.threads->status = RUNNING;
+        xapicwriteEOI();
+        return;
+    }
+    TaskCtrBlock* temp = cpuTaskList[apid].pcurrTask;
+    cpuTaskList[apid].pcurrTask = nextTask;
+    cpuTssdata[apid].pTssdata->ss0 = cpuTaskList[apid].pcurrTask->processdata.context.ss0;
+    cpuTssdata[apid].pTssdata->esp0 = cpuTaskList[apid].pcurrTask->processdata.threads->context.esp0;
+
+    apic->InitialCount[0] = 0xffffff;
+    nextTask->processdata.threads->status = RUNNING;
+    xapicwriteEOI();
+    switchStack(&(temp->processdata.context.ss),&(temp->processdata.threads->context.esp), nextTask->processdata.context.ss, nextTask->processdata.threads->context.esp, nextTask->processdata.context.cr3);
+    /*
     LOCAL_APIC *apic = (LOCAL_APIC *)getXapicAddr();
     uint32 apid = apic->ID[0] >> 24;
     if(kernelData.taskList.size<2)
@@ -89,6 +131,7 @@ static void xApicTimeOut()
             apic->InitialCount[0] = 0xfffff;
         xapicwriteEOI();
     }
+    */
 }
 void systemCall()
 {

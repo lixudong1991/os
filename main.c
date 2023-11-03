@@ -26,8 +26,11 @@ KernelData kernelData;
 LockBlock *lockblock = NULL;
 AParg *aparg = (AParg *)AP_ARG_ADDR;
 ProcessorInfo processorinfo;
-TaskCtrBlock **procCurrTask = NULL;
+TcbList *cpuTaskList = NULL;
+TaskCtrBlock** pEmptyTask = NULL;
+TssPointer* cpuTssdata=NULL;
 LockObj *lockBuff = NULL;
+uint32_t* g_pidIndex=NULL;
 char *hexstr32(char buff[9], uint32 val)
 {
 	char hexs[] = "0123456789ABCDEF";
@@ -199,18 +202,9 @@ static void createInterruptGate(KernelData *kdata)
 	setidtr(&(kdata->idtInfo));
 	sti_s();
 }
-TaskCtrBlock *createNewTcb(TcbList *taskList)
-{
-	TaskCtrBlock *newTcb = (TaskCtrBlock *)allocate_memory(taskList->tcb_Frist, sizeof(TaskCtrBlock), PAGE_G | PAGE_RW);
-	memset_s(newTcb, 0, sizeof(TaskCtrBlock));
-	// newTcb->prior = taskList->tcb_Last;
-	taskList->tcb_Last->next = newTcb;
-	newTcb->next = taskList->tcb_Frist;
-	taskList->tcb_Last = newTcb;
-	taskList->size++;
-	return newTcb;
-}
 
+
+/*
 void createTask(TcbList *taskList, int taskStartSection, int SectionCount)
 {
 	cli_s();
@@ -331,6 +325,111 @@ void createTask(TcbList *taskList, int taskStartSection, int SectionCount)
 	xapic_obj->ICR1[0] = 0;
 	xapic_obj->ICR0[0] = 0x84083; // 更新gdt,cr3
 }
+*/
+thread_t* add_thread(process_t* proc, void(*function)(void*), void* arg)
+{
+
+}
+TaskCtrBlock* createNewTcb(TcbList* taskList)
+{
+	TaskCtrBlock* newTcb = (TaskCtrBlock*)kernel_malloc(sizeof(TaskCtrBlock));
+	memset_s(newTcb, 0, sizeof(TaskCtrBlock));
+	if (taskList->size == 0)
+	{
+		taskList->tcb_Frist = taskList->tcb_Last = newTcb;
+		taskList->size++;
+	}
+	else {
+		newTcb->prior = taskList->tcb_Last;
+		taskList->tcb_Last->next = newTcb;
+		taskList->tcb_Last = newTcb;
+		taskList->size++;
+	}
+	return newTcb;
+}
+
+void createProcess(const char *filename, uint32 sched_priority)
+{
+	FRESULT res;
+	FIL fp;
+	res = f_open(&fp, filename, FA_OPEN_ALWAYS | FA_READ);
+	if (res != FR_OK)
+		return;
+	uint32_t br = 0, filesize = 0;
+	filesize = f_size(&fp);
+	char* filedata = kernel_malloc(filesize);
+	res = f_read(&fp, filedata, filesize, &br);
+	f_close(&fp);
+	if (res != FR_OK)
+	{
+		kernel_free(filedata);
+		return;
+	}
+	ProgramaData prodata;
+	prodata.vir_end = 0;
+	prodata.vir_base = 0xffffffff;
+	loadElf(filedata, &prodata, PRIVILEGUSER);
+	kernel_free(filedata);
+
+	spinlock(lockBuff[CREATE_TASK_LOCK].plock);
+	uint32_t pid = (*g_pidIndex)++;
+	uint32_t cpuidnnum = (pid) % processorinfo.count;
+	TaskCtrBlock* newTask = createNewTcb(&(cpuTaskList[cpuidnnum]));
+	unlock(lockBuff[CREATE_TASK_LOCK].plock);
+
+	newTask->pFreeListAddr = (uint32*)allocUnCacheMem(sizeof(uint32));
+	TaskFreeMemList* pFreeList = kernel_malloc(sizeof(TaskFreeMemList));
+	*(newTask->pFreeListAddr) = pFreeList;
+	pFreeList->memAddr = prodata.vir_end + 1;
+	pFreeList->next = NULL;
+	pFreeList->memSize = USERMALLOCEND - pFreeList->memAddr;
+
+	uint32_t allocaddr = USERSTACK_ADDR;
+	char* stack = allocateVirtual4kPage(USERSTACK_SIZE, &allocaddr, PAGE_ALL_PRIVILEG | PAGE_RW);
+	allocaddr = USERSTACK0_ADDR;
+	char* stack0 = allocateVirtual4kPage(USERSTACK0_SIZE, &allocaddr, PAGE_RW);
+
+	newTask->processdata.pid = pid;
+	newTask->processdata.threads = kernel_malloc(sizeof(thread_t));
+	memset_s(newTask->processdata.threads, 0, sizeof(thread_t));
+	newTask->processdata.context.es = cpuTaskList[cpuidnnum].es;
+	newTask->processdata.context.cs = cpuTaskList[cpuidnnum].cs;
+	newTask->processdata.context.ss = cpuTaskList[cpuidnnum].ss;
+	newTask->processdata.context.ds = cpuTaskList[cpuidnnum].ds;
+	newTask->processdata.context.fs = cpuTaskList[cpuidnnum].fs;
+	newTask->processdata.context.gs = cpuTaskList[cpuidnnum].gs;
+	newTask->processdata.context.ss0 = cpuTaskList[cpuidnnum].ss0;
+	newTask->processdata.context.ioPermission = sizeof(TssHead) - 1;
+	newTask->processdata.threads->status = READY;
+	newTask->processdata.threads->sched_priority = 1;
+	newTask->processdata.threads->tid = 0;
+	newTask->processdata.threads->context.esp = (uint32)stack + USERSTACK_SIZE;
+	newTask->processdata.threads->context.esp0 = (uint32)stack0 + USERSTACK0_SIZE;
+	newTask->processdata.threads->context.eip = prodata.proEntry;
+	newTask->processdata.threads->context.eflags = flags_data();
+	newTask->processdata.threads->context.esp -= 8;
+	newTask->processdata.threads->sched_priority = sched_priority;
+	*(int*)(newTask->processdata.threads->context.esp) = 1;
+	*(char*)(newTask->processdata.threads->context.esp + 4) = NULL;
+
+	uint32 taskPageDir = (uint32)allocatePhy4kPage(0);
+
+	*(uint32*)0xFFFFFFF8 = (taskPageDir | 0x7);
+	newTask->processdata.context.cr3 = (taskPageDir);
+	resetcr3();
+	memcpy_s((char*)0xFFFFE000, (char*)(kernelData.pageDirectory), 4096);
+	*(uint32*)0xFFFFEFFC = (taskPageDir | 0x7);
+	*(uint32*)0xFFFFEFF8 = 0;
+	memset_s(0xfffff004, 0, 0xBF8);
+	*(uint32*)0xFFFFFFF8 = 0;
+	resetcr3();
+	LOCAL_APIC* xapic_obj = (LOCAL_APIC*)(processorinfo.processcontent[cpuidnnum].apicAddr);
+	xapic_obj->InitialCount[0] = 0;
+	xapic_obj->ICR1[0] = 0;
+	xapic_obj->ICR0[0] = 0x44082;
+	printf("apicaddr:0x%x\n", xapic_obj);
+}
+
 /*
 void testfun()
 {
@@ -397,8 +496,9 @@ void APproc(uint32 argv)
 	rdmsr_fence(IA32_APIC_BASE_MSR, &eax, &edx);
 	setidtr(&(kernelData.idtInfo));
 	setgdtr(&(kernelData.gdtInfo));
-	settr(procCurrTask[argv]->tssSel);
-	procCurrTask[argv]->taskStats = 1;
+	settr(cpuTssdata[argv].tsssel);
+	pEmptyTask[argv]->processdata.threads->status = RUNNING;
+	cpuTaskList[argv].pcurrTask = pEmptyTask[argv];
 	asm("sti");
 	// if ((eax & 0x100) == 0) // 判读是否是AP
 	{
@@ -409,15 +509,15 @@ void APproc(uint32 argv)
 		unlock(lockBuff[KERNEL_LOCK].plock);
 		processorinfo.processcontent[argv].id = argv;
 		processorinfo.processcontent[argv].apicAddr = getXapicAddr();
-		LOCAL_APIC *xapic_obj = (LOCAL_APIC *)(processorinfo.processcontent[argv].apicAddr);
-		xapic_obj->LVT_Timer[0] = 0x82;
-		xapic_obj->DivideConfiguration[0] = 9;
 		// xapic_obj->InitialCount[0] = 0xfffff;
 		spinlock(lockBuff[KERNEL_LOCK].plock);
 		aparg->logcpucount++;
 		unlock(lockBuff[KERNEL_LOCK].plock);
 		while (aparg->logcpucount < processorinfo.count)
 			;
+		LOCAL_APIC* xapic_obj = (LOCAL_APIC*)(processorinfo.processcontent[argv].apicAddr);
+		xapic_obj->LVT_Timer[0] = 0x82;
+		xapic_obj->DivideConfiguration[0] = 3;
 		//	xapic_obj->InitialCount[0] = 0xfffff;
 		while (1)
 		{
@@ -496,26 +596,37 @@ void MPinit()
 	memset_s(&processorinfo, 0, sizeof(processorinfo));
 	processorinfo.count = aparg->logcpucount;
 	processorinfo.processcontent[0].id = 0;
-	processorinfo.processcontent[0].apicAddr = getXapicAddr();
+
 
 	addr = xapicaddr, size = 0x1000 * (aparg->logcpucount);
 	temp = mem_fix_type_set(addr, size, MEM_UC);
 	printf("after 0x%x mem cache type %d temp=%d\n", addr, mem_cache_type_get(addr, size), temp);
 
 	initApic();
+	processorinfo.processcontent[0].apicAddr = getXapicAddr();
 
-	procCurrTask = allocate_memory(kernelData.taskList.tcb_Frist, processorinfo.count * sizeof(TaskCtrBlock *), PAGE_G | PAGE_RW);
-	procCurrTask[0] = kernelData.taskList.tcb_Frist;
-	procCurrTask[0]->taskStats = 1;
+	cpuTaskList = allocate_memory(kernelData.taskList.tcb_Frist, processorinfo.count * sizeof(TcbList), PAGE_G | PAGE_RW);
+	memset_s(cpuTaskList,0, processorinfo.count * sizeof(TcbList));
+	pEmptyTask = allocate_memory(kernelData.taskList.tcb_Frist, processorinfo.count * sizeof(TaskCtrBlock*), PAGE_G | PAGE_RW);
+	cpuTssdata = allocate_memory(kernelData.taskList.tcb_Frist, processorinfo.count * sizeof(TssPointer), PAGE_G | PAGE_RW);
+	memset_s(cpuTssdata, 0, processorinfo.count * sizeof(TssHead*));
+	cpuTssdata[0].pTssdata = kernelData.tssdata;
+	pEmptyTask[0] = kernelData.taskList.tcb_Frist;
+	cpuTaskList[0].pcurrTask = pEmptyTask[0];
 	TableSegmentItem tempSeg;
 	memset_s((char *)&tempSeg, 0, sizeof(TableSegmentItem));
 	for (int i = 1; i < processorinfo.count; i++)
 	{
-		procCurrTask[i] = allocate_memory(procCurrTask[0], sizeof(TaskCtrBlock), PAGE_G | PAGE_RW);
-		memset_s(procCurrTask[i], 0, sizeof(TaskCtrBlock));
-		procCurrTask[i]->TssData.ioPermission = sizeof(TssHead) - 1;
-		procCurrTask[i]->TssData.cr3 = cr3_data();
-		tempSeg.segmentBaseAddr = &(procCurrTask[i]->TssData);
+		pEmptyTask[i] = allocate_memory(pEmptyTask[0], sizeof(TaskCtrBlock), PAGE_G | PAGE_RW);
+		memset_s(pEmptyTask[i], 0, sizeof(TaskCtrBlock));
+		pEmptyTask[i]->processdata.threads = allocate_memory(pEmptyTask[0],sizeof(thread_t), PAGE_G | PAGE_RW);
+		memset_s(pEmptyTask[i]->processdata.threads, 0, sizeof(thread_t));
+
+		cpuTssdata[i].pTssdata = allocate_memory(pEmptyTask[0], sizeof(TssHead), PAGE_G | PAGE_RW);
+
+		cpuTssdata[i].pTssdata->ioPermission = sizeof(TssHead) - 1;
+		cpuTssdata[i].pTssdata->cr3 = cr3_data();
+		tempSeg.segmentBaseAddr = cpuTssdata[i].pTssdata;
 		tempSeg.segmentLimit = sizeof(TssHead) - 1;
 		tempSeg.G = 0;
 		tempSeg.D_B = 1;
@@ -523,13 +634,9 @@ void MPinit()
 		tempSeg.DPL = 0;
 		tempSeg.S = 0;
 		tempSeg.Type = TSSSEGTYPE;
-		procCurrTask[i]->tssSel = appendTableSegItem(&(kernelData.gdtInfo), &tempSeg);
-		kernelData.taskList.tcb_Last->next = procCurrTask[i];
-		procCurrTask[i]->next = kernelData.taskList.tcb_Frist;
-		kernelData.taskList.tcb_Last = procCurrTask[i];
-		kernelData.taskList.size++;
+		cpuTssdata[i].tsssel = appendTableSegItem(&(kernelData.gdtInfo), &tempSeg);
 	}
-	uint32 *stackinfo = (uint32 *)(AP_ARG_ADDR + sizeof(AParg));
+	uint32 *stackinfo = (uint32 *)(AP_ARG_ADDR + sizeof(AParg)+8);
 	printf("processor count =%d\n", aparg->logcpucount);
 
 	memset_s((char *)&tempSeg, 0, sizeof(TableSegmentItem));
@@ -540,9 +647,10 @@ void MPinit()
 	tempSeg.DPL = 0;
 	tempSeg.S = 1;
 	tempSeg.Type = DATASEG_RW_E;
-	for (int i = 0; i < aparg->logcpucount; i++)
+
+	for (int i = 1; i < aparg->logcpucount; i++)
 	{
-		char *stack = allocate_memory(procCurrTask[0], 4 * 4096, PAGE_RW);
+		char *stack = allocate_memory(pEmptyTask[0], 4 * 4096, PAGE_RW);
 		tempSeg.segmentLimit = STACKLIMIT_G1(stack);
 		*stackinfo++ = (uint32)stack + 4 * 4096;
 		*stackinfo++ = appendTableSegItem(&(kernelData.gdtInfo), &tempSeg);
@@ -553,9 +661,64 @@ void MPinit()
 	aparg->jumpok = 1;
 	while (aparg->logcpucount < processorinfo.count)
 		;
+
 #endif
 }
+void createUserSegmentDesc()
+{
+	uint32_t es;
+	uint32_t cs;
+	uint32_t ss;
+	uint32_t ds;
+	uint32_t fs;
+	uint32_t gs;
+	uint32_t ss0;
+	TableSegmentItem tempSeg;
+	memset_s((char*)&tempSeg, 0, sizeof(TableSegmentItem));
 
+	tempSeg.segmentBaseAddr = 0;
+	tempSeg.segmentLimit = STACKLIMIT_G1(USERSTACK_ADDR);
+	tempSeg.G = 1;
+	tempSeg.D_B = 1;
+	tempSeg.P = 1;
+	tempSeg.DPL = 3;
+	tempSeg.S = 1;
+	tempSeg.Type = DATASEG_RW_E;
+	ss = appendTableSegItem(&(kernelData.gdtInfo), &tempSeg);
+
+	tempSeg.segmentBaseAddr = 0;
+	tempSeg.segmentLimit = 0xfffff;
+	tempSeg.Type = CODESEG_X;
+	cs = appendTableSegItem(&(kernelData.gdtInfo), &tempSeg);
+
+	tempSeg.segmentBaseAddr = 0;
+	tempSeg.segmentLimit = 0xfffff;
+	tempSeg.Type = DATASEG_RW;
+	ds = appendTableSegItem(&(kernelData.gdtInfo), &tempSeg);
+	es = ds;
+	gs = ds;
+	fs = ds;
+
+	tempSeg.segmentBaseAddr = 0;
+	tempSeg.segmentLimit = STACKLIMIT_G1(USERSTACK0_ADDR);
+	tempSeg.G = 1;
+	tempSeg.Type = DATASEG_RW_E;
+	tempSeg.DPL = 0;
+	ss0 = appendTableSegItem(&(kernelData.gdtInfo), &tempSeg);
+
+	for (int i = 0; i < processorinfo.count; i++)
+	{
+		cpuTaskList[i].es= es;
+		cpuTaskList[i].cs = cs;
+		cpuTaskList[i].ss = ss;
+		cpuTaskList[i].ds = ds;
+		cpuTaskList[i].fs = fs;
+		cpuTaskList[i].gs = gs;
+		cpuTaskList[i].ss0 = ss0;
+	}
+	setgdtr(&(kernelData.gdtInfo));
+
+}
 void testAHCI()
 {
 	char inputbuff[1024] = {0};
@@ -638,17 +801,24 @@ int _start(void *bargv,void *vbe)
 
 	TaskCtrBlock *tcbhead = (TaskCtrBlock *)allocateVirtual4kPage(sizeof(TaskCtrBlock), &(bootparam.kernelAllocateNextAddr), PAGE_G|PAGE_RW);
 	memset_s(tcbhead, 0, sizeof(TaskCtrBlock));
-	tcbhead->next = tcbhead;
-	tcbhead->taskStats = 1;
+	tcbhead->processdata.threads = allocateVirtual4kPage(sizeof(thread_t), &(bootparam.kernelAllocateNextAddr), PAGE_G | PAGE_RW);
+	memset_s(tcbhead->processdata.threads, 0, sizeof(thread_t));
+
+	tcbhead->processdata.threads->status = RUNNING;
 	kernelData.taskList.tcb_Frist = tcbhead;
 	kernelData.taskList.tcb_Last = tcbhead;
 	kernelData.taskList.size = 1;
-	kernelData.nextTask = NULL;
-	tcbhead->TssData.ioPermission = sizeof(TssHead) - 1;
-	tcbhead->TssData.cr3 = cr3_data();
+
+	tcbhead->processdata.context.ioPermission = sizeof(TssHead) - 1;
+	tcbhead->processdata.context.cr3 = cr3_data();
+
 	TableSegmentItem tempSeg;
 	memset_s((char *)&tempSeg, 0, sizeof(TableSegmentItem));
-	tempSeg.segmentBaseAddr = &(tcbhead->TssData);
+
+	kernelData.tssdata = allocateVirtual4kPage(sizeof(TssHead), &(bootparam.kernelAllocateNextAddr), PAGE_G | PAGE_RW);
+	memset_s((char*)kernelData.tssdata, 0, sizeof(TssHead));
+
+	tempSeg.segmentBaseAddr = kernelData.tssdata;
 	tempSeg.segmentLimit = sizeof(TssHead) - 1;
 	tempSeg.G = 0;
 	tempSeg.D_B = 1;
@@ -656,9 +826,9 @@ int _start(void *bargv,void *vbe)
 	tempSeg.DPL = 0;
 	tempSeg.S = 0;
 	tempSeg.Type = TSSSEGTYPE;
-	tcbhead->tssSel = appendTableSegItem(&(kernelData.gdtInfo), &tempSeg);
+	uint16_t tssSel = appendTableSegItem(&(kernelData.gdtInfo), &tempSeg);
 	setgdtr(&(kernelData.gdtInfo));
-	settr(tcbhead->tssSel);
+	settr(tssSel);
 	createCallGate(&kernelData);
 	initLockBlock(&bootparam);
 	((uint32_t*)(ATOMIC_BUFF_ADDR))[UC_VAR_LOCK]=ATOMIC_BUFF_ADDR+4*LOCK_COUNT;
@@ -676,7 +846,7 @@ int _start(void *bargv,void *vbe)
 	createLock(&(lockBuff[UPDATE_GDT_CR3]));
 	createLock(&(lockBuff[AHCI_LOCK]));
 	createLock(&(lockBuff[UC_VAR_LOCK]));
-
+	createLock(&(lockBuff[CREATE_TASK_LOCK]));
 	//printf("addr1:0x%x addr2:0x%x value:0x%x value2:0x%x\n",bootparam.kernelAllocateNextAddr,tcbhead->AllocateNextAddr,*(tcbhead->AllocateNextAddr),((uint32_t*)(ATOMIC_BUFF_ADDR))[UC_VAR_LOCK]);
 	// initScreen();
 	//  fontInit();
@@ -689,6 +859,7 @@ int _start(void *bargv,void *vbe)
 	check_pat();
 
 	MPinit();
+	createUserSegmentDesc();
 	cacheMtrrMsrs();
 
 	ipiUpdateMtrr();
@@ -750,8 +921,19 @@ int _start(void *bargv,void *vbe)
 	rect.bottom = screensize.y-1;
 	fillRect(&rect, 0x707070);
 	initConsole();
+
+	g_pidIndex = (uint32*)allocUnCacheMem(sizeof(uint32));
+	*g_pidIndex = 0;
+
+
+	LOCAL_APIC* xapic_obj = (LOCAL_APIC*)getXapicAddr();
+	xapic_obj->LVT_Timer[0] = 0x82;
+	xapic_obj->DivideConfiguration[0] = 3;
+
 	//check_cpuHwp();
-	testFATfs();
+	//testFATfs();
+
+	createProcess("/proc/a.out",1);
 	/*
 	Bitmap* bitmap = createBitmap32FromBMP24("/img/bg.bmp");
 	rect.left = 400;

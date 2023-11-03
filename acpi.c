@@ -10,7 +10,7 @@ pciConfigSpaceBaseAddr **mcfgPciConfigSpace=NULL;
 volatile uint8_t Madt_LOCALAPIC_count = 0;
 volatile uint8_t Madt_IOAPIC_count = 0;
 extern BootParam bootparam;
-#define TRACE_ACPI
+
 #ifdef TRACE_ACPI
 #	define TRACEACPI(...) printf(__VA_ARGS__)
 #else
@@ -284,7 +284,7 @@ void initAcpiTable()
     memset_s(Madt_LOCALAPIC, 0, MAX_LOAPIC_COUNT * sizeof(LocalApicEntry *));
     memset_s(mcfgPciConfigSpace, 0, MAX_MCFG_PCICONFIG_COUNT * sizeof(pciConfigSpaceBaseAddr *));
 
-#if 1
+#if 0
 	
 	for (int i = 0; i < bootparam.memInfoSize; i++)
 	{
