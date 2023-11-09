@@ -1,8 +1,9 @@
 #include "boot.h"
 #include "memcachectl.h"
 #include "string.h"
+#include "osdataPhyAddr.h"
 #define ALLOC_ALIGN 4
-#define START_PHY_MEM_PAGE 0x100
+
 extern BootParam bootparam;
 extern KernelData kernelData;
 char *allocate_memory(TaskCtrBlock *task, uint32 size, uint32 prop)
