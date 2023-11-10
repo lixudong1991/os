@@ -163,11 +163,11 @@ typedef struct {
 }cpu_process_status_t;
 
 typedef enum {
+	DEAD,
 	READY,
 	RUNNING,
 	SLEEPING,
-	WAIT,
-	DEAD
+	WAIT
 } status_t;
 
 
@@ -311,6 +311,8 @@ extern void set_cr0data(uint32 data);
 extern uint32 cr4_data();
 extern void set_cr4data(uint32 data);
 
+extern void set_cr3data(uint32 data);
+
 extern int cpuidcall(uint32 callnum, uint32 *eax, uint32 *ebx, uint32 *ecx, uint32 *edx);
 extern int rdmsrcall(uint32 msrid, uint32 *eax, uint32 *edx);
 extern int wrmsrcall(uint32 msrid, uint32 eax, uint32 edx);
@@ -329,6 +331,7 @@ uint32 testBit(uint32 *addr, uint32 nr);
 void setds(uint32 segSel);
 void setgs(uint32 segSel);
 void setfs(uint32 segSel);
+void setes(uint32 segSel);
 void callTss(uint32 *addr);
 void intcall();
 
@@ -441,4 +444,5 @@ typedef struct _SYSTEMTIME {
 void getCmosDateTime(SYSTEMTIME *datetime);
 
 extern void switchStack(uint32_t* oldss,uint32_t *oldesp, uint32_t newss,uint32_t newesp, uint32_t cr3dat);
+extern void retfEmptyTask(uint32_t ss,uint32_t esp, uint32_t cs, uint32_t eip);
 #endif

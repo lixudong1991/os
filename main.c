@@ -29,6 +29,7 @@ ProcessorInfo processorinfo;
 TcbList *cpuTaskList = NULL;
 TaskCtrBlock** pEmptyTask = NULL;
 TssPointer* cpuTssdata=NULL;
+TssPointer* cpuTaskTssdata = NULL;
 LockObj *lockBuff = NULL;
 uint32_t* g_pidIndex=NULL;
 char *hexstr32(char buff[9], uint32 val)
@@ -495,9 +496,39 @@ void runEmptyTask()
 	LOCAL_APIC* apic = (LOCAL_APIC*)getXapicAddr();
 	uint32_t apid = apic->ID[0] >> 24;
 	while (pEmptyTask==NULL|| pEmptyTask[apid]==NULL);
+	TaskCtrBlock* newTask = pEmptyTask[apid];
+	while ( newTask->processdata.threads == NULL|| newTask->processdata.threads->status != READY);
+	newTask->processdata.threads->status = RUNNING;
 	setgdtr(&(kernelData.gdtInfo));
 	resetcr3();
-	printf("cpu %d runEmptyTask\n", apid);
+	cpuTaskTssdata[apid].pTssdata->cr3 = pEmptyTask[apid]->processdata.context.cr3;
+	cpuTaskTssdata[apid].pTssdata->cs = pEmptyTask[apid]->processdata.context.cs;
+	cpuTaskTssdata[apid].pTssdata->ss = pEmptyTask[apid]->processdata.context.ss;
+	cpuTaskTssdata[apid].pTssdata->es = pEmptyTask[apid]->processdata.context.es;
+	cpuTaskTssdata[apid].pTssdata->ds = pEmptyTask[apid]->processdata.context.ds;
+	cpuTaskTssdata[apid].pTssdata->fs = pEmptyTask[apid]->processdata.context.fs;
+	cpuTaskTssdata[apid].pTssdata->gs = pEmptyTask[apid]->processdata.context.gs;
+	cpuTaskTssdata[apid].pTssdata->ss0 = pEmptyTask[apid]->processdata.context.ss0;
+	cpuTaskTssdata[apid].pTssdata->ioPermission = pEmptyTask[apid]->processdata.context.ioPermission;
+	cpuTaskTssdata[apid].pTssdata->esp0 = pEmptyTask[apid]->processdata.threads->context.esp0;
+	cpuTaskTssdata[apid].pTssdata->eflags = pEmptyTask[apid]->processdata.threads->context.eflags;
+	cpuTaskTssdata[apid].pTssdata->esp = pEmptyTask[apid]->processdata.threads->context.esp;
+	cpuTaskTssdata[apid].pTssdata->eip = pEmptyTask[apid]->processdata.threads->context.eip;
+
+	setes(cpuTaskTssdata[apid].pTssdata->es);
+	setds(cpuTaskTssdata[apid].pTssdata->ds);
+	setfs(cpuTaskTssdata[apid].pTssdata->fs);
+	setgs(cpuTaskTssdata[apid].pTssdata->gs);
+	set_cr3data(cpuTaskTssdata[apid].pTssdata->cr3);
+	char gdtdata[8] = { 0 };
+	getgdtr(gdtdata);
+	printf("cpu %d runEmptyTask ss:0x%x esp:0x%x cs:0x%x eip:0x%x gdtlimt:%d gdtaddr:0x%x 0x%x 0x%x\n", apid, pEmptyTask[apid]->processdata.context.ss, pEmptyTask[apid]->processdata.threads->context.esp,
+		pEmptyTask[apid]->processdata.context.cs, pEmptyTask[apid]->processdata.threads->context.eip, *(uint32_t*)gdtdata, *(uint32_t*)(gdtdata+2), *(uint32_t*)(kernelData.gdtInfo.base+136), *(uint32_t*)(kernelData.gdtInfo.base + 140));
+//	retfEmptyTask(pEmptyTask[apid]->processdata.context.ss, pEmptyTask[apid]->processdata.threads->context.esp,
+//		pEmptyTask[apid]->processdata.context.cs, pEmptyTask[apid]->processdata.threads->context.eip);
+	*(uint32_t*)gdtdata = 0;
+	*(uint32_t*)(gdtdata + 4) = cpuTaskTssdata[apid].tsssel;
+	callTss(gdtdata);
 }
 void APproc(uint32 argv)
 {
@@ -718,6 +749,10 @@ void createUserSegmentDesc()
 	tempSeg.DPL = 0;
 	ss0 = appendTableSegItem(&(kernelData.gdtInfo), &tempSeg);
 
+	cpuTaskTssdata = allocate_memory(kernelData.taskList.tcb_Frist, processorinfo.count * sizeof(TssPointer), PAGE_G | PAGE_RW);
+	memset_s(cpuTaskTssdata, 0, processorinfo.count * sizeof(TssHead*));
+	memset_s((char*)&tempSeg, 0, sizeof(TableSegmentItem));
+
 	for (int i = 0; i < processorinfo.count; i++)
 	{
 		cpuTaskList[i].es= es;
@@ -727,6 +762,20 @@ void createUserSegmentDesc()
 		cpuTaskList[i].fs = fs;
 		cpuTaskList[i].gs = gs;
 		cpuTaskList[i].ss0 = ss0;
+
+		cpuTaskTssdata[i].pTssdata = allocate_memory(pEmptyTask[0], sizeof(TssHead), PAGE_G | PAGE_RW);
+		memset_s(cpuTaskTssdata[i].pTssdata,0, sizeof(TssHead));
+		cpuTaskTssdata[i].pTssdata->ioPermission = sizeof(TssHead) - 1;
+		cpuTaskTssdata[i].pTssdata->cr3 = cr3_data();
+		tempSeg.segmentBaseAddr = cpuTaskTssdata[i].pTssdata;
+		tempSeg.segmentLimit = sizeof(TssHead) - 1;
+		tempSeg.G = 0;
+		tempSeg.D_B = 1;
+		tempSeg.P = 1;
+		tempSeg.DPL = 0;
+		tempSeg.S = 0;
+		tempSeg.Type = TSSSEGTYPE;
+		cpuTaskTssdata[i].tsssel = appendTableSegItem(&(kernelData.gdtInfo), &tempSeg);
 	}
 	setgdtr(&(kernelData.gdtInfo));
 
@@ -853,7 +902,6 @@ void initEmptyTask()
 		newTask->processdata.context.gs = cpuTaskList[cpuidnnum].gs;
 		newTask->processdata.context.ss0 = cpuTaskList[cpuidnnum].ss0;
 		newTask->processdata.context.ioPermission = sizeof(TssHead) - 1;
-		newTask->processdata.threads->status = READY;
 		newTask->processdata.threads->sched_priority = 1;
 		newTask->processdata.threads->tid = 0;
 		newTask->processdata.threads->context.esp = (uint32)USERSTACK_ADDR + USERSTACK_SIZE;
@@ -875,6 +923,7 @@ void initEmptyTask()
 		*(uint32*)0xFFFFEFF8 = 0;
 		*(uint32*)0xFFFFFFF8 = 0;
 		resetcr3();
+		newTask->processdata.threads->status = READY;
 	}
 	memset_s(0xfffff004, 0, 0xBF8);
 	resetcr3();

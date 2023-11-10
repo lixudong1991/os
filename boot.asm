@@ -1,6 +1,6 @@
 
-global setgdtr,setldtr,settr,cs_data,ds_data,ss_data,fs_data,gs_data,cpuidcall,rdmsrcall,wrmsrcall,wrmsr_fence,rdmsr_fence,setds,setgs,setfs,esp_data,cr3_data,flags_data,setBit,resetBit,testBit,allocatePhy4kPage,freePhy4kPage,sysInLong,sysOutLong,callTss,setidtr,cli_s,sti_s,invlpg_s,intcall,resetcr3,rtc_8259a_enable,interrupt8259a_disable
-global _monitor,_mwait,cr0_data,set_cr0data,cr4_data,set_cr4data,pre_mtrr_change,post_mtrr_change,spinlock,unlock,sysInChar,sysOutChar,switchStack
+global setgdtr,getgdtr,setldtr,settr,cs_data,ds_data,ss_data,fs_data,gs_data,cpuidcall,rdmsrcall,wrmsrcall,wrmsr_fence,rdmsr_fence,setds,setgs,setfs,setes,esp_data,cr3_data,flags_data,setBit,resetBit,testBit,allocatePhy4kPage,freePhy4kPage,sysInLong,sysOutLong,callTss,setidtr,cli_s,sti_s,invlpg_s,intcall,resetcr3,rtc_8259a_enable,interrupt8259a_disable
+global _monitor,_mwait,cr0_data,set_cr0data,cr4_data,set_cr4data,set_cr3data,pre_mtrr_change,post_mtrr_change,spinlock,unlock,sysInChar,sysOutChar,switchStack,retfEmptyTask
 pageStatusOffset equ 28
 IA32_MTRR_DEF_TYPE_MSR equ 0x2FF
 extern bootparam
@@ -9,6 +9,10 @@ setgdtr:
 	mov ebx,[esp+8]
 	lgdt [ebx]
 	pop ebx
+	ret
+getgdtr:
+	mov eax,[esp+4]
+	sgdt [eax]
 	ret
 setidtr:
 	push ebx
@@ -86,6 +90,10 @@ set_cr4data:
 cr3_data:
 	mov eax,cr3
 	ret
+set_cr3data:
+	mov eax,[esp+4]
+	mov cr3,eax
+	ret
 resetcr3:
 	mov eax,cr3
 	mov cr3,eax
@@ -107,6 +115,10 @@ setfs:
 	mov eax,[esp+8]
 	mov fs,eax
 	pop eax
+	ret
+setes:
+	mov eax,[esp+4]
+	mov es,eax
 	ret
 setBit:
 	push ebp
@@ -691,3 +703,10 @@ switchStack:
 	popad
 	pop ebp
 	ret
+
+retfEmptyTask:
+	push dword [esp+4]
+	push dword [esp+8]
+	push dword [esp+12]
+	push dword [esp+16]
+	retf 0
