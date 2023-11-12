@@ -26,9 +26,8 @@ int printf(const char *fmt, ...)
 	printed = vsprintf(printf_buf, fmt, args);
 	va_end(args);
 	//asm("cli");
-	spinlock(lockBuff[PRINT_LOCK].plock);
 	puts(printf_buf);
-	unlock(lockBuff[PRINT_LOCK].plock);
+	
 //	asm("sti");
 	return printed;
 }
@@ -42,9 +41,7 @@ int interruptPrintf(const char *fmt, ...)
 	va_start(args, fmt);
 	printed = vsprintf(printf_buf, fmt, args);
 	va_end(args);
-	spinlock(lockBuff[PRINT_LOCK].plock);
 	puts(printf_buf);
-	unlock(lockBuff[PRINT_LOCK].plock);
 	return printed;
 }
 void putchar(int _Character)
@@ -74,9 +71,11 @@ void putchar(int _Character)
 }
 void puts(const char *str)
 {
+	spinlock(lockBuff[PRINT_LOCK].plock);
 	char *pstr = str;
 	while (*pstr != 0)
 		putchar(*pstr++);
+	unlock(lockBuff[PRINT_LOCK].plock);
 }
 void clearChars(int count)
 {

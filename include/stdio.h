@@ -31,7 +31,16 @@ struct _IO_FILE {
 	_IO_FILE *prev_locked, *next_locked;
 	struct __locale_struct *locale;
 };*/
+#define _INTSIZEOF(n) ((sizeof(n) + sizeof(int) - 1) & ~(sizeof(int) - 1))
+#define _ADDRESSOF(v) (&(v))
 
+#define va_start _crt_va_start
+#define va_arg _crt_va_arg
+#define va_end _crt_va_end
+
+#define _crt_va_start(ap, v) (ap = (va_list)_ADDRESSOF(v) + _INTSIZEOF(v))
+#define _crt_va_arg(ap, t) (*(t *)((ap += _INTSIZEOF(t)) - _INTSIZEOF(t)))
+#define _crt_va_end(ap) (ap = (va_list)0)
 
 typedef struct _IO_FILE { char __x; }FILE;
 

@@ -10,15 +10,18 @@ extern TaskCtrBlock** pEmptyTask;
 extern TssPointer* cpuTssdata;
 extern ProcessorInfo processorinfo;
 extern AParg *aparg;
+typedef int (*InterruptPrintfFun)(const char* fmt, ...);
+
+volatile InterruptPrintfFun interrput = interruptPrintf;
 int general_exeption_no_code(uint32 eno,uint32 addr)
 {
-    interruptPrintf("********Exception in 0x%x %d encounted********\n",addr, eno);
+    interrput("********Exception in 0x%x %d encounted********\n",addr, eno);
     return 0;
 }
 
 int general_exeption_code(uint32 eno, uint32 code,uint32 addr)
 {
-    interruptPrintf("********Exception  %d in 0x%x  code: 0x%x********\n", eno,addr, code);
+    interrput("********Exception  %d in 0x%x  code: 0x%x cr3:0x%x********\n", eno,addr, code,cr3_data());
     return 0;
 }
 static void xapicwriteEOI()
@@ -36,14 +39,14 @@ static void local_x2apic_error_handling()
     wrmsr_fence(IA32_X2APIC_ESR, 0, 0);
     rdmsr_fence(IA32_X2APIC_ESR, &eax, &edx);
     rdmsr_fence(IA32_X2APIC_APICID, &x2id, &empty);
-    interruptPrintf("x2apic error: x2apicid =0x%x code =0x%x\n", x2id, eax);
+    interrput("x2apic error: x2apicid =0x%x code =0x%x\n", x2id, eax);
     x2apicwriteEOI();
 }
 static void local_xapic_error_handling()
 {
     LOCAL_APIC *apic = (LOCAL_APIC *)getXapicAddr();
     apic->ErrStatus[0] = 0;
-    interruptPrintf("xapic error: apicid =0x%x code =0x%x\n", apic->ID[0], apic->ErrStatus[0]);
+    interrput("xapic error: apicid =0x%x code =0x%x\n", apic->ID[0], apic->ErrStatus[0]);
     xapicwriteEOI();
 }
 
@@ -138,9 +141,9 @@ void systemCall()
 #if X2APIC_ENABLE
     uint32 x2id = 0, empty = 0;
     rdmsr_fence(IA32_X2APIC_APICID, &x2id, &empty);
-    interruptPrintf("system call x2apicid:0x%x\n", x2id);
+    interrput("system call x2apicid:0x%x\n", x2id);
 #else
-    interruptPrintf("system call apicid:0x%x\n", ((LOCAL_APIC *)getXapicAddr())->ID[0]);
+    interrput("system call apicid:0x%x\n", ((LOCAL_APIC *)getXapicAddr())->ID[0]);
 #endif
 }
 void apicError()

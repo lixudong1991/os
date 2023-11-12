@@ -348,7 +348,9 @@ TaskCtrBlock* createNewTcb(TcbList* taskList)
 	}
 	return newTcb;
 }
-
+void setCpuTask(ProgramaData *prodata, TaskCtrBlock* newTask, uint32_t pid)
+{
+}
 void createProcess(const char *filename, uint32 sched_priority)
 {
 	FRESULT res;
@@ -522,12 +524,13 @@ void runEmptyTask()
 	set_cr3data(cpuTaskTssdata[apid].pTssdata->cr3);
 	char gdtdata[8] = { 0 };
 	getgdtr(gdtdata);
-	printf("cpu %d runEmptyTask ss:0x%x esp:0x%x cs:0x%x eip:0x%x gdtlimt:%d gdtaddr:0x%x 0x%x 0x%x\n", apid, pEmptyTask[apid]->processdata.context.ss, pEmptyTask[apid]->processdata.threads->context.esp,
-		pEmptyTask[apid]->processdata.context.cs, pEmptyTask[apid]->processdata.threads->context.eip, *(uint32_t*)gdtdata, *(uint32_t*)(gdtdata+2), *(uint32_t*)(kernelData.gdtInfo.base+136), *(uint32_t*)(kernelData.gdtInfo.base + 140));
+	consolePrintf("cpu %d runEmptyTask ss:0x%x esp:0x%x cs:0x%x eip:0x%x gdtlimt:%d gdtaddr:0x%x 0x%x 0x%x tsssel:0x%x cr3:0x%x\n", apid, pEmptyTask[apid]->processdata.context.ss, pEmptyTask[apid]->processdata.threads->context.esp,
+		pEmptyTask[apid]->processdata.context.cs, pEmptyTask[apid]->processdata.threads->context.eip, *(uint32_t*)gdtdata, *(uint32_t*)(gdtdata+2), *(uint32_t*)(kernelData.gdtInfo.base+136), *(uint32_t*)(kernelData.gdtInfo.base + 140), cpuTaskTssdata[apid].tsssel, cpuTaskTssdata[apid].pTssdata->cr3);
 //	retfEmptyTask(pEmptyTask[apid]->processdata.context.ss, pEmptyTask[apid]->processdata.threads->context.esp,
 //		pEmptyTask[apid]->processdata.context.cs, pEmptyTask[apid]->processdata.threads->context.eip);
 	*(uint32_t*)gdtdata = 0;
 	*(uint32_t*)(gdtdata + 4) = cpuTaskTssdata[apid].tsssel;
+	//if(apid == 1)
 	callTss(gdtdata);
 }
 void APproc(uint32 argv)
@@ -862,15 +865,17 @@ void initEmptyTask()
 		kernel_free(filedata);
 		return;
 	}
-	ProgramaData prodata;
-	prodata.vir_end = 0;
-	prodata.vir_base = 0xffffffff;
-	loadElf(filedata, &prodata, PRIVILEGUSER);
-	kernel_free(filedata);
+
 	for (int i=0;i< processorinfo.count; i++)
 	{
 		uint32_t pid = (*g_pidIndex)++;
 		uint32_t cpuidnnum = (pid) % processorinfo.count;
+		
+		ProgramaData prodata;
+		prodata.vir_end = 0;
+		prodata.vir_base = 0xffffffff;
+		loadElf(filedata, &prodata, PRIVILEGUSER);
+
 		TaskCtrBlock* newTask = pEmptyTask[cpuidnnum];
 		newTask->pFreeListAddr = (uint32*)allocUnCacheMem(sizeof(uint32));
 		TaskFreeMemList* pFreeList = kernel_malloc(sizeof(TaskFreeMemList));
@@ -908,10 +913,10 @@ void initEmptyTask()
 		newTask->processdata.threads->context.esp0 = (uint32)USERSTACK0_ADDR + USERSTACK0_SIZE;
 		newTask->processdata.threads->context.eip = prodata.proEntry;
 		newTask->processdata.threads->context.eflags = flags_data();
-		newTask->processdata.threads->context.esp -= 8;
+		newTask->processdata.threads->context.esp -= 12;
 		newTask->processdata.threads->sched_priority = 1;
-		*(int*)(newTask->processdata.threads->context.esp) = i;
-		*(int*)(newTask->processdata.threads->context.esp + 4) = NULL;
+		*(int*)(newTask->processdata.threads->context.esp+4) = i;
+		*(int*)(newTask->processdata.threads->context.esp + 8) = NULL;
 
 		uint32 taskPageDir = (uint32)allocatePhy4kPage(START_PHY_MEM_PAGE);
 
@@ -922,12 +927,20 @@ void initEmptyTask()
 		*(uint32*)0xFFFFEFFC = (taskPageDir | 0x7);
 		*(uint32*)0xFFFFEFF8 = 0;
 		*(uint32*)0xFFFFFFF8 = 0;
+		memset_s(0xfffff004, 0, 0xBF8);
 		resetcr3();
+		consolePrintf("pid %d cpuidnnum %d cr3:0x%x currentCr3:0x%x virbase:0x%x virend:0x%x\n", pid, cpuidnnum, newTask->processdata.context.cr3,cr3_data(), prodata.vir_base, prodata.vir_end);
+	}
+	kernel_free(filedata);
+	ipiUpdateGdtCr3();
+
+	uint32 waitap = 0xfffffff;
+	while (waitap--);
+	for (int i = 0; i < processorinfo.count; i++)
+	{
+		TaskCtrBlock* newTask = pEmptyTask[i];
 		newTask->processdata.threads->status = READY;
 	}
-	memset_s(0xfffff004, 0, 0xBF8);
-	resetcr3();
-
 }
 
 int _start(void *bargv,void *vbe)
@@ -1050,7 +1063,7 @@ int _start(void *bargv,void *vbe)
 	asm("sti");
 
 	ipiUpdateGdtCr3(); // 更新gdt,cr3
-	uint32 waitap = 0xfffffff;
+	uint32 waitap = 0xffffff;
 	while (waitap--);
 	asm("cli");
 	printf("ps2Deviceinit =%d\n", ps2DeviceInit());

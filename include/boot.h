@@ -4,16 +4,6 @@
 #include "ctype.h"
 #include "stdint.h"
 
-#define _INTSIZEOF(n) ((sizeof(n) + sizeof(int) - 1) & ~(sizeof(int) - 1))
-#define _ADDRESSOF(v) (&(v))
-
-#define va_start _crt_va_start
-#define va_arg _crt_va_arg
-#define va_end _crt_va_end
-
-#define _crt_va_start(ap, v) (ap = (va_list)_ADDRESSOF(v) + _INTSIZEOF(v))
-#define _crt_va_arg(ap, t) (*(t *)((ap += _INTSIZEOF(t)) - _INTSIZEOF(t)))
-#define _crt_va_end(ap) (ap = (va_list)0)
 
 #pragma pack(1)
 
@@ -444,5 +434,4 @@ typedef struct _SYSTEMTIME {
 void getCmosDateTime(SYSTEMTIME *datetime);
 
 extern void switchStack(uint32_t* oldss,uint32_t *oldesp, uint32_t newss,uint32_t newesp, uint32_t cr3dat);
-extern void retfEmptyTask(uint32_t ss,uint32_t esp, uint32_t cs, uint32_t eip);
 #endif

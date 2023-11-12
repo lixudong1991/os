@@ -13,21 +13,24 @@ void loadElf(char *elfData, ProgramaData *proData, uint32_t privileg)
 		{
 			if (phdr->p_memsz != 0)
 			{
-				if (phdr->p_vaddr < proData->vir_base)
-					proData->vir_base = phdr->p_vaddr;
+				if ((phdr->p_vaddr & PAGE_ADDR_MASK) < proData->vir_base)
+					proData->vir_base = (phdr->p_vaddr & PAGE_ADDR_MASK);
 
 				int align = phdr->p_memsz / phdr->p_align;
 				if (phdr->p_memsz % phdr->p_align != 0)
 					align++;
 				uint32 sizemem = align * phdr->p_align;
+
 				uint32 vend = phdr->p_vaddr + sizemem - 1;
-				if (vend > proData->vir_end)
-					proData->vir_end = vend;
+				uint32_t masklow = ~((uint32_t)PAGE_ADDR_MASK);
+				if (((vend & PAGE_ADDR_MASK)+ masklow)> proData->vir_end)
+					proData->vir_end = ((vend & PAGE_ADDR_MASK) + masklow);
+				vend = phdr->p_vaddr;
 				uint32 prop = privileg;
 				if (phdr->p_flags & PF_W)
 					prop |= PF_W;
 
-				char *destaddr = allocateVirtual4kPage(sizemem, &(phdr->p_vaddr), prop);
+				char *destaddr = allocateVirtual4kPage(sizemem, &(vend), prop);
 				if (phdr->p_filesz != 0)
 					memcpy_s(destaddr, elfData + phdr->p_offset, phdr->p_filesz);
 			}
