@@ -530,7 +530,6 @@ void runEmptyTask()
 //		pEmptyTask[apid]->processdata.context.cs, pEmptyTask[apid]->processdata.threads->context.eip);
 	*(uint32_t*)gdtdata = 0;
 	*(uint32_t*)(gdtdata + 4) = cpuTaskTssdata[apid].tsssel;
-	//if(apid == 1)
 	callTss(gdtdata);
 }
 void APproc(uint32 argv)
@@ -1184,4 +1183,28 @@ void getCmosDateTime(SYSTEMTIME *datetime)
 	datetime->wMonth =  (((uint8_t)0xf0&monthBcd)>>4)*10+((uint8_t)0xf&monthBcd);
 	datetime->wYear =  (((uint8_t)0xf0&yearBcd)>>4)*10+((uint8_t)0xf&yearBcd);
 	datetime->wYear+= 2000;
+}
+
+void syncKernel_TaskCr3(TaskCtrBlock* task)
+{
+	uint32_t taskPageDir = task->processdata.context.cr3;
+	*(uint32*)0xFFFFFFF8 = (taskPageDir | 0x7);
+	resetcr3();
+	memcpy_s((char*)0xFFFFEC00, (char*)(KERNELPAGEDIR_PHYADDR+0xc00),1024);
+	*(uint32*)0xFFFFEFFC = (taskPageDir | 0x7);
+	*(uint32*)0xFFFFEFF8 = 0;
+	*(uint32*)0xFFFFFFF8 = 0;
+	resetcr3();
+}
+void syncTask_KernelCr3(TaskCtrBlock* task)
+{
+	uint32_t taskPageDir = task->processdata.context.cr3;
+	*(uint32*)0xFFFFFFF8 = (taskPageDir | 0x7);
+	resetcr3();
+	uint32_t val = *(uint32_t*)(KERNELPAGEDIR_PHYADDR + 0xffc);
+	memcpy_s((char*)(KERNELPAGEDIR_PHYADDR + 0xc00), (char*)0xFFFFEC00, 1024);
+	*(uint32_t*)(KERNELPAGEDIR_PHYADDR + 0xffc) = val;
+	*(uint32_t*)(KERNELPAGEDIR_PHYADDR + 0xff8) = 0;
+	*(uint32*)0xFFFFFFF8 = 0;
+	resetcr3();
 }

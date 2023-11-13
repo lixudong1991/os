@@ -342,7 +342,12 @@ int mem4k_map(uint32 linearaddr, uint32 phyaddr, int memcachType, uint32 prop)
 	pageAddr = pageAddr << 2;
 	uint32 *pagePhyAddr = (uint32 *)((0xffc00000 | (pageDiraddr << 10)) + pageAddr);
 	asm("mfence");
-
+	uint32 oldphyaddr = *pagePhyAddr;
+	if (((oldphyaddr) & 1) == 1)
+	{
+		freePhy4kPage(oldphyaddr);
+	}
+	allocateTargetPhy4kPage(phyaddr);
 	*pagePhyAddr = phyaddr;
 	(*pagePhyAddr) |= 1;
 

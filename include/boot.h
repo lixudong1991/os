@@ -344,6 +344,7 @@ char* realloc_memory(TaskCtrBlock* task, uint32_t addr, uint32 size, uint32 prop
 
 extern char *allocatePhy4kPage(uint32 startPhyPage);
 extern uint32 freePhy4kPage(uint32 page);
+extern uint32 allocateTargetPhy4kPage(uint32 page);
 #define PAGE_R 0
 #define PAGE_RW 2
 
@@ -386,6 +387,8 @@ extern void post_mtrr_change(uint32 cr4data);
 void ipiUpdateGdtCr3();
 void ipiUpdateMtrr();
 
+void syncTask_KernelCr3(TaskCtrBlock* task);
+void syncKernel_TaskCr3(TaskCtrBlock* task);
 
 #define MAX_LOCK 512
 typedef struct LockBlock

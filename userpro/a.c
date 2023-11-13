@@ -1,6 +1,6 @@
 #include "syslib.h"
-#include "../include/stdio.h"
-#include "../include/string.h"
+#include "stdio.h"
+#include "string.h"
 int printf(const char* fmt, ...)
 {
 	char printf_buf[1024];
@@ -21,8 +21,10 @@ int _start(int argc,void *argv)
   unsigned int count = 0xfffff;
   while(1){
 	  printf("%d +++++++++++++++user application run!\n", argc);
-	  count = 0xffffff;
-	  while (count--) {}
+	//  count = 0xffffff;
+	 // while (count--) {}
+	  asm("sti");
+	  asm("hlt");
   };
   return 5;
 }
