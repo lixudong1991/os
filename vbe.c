@@ -893,3 +893,43 @@ int interrConsolePrintf(const char* fmt, ...)
 
     return printed;
 }
+int interrConsolePrintfNoLock(const char* fmt, ...)
+{
+    char printf_buf[1024];
+    va_list args;
+    int printed;
+
+    va_start(args, fmt);
+    printed = vsprintf(printf_buf, fmt, args);
+    va_end(args);
+
+    char* pstr = printf_buf;
+    char c = 0;
+    uint32_t left = 0;
+    uint32_t top = 0;
+    while (*pstr != 0)
+    {
+        c = *pstr++;
+        // putCharPix(*pstr, rect->top, x);
+        if (c == 0x0d)
+            continue;
+        if (c == 0x0a)
+        {
+            gConsoleinfo.cursorIndex = ((gConsoleinfo.cursorIndex) / gConsoleinfo.consoleLineCharCount) * gConsoleinfo.consoleLineCharCount + gConsoleinfo.consoleLineCharCount;
+        }
+        else
+        {
+            left = gConsoleinfo.rect.left + (gConsoleinfo.cursorIndex % gConsoleinfo.consoleLineCharCount) * CONSOLE_PIX_W;
+            top = gConsoleinfo.rect.top + (gConsoleinfo.cursorIndex / gConsoleinfo.consoleLineCharCount) * CONSOLE_PIX_H;
+            putCharPix(c, top, left);
+            gConsoleinfo.cursorIndex++;
+        }
+        if (gConsoleinfo.cursorIndex >= gConsoleinfo.consoleMaxCharCount)
+        {
+            gConsoleinfo.cursorIndex = gConsoleinfo.consoleMaxCharCount - gConsoleinfo.consoleLineCharCount;
+            scrollConsole(1);
+        }
+    }
+
+    return printed;
+}

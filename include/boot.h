@@ -141,13 +141,6 @@ typedef struct {
 	uint32 edi;
 }cpu_thread_status_t;
 typedef struct {
-	uint32 es;
-	uint32 cs;
-	uint32 ss;
-	uint32 ds;
-	uint32 fs;
-	uint32 gs;
-	uint32 ss0;
 	uint32 cr3;
 	uint32 ioPermission;
 }cpu_process_status_t;
@@ -192,15 +185,7 @@ typedef struct TcbList
 {
 	TaskCtrBlock *tcb_Frist;
 	TaskCtrBlock *tcb_Last;
-	TaskCtrBlock* pcurrTask;
 	uint32_t size;
-	uint32_t es;
-	uint32_t cs;
-	uint32_t ss;
-	uint32_t ds;
-	uint32_t fs;
-	uint32_t gs;
-	uint32_t ss0;
 } TcbList;
 typedef struct ProgramaData
 {
@@ -285,7 +270,7 @@ void setgdtr(Tableinfo *info);
 void setldtr(uint32 ldtrSel);
 void settr(uint32 trSel);
 void setidtr(Tableinfo *info);
-
+void getgdtr(char*);
 uint32 cs_data();
 uint32 ds_data();
 uint32 ss_data();

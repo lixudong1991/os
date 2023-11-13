@@ -26,7 +26,8 @@ KernelData kernelData;
 LockBlock *lockblock = NULL;
 AParg *aparg = (AParg *)AP_ARG_ADDR;
 ProcessorInfo processorinfo;
-TcbList *cpuTaskList = NULL;
+TcbList cpuTaskList;
+TaskCtrBlock** pCpuCurrentTask = NULL;
 TaskCtrBlock** pEmptyTask = NULL;
 TssPointer* cpuTssdata=NULL;
 TssPointer* cpuTaskTssdata = NULL;
@@ -335,6 +336,8 @@ TaskCtrBlock* createNewTcb(TcbList* taskList)
 {
 	TaskCtrBlock* newTcb = (TaskCtrBlock*)kernel_malloc(sizeof(TaskCtrBlock));
 	memset_s(newTcb, 0, sizeof(TaskCtrBlock));
+	newTcb->processdata.threads = kernel_malloc(sizeof(thread_t));
+	memset_s(newTcb->processdata.threads, 0, sizeof(thread_t));
 	if (taskList->size == 0)
 	{
 		taskList->tcb_Frist = taskList->tcb_Last = newTcb;
@@ -351,88 +354,6 @@ TaskCtrBlock* createNewTcb(TcbList* taskList)
 void setCpuTask(ProgramaData *prodata, TaskCtrBlock* newTask, uint32_t pid)
 {
 }
-void createProcess(const char *filename, uint32 sched_priority)
-{
-	FRESULT res;
-	FIL fp;
-	res = f_open(&fp, filename, FA_OPEN_ALWAYS | FA_READ);
-	if (res != FR_OK)
-		return;
-	uint32_t br = 0, filesize = 0;
-	filesize = f_size(&fp);
-	char* filedata = kernel_malloc(filesize);
-	res = f_read(&fp, filedata, filesize, &br);
-	f_close(&fp);
-	if (res != FR_OK)
-	{
-		kernel_free(filedata);
-		return;
-	}
-	ProgramaData prodata;
-	prodata.vir_end = 0;
-	prodata.vir_base = 0xffffffff;
-	loadElf(filedata, &prodata, PRIVILEGUSER);
-	kernel_free(filedata);
-
-	spinlock(lockBuff[CREATE_TASK_LOCK].plock);
-	uint32_t pid = (*g_pidIndex)++;
-	uint32_t cpuidnnum = (pid) % processorinfo.count;
-	TaskCtrBlock* newTask = createNewTcb(&(cpuTaskList[cpuidnnum]));
-	unlock(lockBuff[CREATE_TASK_LOCK].plock);
-
-	newTask->pFreeListAddr = (uint32*)allocUnCacheMem(sizeof(uint32));
-	TaskFreeMemList* pFreeList = kernel_malloc(sizeof(TaskFreeMemList));
-	*(newTask->pFreeListAddr) = pFreeList;
-	pFreeList->memAddr = prodata.vir_end + 1;
-	pFreeList->next = NULL;
-	pFreeList->memSize = USERMALLOCEND - pFreeList->memAddr;
-
-	uint32_t allocaddr = USERSTACK_ADDR;
-	char* stack = allocateVirtual4kPage(USERSTACK_SIZE, &allocaddr, PAGE_ALL_PRIVILEG | PAGE_RW);
-	allocaddr = USERSTACK0_ADDR;
-	char* stack0 = allocateVirtual4kPage(USERSTACK0_SIZE, &allocaddr, PAGE_RW);
-
-	newTask->processdata.pid = pid;
-	newTask->processdata.threads = kernel_malloc(sizeof(thread_t));
-	memset_s(newTask->processdata.threads, 0, sizeof(thread_t));
-	newTask->processdata.context.es = cpuTaskList[cpuidnnum].es;
-	newTask->processdata.context.cs = cpuTaskList[cpuidnnum].cs;
-	newTask->processdata.context.ss = cpuTaskList[cpuidnnum].ss;
-	newTask->processdata.context.ds = cpuTaskList[cpuidnnum].ds;
-	newTask->processdata.context.fs = cpuTaskList[cpuidnnum].fs;
-	newTask->processdata.context.gs = cpuTaskList[cpuidnnum].gs;
-	newTask->processdata.context.ss0 = cpuTaskList[cpuidnnum].ss0;
-	newTask->processdata.context.ioPermission = sizeof(TssHead) - 1;
-	newTask->processdata.threads->status = READY;
-	newTask->processdata.threads->sched_priority = 1;
-	newTask->processdata.threads->tid = 0;
-	newTask->processdata.threads->context.esp = (uint32)stack + USERSTACK_SIZE;
-	newTask->processdata.threads->context.esp0 = (uint32)stack0 + USERSTACK0_SIZE;
-	newTask->processdata.threads->context.eip = prodata.proEntry;
-	newTask->processdata.threads->context.eflags = flags_data();
-	newTask->processdata.threads->context.esp -= 8;
-	newTask->processdata.threads->sched_priority = sched_priority;
-	*(int*)(newTask->processdata.threads->context.esp) = 1;
-	*(char*)(newTask->processdata.threads->context.esp + 4) = NULL;
-
-	uint32 taskPageDir = (uint32)allocatePhy4kPage(START_PHY_MEM_PAGE);
-
-	*(uint32*)0xFFFFFFF8 = (taskPageDir | 0x7);
-	newTask->processdata.context.cr3 = (taskPageDir);
-	resetcr3();
-	memcpy_s((char*)0xFFFFE000, (char*)(kernelData.pageDirectory), 4096);
-	*(uint32*)0xFFFFEFFC = (taskPageDir | 0x7);
-	*(uint32*)0xFFFFEFF8 = 0;
-	memset_s(0xfffff004, 0, 0xBF8);
-	*(uint32*)0xFFFFFFF8 = 0;
-	resetcr3();
-	LOCAL_APIC* xapic_obj = (LOCAL_APIC*)(processorinfo.processcontent[cpuidnnum].apicAddr);
-	xapic_obj->InitialCount[0] = 0;
-	xapic_obj->ICR1[0] = 0;
-	xapic_obj->ICR0[0] = 0x44082;
-	printf("apicaddr:0x%x\n", xapic_obj);
-}
-
 /*
 void testfun()
 {
@@ -492,45 +413,33 @@ void releaseLock(LockObj *lobj)
 	unlock(&(lockblock->lockData[0]));
 	asm("sti");
 }
-void runEmptyTask()
+void runTask()
 {
 	//createProcess("/proc/a.out", 1);
 	LOCAL_APIC* apic = (LOCAL_APIC*)getXapicAddr();
 	uint32_t apid = apic->ID[0] >> 24;
-	while (pEmptyTask==NULL|| pEmptyTask[apid]==NULL);
-	TaskCtrBlock* newTask = pEmptyTask[apid];
+	while (pCpuCurrentTask == NULL|| pCpuCurrentTask[apid]==NULL|| pCpuCurrentTask[apid] == pEmptyTask[apid]);
+	TaskCtrBlock* newTask = pCpuCurrentTask[apid];
 	while ( newTask->processdata.threads == NULL|| newTask->processdata.threads->status != READY);
 	newTask->processdata.threads->status = RUNNING;
 	setgdtr(&(kernelData.gdtInfo));
 	resetcr3();
-	cpuTaskTssdata[apid].pTssdata->cr3 = pEmptyTask[apid]->processdata.context.cr3;
-	cpuTaskTssdata[apid].pTssdata->cs = pEmptyTask[apid]->processdata.context.cs;
-	cpuTaskTssdata[apid].pTssdata->ss = pEmptyTask[apid]->processdata.context.ss;
-	cpuTaskTssdata[apid].pTssdata->es = pEmptyTask[apid]->processdata.context.es;
-	cpuTaskTssdata[apid].pTssdata->ds = pEmptyTask[apid]->processdata.context.ds;
-	cpuTaskTssdata[apid].pTssdata->fs = pEmptyTask[apid]->processdata.context.fs;
-	cpuTaskTssdata[apid].pTssdata->gs = pEmptyTask[apid]->processdata.context.gs;
-	cpuTaskTssdata[apid].pTssdata->ss0 = pEmptyTask[apid]->processdata.context.ss0;
-	cpuTaskTssdata[apid].pTssdata->ioPermission = pEmptyTask[apid]->processdata.context.ioPermission;
-	cpuTaskTssdata[apid].pTssdata->esp0 = pEmptyTask[apid]->processdata.threads->context.esp0;
-	cpuTaskTssdata[apid].pTssdata->eflags = pEmptyTask[apid]->processdata.threads->context.eflags;
-	cpuTaskTssdata[apid].pTssdata->esp = pEmptyTask[apid]->processdata.threads->context.esp;
-	cpuTaskTssdata[apid].pTssdata->eip = pEmptyTask[apid]->processdata.threads->context.eip;
+	cpuTaskTssdata[apid].pTssdata->cr3 = pCpuCurrentTask[apid]->processdata.context.cr3;
+	cpuTaskTssdata[apid].pTssdata->ioPermission = pCpuCurrentTask[apid]->processdata.context.ioPermission;
+	cpuTaskTssdata[apid].pTssdata->esp0 = pCpuCurrentTask[apid]->processdata.threads->context.esp0;
+	cpuTaskTssdata[apid].pTssdata->eflags = pCpuCurrentTask[apid]->processdata.threads->context.eflags;
+	cpuTaskTssdata[apid].pTssdata->esp = pCpuCurrentTask[apid]->processdata.threads->context.esp;
+	cpuTaskTssdata[apid].pTssdata->eip = pCpuCurrentTask[apid]->processdata.threads->context.eip;
 
-	setes(cpuTaskTssdata[apid].pTssdata->es);
-	setds(cpuTaskTssdata[apid].pTssdata->ds);
-	setfs(cpuTaskTssdata[apid].pTssdata->fs);
-	setgs(cpuTaskTssdata[apid].pTssdata->gs);
-	set_cr3data(cpuTaskTssdata[apid].pTssdata->cr3);
 	char gdtdata[8] = { 0 };
 	getgdtr(gdtdata);
-	consolePrintf("cpu %d runEmptyTask ss:0x%x esp:0x%x cs:0x%x eip:0x%x gdtlimt:%d gdtaddr:0x%x 0x%x 0x%x tsssel:0x%x cr3:0x%x\n", apid, pEmptyTask[apid]->processdata.context.ss, pEmptyTask[apid]->processdata.threads->context.esp,
-		pEmptyTask[apid]->processdata.context.cs, pEmptyTask[apid]->processdata.threads->context.eip, *(uint32_t*)gdtdata, *(uint32_t*)(gdtdata+2), *(uint32_t*)(kernelData.gdtInfo.base+136), *(uint32_t*)(kernelData.gdtInfo.base + 140), cpuTaskTssdata[apid].tsssel, cpuTaskTssdata[apid].pTssdata->cr3);
+	consolePrintf("cpu %d runEmptyTask ss:0x%x esp:0x%x cs:0x%x eip:0x%x gdtlimt:%d gdtaddr:0x%x 0x%x 0x%x tsssel:0x%x cr3:0x%x\n", apid, cpuTaskTssdata[apid].pTssdata->ss, pCpuCurrentTask[apid]->processdata.threads->context.esp,
+		cpuTaskTssdata[apid].pTssdata->cs, pCpuCurrentTask[apid]->processdata.threads->context.eip, *(uint32_t*)gdtdata, *(uint32_t*)(gdtdata+2), *(uint32_t*)(kernelData.gdtInfo.base+136), *(uint32_t*)(kernelData.gdtInfo.base + 140), cpuTaskTssdata[apid].tsssel, cpuTaskTssdata[apid].pTssdata->cr3);
 //	retfEmptyTask(pEmptyTask[apid]->processdata.context.ss, pEmptyTask[apid]->processdata.threads->context.esp,
 //		pEmptyTask[apid]->processdata.context.cs, pEmptyTask[apid]->processdata.threads->context.eip);
 	*(uint32_t*)gdtdata = 0;
 	*(uint32_t*)(gdtdata + 4) = cpuTaskTssdata[apid].tsssel;
-	callTss(gdtdata);
+//	callTss(gdtdata);
 }
 void APproc(uint32 argv)
 {
@@ -541,7 +450,7 @@ void APproc(uint32 argv)
 	setgdtr(&(kernelData.gdtInfo));
 	settr(cpuTssdata[argv].tsssel);
 	pEmptyTask[argv]->processdata.threads->status = RUNNING;
-	cpuTaskList[argv].pcurrTask = pEmptyTask[argv];
+	pCpuCurrentTask[argv] = pEmptyTask[argv];
 	asm("sti");
 	// if ((eax & 0x100) == 0) // 判读是否是AP
 	{
@@ -562,7 +471,7 @@ void APproc(uint32 argv)
 		xapic_obj->LVT_Timer[0] = 0x82;
 		xapic_obj->DivideConfiguration[0] = 3;
 		//	xapic_obj->InitialCount[0] = 0xfffff;
-		runEmptyTask();
+	//	runTask();
 		while (1)
 		{
 			// asm("cli");
@@ -649,15 +558,15 @@ void MPinit(uint32_t currtss)
 	initApic();
 	processorinfo.processcontent[0].apicAddr = getXapicAddr();
 
-	cpuTaskList = allocate_memory(kernelData.taskList.tcb_Frist, processorinfo.count * sizeof(TcbList), PAGE_G | PAGE_RW);
-	memset_s(cpuTaskList,0, processorinfo.count * sizeof(TcbList));
+	pCpuCurrentTask = allocate_memory(kernelData.taskList.tcb_Frist, processorinfo.count * sizeof(TaskCtrBlock*), PAGE_G | PAGE_RW);
+	memset_s(pCpuCurrentTask, 0, processorinfo.count * sizeof(TaskCtrBlock*));
 	pEmptyTask = allocate_memory(kernelData.taskList.tcb_Frist, processorinfo.count * sizeof(TaskCtrBlock*), PAGE_G | PAGE_RW);
 	cpuTssdata = allocate_memory(kernelData.taskList.tcb_Frist, processorinfo.count * sizeof(TssPointer), PAGE_G | PAGE_RW);
 	memset_s(cpuTssdata, 0, processorinfo.count * sizeof(TssHead*));
 	cpuTssdata[0].pTssdata = kernelData.tssdata;
 	cpuTssdata[0].tsssel = currtss;
 	pEmptyTask[0] = kernelData.taskList.tcb_Frist;
-	cpuTaskList[0].pcurrTask = pEmptyTask[0];
+	pCpuCurrentTask[0] = pEmptyTask[0];
 	TableSegmentItem tempSeg;
 	memset_s((char *)&tempSeg, 0, sizeof(TableSegmentItem));
 	for (int i = 1; i < processorinfo.count; i++)
@@ -757,18 +666,18 @@ void createUserSegmentDesc()
 
 	for (int i = 0; i < processorinfo.count; i++)
 	{
-		cpuTaskList[i].es= es;
-		cpuTaskList[i].cs = cs;
-		cpuTaskList[i].ss = ss;
-		cpuTaskList[i].ds = ds;
-		cpuTaskList[i].fs = fs;
-		cpuTaskList[i].gs = gs;
-		cpuTaskList[i].ss0 = ss0;
+
 
 		cpuTaskTssdata[i].pTssdata = allocate_memory(pEmptyTask[0], sizeof(TssHead), PAGE_G | PAGE_RW);
 		memset_s(cpuTaskTssdata[i].pTssdata,0, sizeof(TssHead));
+		cpuTaskTssdata[i].pTssdata->es = es;
+		cpuTaskTssdata[i].pTssdata->cs = cs;
+		cpuTaskTssdata[i].pTssdata->ss = ss;
+		cpuTaskTssdata[i].pTssdata->ds = ds;
+		cpuTaskTssdata[i].pTssdata->fs = fs;
+		cpuTaskTssdata[i].pTssdata->gs = gs;
+		cpuTaskTssdata[i].pTssdata->ss0 = ss0;
 		cpuTaskTssdata[i].pTssdata->ioPermission = sizeof(TssHead) - 1;
-		cpuTaskTssdata[i].pTssdata->cr3 = cr3_data();
 		tempSeg.segmentBaseAddr = cpuTaskTssdata[i].pTssdata;
 		tempSeg.segmentLimit = sizeof(TssHead) - 1;
 		tempSeg.G = 0;
@@ -847,7 +756,72 @@ extern void initFs();
 extern void testFATfs();
 
 
-void initEmptyTask()
+TaskCtrBlock* createProcess(char* filedata, uint32_t sched_priority,int argc,void *argv)
+{
+	asm("cli");
+	spinlock(lockBuff[CREATE_TASK_LOCK].plock);
+	uint32_t pid = (*g_pidIndex)++;
+	uint32_t cpuidnnum = (pid) % processorinfo.count;
+	TaskCtrBlock* newTask = createNewTcb(&cpuTaskList);
+	unlock(lockBuff[CREATE_TASK_LOCK].plock);
+	asm("sti");
+	ProgramaData prodata;
+	prodata.vir_end = 0;
+	prodata.vir_base = 0xffffffff;
+	loadElf(filedata, &prodata, PRIVILEGUSER);
+
+	newTask->pFreeListAddr = (uint32*)allocUnCacheMem(sizeof(uint32));
+	TaskFreeMemList* pFreeList = kernel_malloc(sizeof(TaskFreeMemList));
+	*(newTask->pFreeListAddr) = pFreeList;
+	pFreeList->memAddr = prodata.vir_end + 1;
+	pFreeList->next = NULL;
+	pFreeList->memSize = USERMALLOCEND - pFreeList->memAddr;
+
+	//uint32_t allocaddr = USERSTACK_ADDR;
+	uint32_t stack = USERSTACK_ADDR;// allocateVirtual4kPage(USERSTACK_SIZE, &allocaddr, PAGE_ALL_PRIVILEG | PAGE_RW);
+	//allocaddr = USERSTACK0_ADDR;
+	uint32_t stack0 = USERSTACK0_ADDR;//allocateVirtual4kPage(USERSTACK0_SIZE, &allocaddr, PAGE_RW);
+	for (int stacksize = 0; stacksize < USERSTACK_SIZE_4K; stacksize++)
+	{
+
+		mem4k_map(stack, (uint32)allocatePhy4kPage(START_PHY_MEM_PAGE), MEM_WB, PAGE_ALL_PRIVILEG | PAGE_RW);
+		mem4k_map(stack0, (uint32)allocatePhy4kPage(START_PHY_MEM_PAGE), MEM_WB, PAGE_RW);
+		stack += 0x1000;
+		stack0 += 0x1000;
+	}
+
+	newTask->processdata.pid = pid;
+	memset_s(newTask->processdata.threads, 0, sizeof(thread_t));
+	newTask->processdata.context.ioPermission = sizeof(TssHead) - 1;
+	newTask->processdata.threads->sched_priority = 1;
+	newTask->processdata.threads->tid = 0;
+	newTask->processdata.threads->context.esp = (uint32)USERSTACK_ADDR + USERSTACK_SIZE;
+	newTask->processdata.threads->context.esp0 = (uint32)USERSTACK0_ADDR + USERSTACK0_SIZE;
+	newTask->processdata.threads->context.eip = prodata.proEntry;
+	newTask->processdata.threads->context.eflags = flags_data();
+	newTask->processdata.threads->context.esp -= 12;
+	newTask->processdata.threads->sched_priority = sched_priority;
+	*(int*)(newTask->processdata.threads->context.esp + 4) = argc;
+	*(int*)(newTask->processdata.threads->context.esp + 8) = argv;
+	newTask->processdata.threads->status = READY;
+
+	uint32 taskPageDir = (uint32)allocatePhy4kPage(START_PHY_MEM_PAGE);
+
+	*(uint32*)0xFFFFFFF8 = (taskPageDir | 0x7);
+	newTask->processdata.context.cr3 = (taskPageDir);
+	resetcr3();
+	memcpy_s((char*)0xFFFFE000, (char*)(KERNELPAGEDIR_PHYADDR), 4096);
+	*(uint32*)0xFFFFEFFC = (taskPageDir | 0x7);
+	*(uint32*)0xFFFFEFF8 = 0;
+	*(uint32*)0xFFFFFFF8 = 0;
+	memset_s(0xfffff004, 0, 0xBF8);
+	resetcr3();
+	consolePrintf("pid %d cpuidnnum %d cr3:0x%x currentCr3:0x%x virbase:0x%x virend:0x%x taskaddr:0x%x\n", pid, cpuidnnum, newTask->processdata.context.cr3, cr3_data(), prodata.vir_base, prodata.vir_end, newTask);
+	return newTask;
+}
+
+
+void initTask()
 {
 	FRESULT res;
 	FIL fp;
@@ -864,82 +838,15 @@ void initEmptyTask()
 		kernel_free(filedata);
 		return;
 	}
-
 	for (int i=0;i< processorinfo.count; i++)
 	{
-		uint32_t pid = (*g_pidIndex)++;
-		uint32_t cpuidnnum = (pid) % processorinfo.count;
-		
-		ProgramaData prodata;
-		prodata.vir_end = 0;
-		prodata.vir_base = 0xffffffff;
-		loadElf(filedata, &prodata, PRIVILEGUSER);
-
-		TaskCtrBlock* newTask = pEmptyTask[cpuidnnum];
-		newTask->pFreeListAddr = (uint32*)allocUnCacheMem(sizeof(uint32));
-		TaskFreeMemList* pFreeList = kernel_malloc(sizeof(TaskFreeMemList));
-		*(newTask->pFreeListAddr) = pFreeList;
-		pFreeList->memAddr = prodata.vir_end + 1;
-		pFreeList->next = NULL;
-		pFreeList->memSize = USERMALLOCEND - pFreeList->memAddr;
-
-		//uint32_t allocaddr = USERSTACK_ADDR;
-		uint32_t stack = USERSTACK_ADDR;// allocateVirtual4kPage(USERSTACK_SIZE, &allocaddr, PAGE_ALL_PRIVILEG | PAGE_RW);
-		//allocaddr = USERSTACK0_ADDR;
-		uint32_t stack0 = USERSTACK0_ADDR;//allocateVirtual4kPage(USERSTACK0_SIZE, &allocaddr, PAGE_RW);
-		for (int stacksize=0; stacksize<USERSTACK_SIZE_4K; stacksize++)
-		{
-
-			mem4k_map(stack, (uint32)allocatePhy4kPage(START_PHY_MEM_PAGE), MEM_WB, PAGE_ALL_PRIVILEG | PAGE_RW);
-			mem4k_map(stack0, (uint32)allocatePhy4kPage(START_PHY_MEM_PAGE), MEM_WB,PAGE_RW);
-			stack += 0x1000;
-			stack0 += 0x1000;
-		}
-
-		newTask->processdata.pid = pid;
-		memset_s(newTask->processdata.threads, 0, sizeof(thread_t));
-		newTask->processdata.context.es = cpuTaskList[cpuidnnum].es;
-		newTask->processdata.context.cs = cpuTaskList[cpuidnnum].cs;
-		newTask->processdata.context.ss = cpuTaskList[cpuidnnum].ss;
-		newTask->processdata.context.ds = cpuTaskList[cpuidnnum].ds;
-		newTask->processdata.context.fs = cpuTaskList[cpuidnnum].fs;
-		newTask->processdata.context.gs = cpuTaskList[cpuidnnum].gs;
-		newTask->processdata.context.ss0 = cpuTaskList[cpuidnnum].ss0;
-		newTask->processdata.context.ioPermission = sizeof(TssHead) - 1;
-		newTask->processdata.threads->sched_priority = 1;
-		newTask->processdata.threads->tid = 0;
-		newTask->processdata.threads->context.esp = (uint32)USERSTACK_ADDR + USERSTACK_SIZE;
-		newTask->processdata.threads->context.esp0 = (uint32)USERSTACK0_ADDR + USERSTACK0_SIZE;
-		newTask->processdata.threads->context.eip = prodata.proEntry;
-		newTask->processdata.threads->context.eflags = flags_data();
-		newTask->processdata.threads->context.esp -= 12;
-		newTask->processdata.threads->sched_priority = 1;
-		*(int*)(newTask->processdata.threads->context.esp+4) = i;
-		*(int*)(newTask->processdata.threads->context.esp + 8) = NULL;
-
-		uint32 taskPageDir = (uint32)allocatePhy4kPage(START_PHY_MEM_PAGE);
-
-		*(uint32*)0xFFFFFFF8 = (taskPageDir | 0x7);
-		newTask->processdata.context.cr3 = (taskPageDir);
-		resetcr3();
-		memcpy_s((char*)0xFFFFE000, (char*)(kernelData.pageDirectory), 4096);
-		*(uint32*)0xFFFFEFFC = (taskPageDir | 0x7);
-		*(uint32*)0xFFFFEFF8 = 0;
-		*(uint32*)0xFFFFFFF8 = 0;
-		memset_s(0xfffff004, 0, 0xBF8);
-		resetcr3();
-		consolePrintf("pid %d cpuidnnum %d cr3:0x%x currentCr3:0x%x virbase:0x%x virend:0x%x\n", pid, cpuidnnum, newTask->processdata.context.cr3,cr3_data(), prodata.vir_base, prodata.vir_end);
+		createProcess(filedata,1,i,NULL);
 	}
 	kernel_free(filedata);
 	ipiUpdateGdtCr3();
 
 	uint32 waitap = 0xfffffff;
 	while (waitap--);
-	for (int i = 0; i < processorinfo.count; i++)
-	{
-		TaskCtrBlock* newTask = pEmptyTask[i];
-		newTask->processdata.threads->status = READY;
-	}
 }
 
 int _start(void *bargv,void *vbe)
@@ -1092,8 +999,10 @@ int _start(void *bargv,void *vbe)
 
 	//check_cpuHwp();
 	//testFATfs();
-	initEmptyTask();
-	runEmptyTask();
+	initTask();
+	//runTask();
+	xapic_obj->ICR1[0] = 0;
+	xapic_obj->ICR0[0] = 0x84082;
 	/*
 	Bitmap* bitmap = createBitmap32FromBMP24("/img/bg.bmp");
 	rect.left = 400;
