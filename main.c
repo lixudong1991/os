@@ -803,7 +803,7 @@ TaskCtrBlock* createProcess(char* filedata, uint32_t sched_priority,int argc,voi
 	newTask->processdata.threads->sched_priority = sched_priority;
 	*(int*)(newTask->processdata.threads->context.esp + 4) = argc;
 	*(int*)(newTask->processdata.threads->context.esp + 8) = argv;
-	newTask->processdata.threads->status = READY;
+	newTask->processdata.threads->status = START;
 
 	uint32 taskPageDir = (uint32)allocatePhy4kPage(START_PHY_MEM_PAGE);
 
@@ -838,7 +838,7 @@ void initTask()
 		kernel_free(filedata);
 		return;
 	}
-	for (int i=0;i< processorinfo.count; i++)
+	for (int i=0;i< 8; i++)
 	{
 		createProcess(filedata,1,i,NULL);
 	}

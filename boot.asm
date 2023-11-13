@@ -1,6 +1,6 @@
 
 global setgdtr,getgdtr,setldtr,settr,cs_data,ds_data,ss_data,fs_data,gs_data,cpuidcall,rdmsrcall,wrmsrcall,wrmsr_fence,rdmsr_fence,setds,setgs,setfs,setes,esp_data,cr3_data,flags_data,setBit,resetBit,testBit,allocatePhy4kPage,freePhy4kPage,allocateTargetPhy4kPage,sysInLong,sysOutLong,callTss,setidtr,cli_s,sti_s,invlpg_s,intcall,resetcr3,rtc_8259a_enable,interrupt8259a_disable
-global _monitor,_mwait,cr0_data,set_cr0data,cr4_data,set_cr4data,set_cr3data,pre_mtrr_change,post_mtrr_change,spinlock,unlock,sysInChar,sysOutChar,switchStack
+global _monitor,_mwait,cr0_data,set_cr0data,cr4_data,set_cr4data,set_cr3data,pre_mtrr_change,post_mtrr_change,spinlock,unlock,sysInChar,sysOutChar,switchStack,switchNewTask
 pageStatusOffset equ 28
 IA32_MTRR_DEF_TYPE_MSR equ 0x2FF
 extern bootparam
@@ -702,15 +702,17 @@ switchStack:
 	pushad
 	pushfd
 	mov eax,[ebp+8]
-	mov [eax],ss
-	mov eax,[ebp+12]
-	mov [eax],esp
-	mov eax,[ebp+16]
-	mov ebx,[ebp+20]
-	mov ecx,[ebp+24]
-	mov ss,eax
-	mov esp,ebx
-	mov cr3,ecx
+	mov cr3,eax
+	popfd
+	popad
+	pop ebp
+	ret
+
+switchNewTask:
+	push ebp
+	mov ebp,esp
+	pushad
+	pushfd
 	popfd
 	popad
 	pop ebp
