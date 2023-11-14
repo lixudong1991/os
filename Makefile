@@ -3,7 +3,7 @@ prom = main
 deps = $(shell find ./ -maxdepth 1 -name "*.h")
 src = $(shell find ./ -maxdepth 1 -name "*.c")
 mobj = $(shell find ./lib/ -name "*.o")
-asmobj = ./obj/mem.o ./obj/puts.o ./obj/boot.o ./obj/harddisk.o ./obj/syscall.o ./obj/interruptGate.o ./obj/ps2deviceinit.o
+asmobj = ./obj/mem.o ./obj/puts.o ./obj/boot.o ./obj/harddisk.o ./obj/callgate.o ./obj/interruptGate.o ./obj/ps2deviceinit.o
 D_OBJ = ./obj
 incpath = ./include
 obj = $(addprefix $(D_OBJ)/,$(src:%.c=%.o))

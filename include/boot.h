@@ -422,6 +422,6 @@ typedef struct _SYSTEMTIME {
 
 void getCmosDateTime(SYSTEMTIME *datetime);
 
-extern void switchStack(uint32_t cr3dat);
-extern void switchNewTask(uint32_t newesp2, uint32_t ss, uint32_t newesp, uint32_t eflags, uint32_t cs, uint32_t neweip, uint32_t cr3dat);
+extern void switchStack(uint32_t* oldesp, uint32_t newesp,uint32_t cr3dat);
+extern void switchNewTask(uint32_t* oldesp, uint32_t newesp, TssHead *tssdat);
 #endif

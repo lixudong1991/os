@@ -702,6 +702,9 @@ switchStack:
 	pushad
 	pushfd
 	mov eax,[ebp+8]
+	mov [eax],esp
+	mov esp,[ebp+12]
+	mov eax,[ebp+16]
 	mov cr3,eax
 	popfd
 	popad
@@ -713,7 +716,16 @@ switchNewTask:
 	mov ebp,esp
 	pushad
 	pushfd
-	popfd
-	popad
-	pop ebp
-	ret
+	mov eax,[ebp+8]
+	mov [eax],esp
+	mov esp,[ebp+12]
+	mov eax,[ebp+16]
+	mov edx,[eax+28]
+	mov cr3,edx
+	push dword [eax+80]
+	push dword [eax+56]
+	push dword [eax+36]
+	push dword [eax+76]
+	push dword [eax+32]
+	iret
+	

@@ -1,6 +1,6 @@
 #include "boot.h"
 #include "osdataPhyAddr.h"
-#include "syscall.h"
+#include "callgate.h"
 #include "interruptGate.h"
 #include "elf.h"
 #include "string.h"
@@ -26,7 +26,7 @@ KernelData kernelData;
 LockBlock *lockblock = NULL;
 AParg *aparg = (AParg *)AP_ARG_ADDR;
 ProcessorInfo processorinfo;
-TcbList cpuTaskList;
+TcbList *cpuTaskList= NULL;
 TaskCtrBlock** pCpuCurrentTask = NULL;
 TaskCtrBlock** pEmptyTask = NULL;
 TssPointer* cpuTssdata=NULL;
@@ -332,12 +332,8 @@ thread_t* add_thread(process_t* proc, void(*function)(void*), void* arg)
 {
 
 }
-TaskCtrBlock* createNewTcb(TcbList* taskList)
+void appendNewTcb(TcbList* taskList, TaskCtrBlock* newTcb)
 {
-	TaskCtrBlock* newTcb = (TaskCtrBlock*)kernel_malloc(sizeof(TaskCtrBlock));
-	memset_s(newTcb, 0, sizeof(TaskCtrBlock));
-	newTcb->processdata.threads = kernel_malloc(sizeof(thread_t));
-	memset_s(newTcb->processdata.threads, 0, sizeof(thread_t));
 	if (taskList->size == 0)
 	{
 		taskList->tcb_Frist = taskList->tcb_Last = newTcb;
@@ -349,7 +345,6 @@ TaskCtrBlock* createNewTcb(TcbList* taskList)
 		taskList->tcb_Last = newTcb;
 		taskList->size++;
 	}
-	return newTcb;
 }
 void setCpuTask(ProgramaData *prodata, TaskCtrBlock* newTask, uint32_t pid)
 {
@@ -412,34 +407,6 @@ void releaseLock(LockObj *lobj)
 	}
 	unlock(&(lockblock->lockData[0]));
 	asm("sti");
-}
-void runTask()
-{
-	//createProcess("/proc/a.out", 1);
-	LOCAL_APIC* apic = (LOCAL_APIC*)getXapicAddr();
-	uint32_t apid = apic->ID[0] >> 24;
-	while (pCpuCurrentTask == NULL|| pCpuCurrentTask[apid]==NULL|| pCpuCurrentTask[apid] == pEmptyTask[apid]);
-	TaskCtrBlock* newTask = pCpuCurrentTask[apid];
-	while ( newTask->processdata.threads == NULL|| newTask->processdata.threads->status != READY);
-	newTask->processdata.threads->status = RUNNING;
-	setgdtr(&(kernelData.gdtInfo));
-	resetcr3();
-	cpuTaskTssdata[apid].pTssdata->cr3 = pCpuCurrentTask[apid]->processdata.context.cr3;
-	cpuTaskTssdata[apid].pTssdata->ioPermission = pCpuCurrentTask[apid]->processdata.context.ioPermission;
-	cpuTaskTssdata[apid].pTssdata->esp0 = pCpuCurrentTask[apid]->processdata.threads->context.esp0;
-	cpuTaskTssdata[apid].pTssdata->eflags = pCpuCurrentTask[apid]->processdata.threads->context.eflags;
-	cpuTaskTssdata[apid].pTssdata->esp = pCpuCurrentTask[apid]->processdata.threads->context.esp;
-	cpuTaskTssdata[apid].pTssdata->eip = pCpuCurrentTask[apid]->processdata.threads->context.eip;
-
-	char gdtdata[8] = { 0 };
-	getgdtr(gdtdata);
-	consolePrintf("cpu %d runEmptyTask ss:0x%x esp:0x%x cs:0x%x eip:0x%x gdtlimt:%d gdtaddr:0x%x 0x%x 0x%x tsssel:0x%x cr3:0x%x\n", apid, cpuTaskTssdata[apid].pTssdata->ss, pCpuCurrentTask[apid]->processdata.threads->context.esp,
-		cpuTaskTssdata[apid].pTssdata->cs, pCpuCurrentTask[apid]->processdata.threads->context.eip, *(uint32_t*)gdtdata, *(uint32_t*)(gdtdata+2), *(uint32_t*)(kernelData.gdtInfo.base+136), *(uint32_t*)(kernelData.gdtInfo.base + 140), cpuTaskTssdata[apid].tsssel, cpuTaskTssdata[apid].pTssdata->cr3);
-//	retfEmptyTask(pEmptyTask[apid]->processdata.context.ss, pEmptyTask[apid]->processdata.threads->context.esp,
-//		pEmptyTask[apid]->processdata.context.cs, pEmptyTask[apid]->processdata.threads->context.eip);
-	*(uint32_t*)gdtdata = 0;
-	*(uint32_t*)(gdtdata + 4) = cpuTaskTssdata[apid].tsssel;
-//	callTss(gdtdata);
 }
 void APproc(uint32 argv)
 {
@@ -660,6 +627,8 @@ void createUserSegmentDesc()
 	tempSeg.DPL = 0;
 	ss0 = appendTableSegItem(&(kernelData.gdtInfo), &tempSeg);
 
+	cpuTaskList = allocate_memory(kernelData.taskList.tcb_Frist, processorinfo.count * sizeof(TcbList), PAGE_G | PAGE_RW);
+	memset_s(cpuTaskList, 0, processorinfo.count * sizeof(TcbList));
 	cpuTaskTssdata = allocate_memory(kernelData.taskList.tcb_Frist, processorinfo.count * sizeof(TssPointer), PAGE_G | PAGE_RW);
 	memset_s(cpuTaskTssdata, 0, processorinfo.count * sizeof(TssHead*));
 	memset_s((char*)&tempSeg, 0, sizeof(TableSegmentItem));
@@ -758,13 +727,11 @@ extern void testFATfs();
 
 TaskCtrBlock* createProcess(char* filedata, uint32_t sched_priority,int argc,void *argv)
 {
-	asm("cli");
-	spinlock(lockBuff[CREATE_TASK_LOCK].plock);
-	uint32_t pid = (*g_pidIndex)++;
-	uint32_t cpuidnnum = (pid) % processorinfo.count;
-	TaskCtrBlock* newTask = createNewTcb(&cpuTaskList);
-	unlock(lockBuff[CREATE_TASK_LOCK].plock);
-	asm("sti");
+	TaskCtrBlock* newTask = (TaskCtrBlock*)kernel_malloc(sizeof(TaskCtrBlock));
+	memset_s(newTask, 0, sizeof(TaskCtrBlock));
+	newTask->processdata.threads = kernel_malloc(sizeof(thread_t));
+	memset_s(newTask->processdata.threads, 0, sizeof(thread_t));
+
 	ProgramaData prodata;
 	prodata.vir_end = 0;
 	prodata.vir_base = 0xffffffff;
@@ -790,8 +757,7 @@ TaskCtrBlock* createProcess(char* filedata, uint32_t sched_priority,int argc,voi
 		stack0 += 0x1000;
 	}
 
-	newTask->processdata.pid = pid;
-	memset_s(newTask->processdata.threads, 0, sizeof(thread_t));
+
 	newTask->processdata.context.ioPermission = sizeof(TssHead) - 1;
 	newTask->processdata.threads->sched_priority = 1;
 	newTask->processdata.threads->tid = 0;
@@ -816,6 +782,15 @@ TaskCtrBlock* createProcess(char* filedata, uint32_t sched_priority,int argc,voi
 	*(uint32*)0xFFFFFFF8 = 0;
 	memset_s(0xfffff004, 0, 0xBF8);
 	resetcr3();
+
+	asm("cli");
+	spinlock(lockBuff[CREATE_TASK_LOCK].plock);
+	uint32_t pid = (*g_pidIndex)++;
+	unlock(lockBuff[CREATE_TASK_LOCK].plock);
+	asm("sti");
+	uint32_t cpuidnnum = (pid) % processorinfo.count;
+	newTask->processdata.pid = pid;
+	appendNewTcb(&(cpuTaskList[cpuidnnum]), newTask);
 	consolePrintf("pid %d cpuidnnum %d cr3:0x%x currentCr3:0x%x virbase:0x%x virend:0x%x taskaddr:0x%x\n", pid, cpuidnnum, newTask->processdata.context.cr3, cr3_data(), prodata.vir_base, prodata.vir_end, newTask);
 	return newTask;
 }
