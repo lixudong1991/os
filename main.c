@@ -972,6 +972,7 @@ int _start(void *bargv,void *vbe)
 	xapic_obj->LVT_Timer[0] = 0x82;
 	xapic_obj->DivideConfiguration[0] = 3;
 
+	initSysCall();
 	//check_cpuHwp();
 	//testFATfs();
 	initTask();

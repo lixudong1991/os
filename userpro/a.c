@@ -1,20 +1,6 @@
 #include "syslib.h"
 #include "stdio.h"
 #include "string.h"
-int printf(const char* fmt, ...)
-{
-	char printf_buf[1024];
-	va_list args;
-	int printed;
-
-	va_start(args, fmt);
-	printed = vsprintf(printf_buf, fmt, args);
-	va_end(args);
-	//asm("cli");
-	puts(printf_buf);
-	//	asm("sti");
-	return printed;
-}
 
 int _start(int argc,void *argv)
 {

@@ -3,7 +3,7 @@ prom = a.out
 deps = $(shell find ./ -maxdepth 1 -name "*.h")
 src = $(shell find ./ -maxdepth 1 -name "*.c")
 mobj = $(shell find ../lib/ -name "*.o")
-asmobj = ../obj/string.o ../obj/mem.o ./syslib.o
+asmobj = $(shell find ./lib/ -name "*.o")
 D_OBJ = ./
 incpath = ../include
 obj = $(addprefix $(D_OBJ)/,$(src:%.c=%.o))

@@ -186,16 +186,7 @@ static void xApicTimeOut()
         }
     }
 }
-void systemCall()
-{
-#if X2APIC_ENABLE
-    uint32 x2id = 0, empty = 0;
-    rdmsr_fence(IA32_X2APIC_APICID, &x2id, &empty);
-    interrput("system call x2apicid:0x%x\n", x2id);
-#else
-    interrput("system call apicid:0x%x\n", ((LOCAL_APIC *)getXapicAddr())->ID[0]);
-#endif
-}
+
 void apicError()
 {
 #if X2APIC_ENABLE
