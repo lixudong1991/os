@@ -727,5 +727,5 @@ switchNewTask:
 	push dword [eax+36]
 	push dword [eax+76]
 	push dword [eax+32]
-	iret
+	iretd
 	

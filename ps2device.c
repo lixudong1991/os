@@ -218,7 +218,7 @@ void ps2KeyInterruptProc(uint32_t code)
 					{
 						pkeyBoardStruct->ps2KeyCodeBuffIndex--;
 						pkeyBoardStruct->ps2KeyCodeBuff[pkeyBoardStruct->ps2KeyCodeBuffIndex] = 0;
-						consoleClrchar(1);
+						//consoleClrchar(1);
 					}
 				}
 				break;
@@ -259,7 +259,7 @@ void ps2KeyInterruptProc(uint32_t code)
 					else
 						pkeyBoardStruct->ps2KeyCodeBuff[pkeyBoardStruct->ps2KeyCodeBuffIndex] = c;
 				}
-				consolePutchar(pkeyBoardStruct->ps2KeyCodeBuff[pkeyBoardStruct->ps2KeyCodeBuffIndex]);
+				//consolePutchar(pkeyBoardStruct->ps2KeyCodeBuff[pkeyBoardStruct->ps2KeyCodeBuffIndex]);
 				pkeyBoardStruct->ps2KeyCodeBuffIndex++;
 			}
 		}
@@ -279,7 +279,7 @@ void ps2KeyInterruptProc(uint32_t code)
 			if (pkeyBoardStruct->ps2KeyCodeBuffIndex == KEY_BUFF_SIZE - 64)
 				pkeyBoardStruct->ps2KeyCodeBuffIndex = 0;
 			pkeyBoardStruct->ps2KeyCodeBuff[pkeyBoardStruct->ps2KeyCodeBuffIndex] = '\n';
-			consolePutchar(pkeyBoardStruct->ps2KeyCodeBuff[pkeyBoardStruct->ps2KeyCodeBuffIndex]);
+			//consolePutchar(pkeyBoardStruct->ps2KeyCodeBuff[pkeyBoardStruct->ps2KeyCodeBuffIndex]);
 			pkeyBoardStruct->ps2KeyCodeBuffIndex++;
 			pkeyBoardStruct->ps2ScanIndex = 0;
 		}
@@ -296,7 +296,7 @@ void ps2KeyInterruptProc(uint32_t code)
 			if (pkeyBoardStruct->ps2KeyCodeBuffIndex == KEY_BUFF_SIZE - 64)
 				pkeyBoardStruct->ps2KeyCodeBuffIndex = 0;
 			pkeyBoardStruct->ps2KeyCodeBuff[pkeyBoardStruct->ps2KeyCodeBuffIndex] = '/';
-			consolePutchar(pkeyBoardStruct->ps2KeyCodeBuff[pkeyBoardStruct->ps2KeyCodeBuffIndex]);
+			//consolePutchar(pkeyBoardStruct->ps2KeyCodeBuff[pkeyBoardStruct->ps2KeyCodeBuffIndex]);
 			pkeyBoardStruct->ps2KeyCodeBuffIndex++;
 			pkeyBoardStruct->ps2ScanIndex = 0;
 		}

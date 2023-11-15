@@ -4,6 +4,8 @@
 #include "apic.h"
 #include "memcachectl.h"
 #include "osdataPhyAddr.h"
+extern void x_apicwriteEOI();
+#define xapicwriteEOI x_apicwriteEOI
 extern KernelData kernelData;
 extern TcbList *cpuTaskList;
 extern TaskCtrBlock** pCpuCurrentTask;
@@ -21,16 +23,13 @@ int general_exeption_no_code(uint32 eno,uint32 addr)
     return 0;
 }
 
-int general_exeption_code(uint32 eno, uint32 code,uint32 addr)
+int general_exeption_code(uint32 eno, uint32 code, uint32 addr)
 {
-    interrput("********Exception  %d in 0x%x  code: 0x%x cr3:0x%x********\n", eno,addr, code,cr3_data());
+    interrput("********Exception  %d in 0x%x  code: 0x%x cr3:0x%x********\n", eno, addr, code, cr3_data());
     return 0;
 }
-static void xapicwriteEOI()
-{
-    LOCAL_APIC *apic = (LOCAL_APIC *)getXapicAddr();
-    apic->EOI[0] = 0;
-}
+
+
 static void x2apicwriteEOI()
 {
     wrmsr_fence(IA32_X2APIC_EOI, 0, 0);
@@ -153,17 +152,18 @@ static void xApicTimeOut()
             apic->InitialCount[0] = 0xfffff;
             if (isstart)
             {
-               // interrput("a cpu:%d pid:%d esp:0x%x\n", apid, pTargetTask->processdata.pid, esp_data());
+        //       interrput("a cpu:%d pid:%d esp:0x%x\n", apid, pTargetTask->processdata.pid, esp_data());
                 switchNewTask(&(oldtask->processdata.threads->context.esp), pTargetTask->processdata.threads->context.esp,cpuTaskTssdata[apid].pTssdata);
             }
             else
             {
-             //   interrput("b cpu:%d pid:%d esp:0x%x\n", apid, pTargetTask->processdata.pid, esp_data());
+           //     interrput("b cpu:%d pid:%d esp:0x%x\n", apid, pTargetTask->processdata.pid, esp_data());
                 switchStack(&(oldtask->processdata.threads->context.esp), pTargetTask->processdata.threads->context.esp, pTargetTask->processdata.context.cr3);
             }   
         }
         else
         {
+           // interrput("pCpuCurrentTask apid:%d pid%d cr3:0x%x\n", apid, pTargetTask->processdata.pid,cr3_data());
             xapicwriteEOI();
             apic->InitialCount[0] = 0xfffff;
         }
@@ -173,10 +173,12 @@ static void xApicTimeOut()
         pEmptyTask[apid]->processdata.threads->status = RUNNING;
         if (pCpuCurrentTask[apid] == pEmptyTask[apid])
         {
+         //   interrput("pEmptyTask apid:%d pid%d cr3:0x%x\n", apid, pTargetTask->processdata.pid, cr3_data());
             xapicwriteEOI();
         }
         else
         {
+           // interrput("aaapEmptyTask apid:%d pid%d cr3:0x%x\n", apid, pTargetTask->processdata.pid, cr3_data());
           //  char tasktss[8] = { 0 };
         //    *(uint32_t*)tasktss = 0;
          //   *(uint32_t*)(tasktss + 4) = cpuTssdata[apid].tsssel;

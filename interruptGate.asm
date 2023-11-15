@@ -1,6 +1,6 @@
 
 global exceptionCalls,general_interrupt_handler,interrupt_27_handler,interrupt_28_handler,interrupt_8259a_handler,interrupt_70_handler,interrupt_80_handler,interrupt_81_handler,interrupt_82_handler,interrupt_83_handler,interrupt_84_handler
-global interrupt_78_handler
+global interrupt_78_handler,x_apicwriteEOI
 extern   kernelData,general_exeption_code,general_exeption_no_code,apicTimeOut,apicError,updataGdt,processorMtrrSync,sleepTimeOut,ps2KeyInterruptProc,interruptHandle_AHCI,sysCallAddr
 IA32_X2APIC_EOI equ 0x80B
 IA32_X2APIC_ESR equ 0x828
@@ -125,6 +125,11 @@ general_exception13_handler:
 	hlt
 
 general_interrupt_handler:
+	pushad
+	pushfd
+	call x_apicwriteEOI
+	popfd
+	popad
     iretd
 
 interrupt_8259a_handler:
@@ -136,6 +141,8 @@ interrupt_8259a_handler:
     iretd
 
 interrupt_27_handler:
+	pushad
+	pushfd
 	push eax
 	xor eax,eax
 	in al,0x60
@@ -144,8 +151,12 @@ interrupt_27_handler:
 	add esp,4
 	pop eax
 	call x_apicwriteEOI
+	popfd
+	popad
 	iretd
 interrupt_28_handler:
+	pushad
+	pushfd
 	push eax
 	xor eax,eax
 	in al,0x60
@@ -156,6 +167,8 @@ interrupt_28_handler:
 	add esp,12
 	pop eax
 	call x_apicwriteEOI
+	popfd
+	popad
 	iretd
 interrupt_70_handler:
     push eax   
@@ -202,7 +215,7 @@ ret70:
     iretd
 
 interrupt_80_handler:
-	push dword 0
+	push dword [esp]
 	push edi
 	push esi
 	push edx
@@ -210,25 +223,52 @@ interrupt_80_handler:
 	push ebx
 	push eax
 	call [sysCallAddr+eax*4]
-	add esp,28
+	add esp,4
+	pop ebx
+	pop ecx
+	pop edx
+	pop esi
+	pop edi
+	add esp,4
+	call x_apicwriteEOI
 	iretd
 
 interrupt_81_handler:
+	pushad
+	pushfd
 	call apicError
+	popfd
+	popad
 	iretd
  interrupt_82_handler:
+ 	pushad
+	pushfd
  	call apicTimeOut
+	popfd
+	popad
  	iretd
 interrupt_83_handler:
+	pushad
+	pushfd
 	call updataGdt
+	popfd
+	popad
 	iretd
 interrupt_84_handler:
+	pushad
+	pushfd
 	call processorMtrrSync
+	popfd
+	popad
 	iretd
 
 interrupt_78_handler:
+	pushad
+	pushfd
 	call interruptHandle_AHCI
 	call x_apicwriteEOI
+	popfd
+	popad
 	iretd
 ;interrupt_85_handler:
 ;	call sleepTimeOut
@@ -441,8 +481,10 @@ interrupt_78_handler:
 ; 	iretd
 
 x_apicwriteEOI:
+	push eax
 	call x_getXapicAddr
 	mov dword [eax+XAPIC_EOI_OFFSET],0
+	pop eax
 	ret
 x_getXapicAddr:
 	push ecx

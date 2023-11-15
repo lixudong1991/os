@@ -7,14 +7,9 @@
 #include "string.h"
 #include "ff.h"
 #include "apic.h"
-//#define STB_IMAGE_WRITE_IMPLEMENTATION
-//#include "stb_image_write.h" /* http://nothings.org/stb/stb_image_write.h */
-#define STB_TRUETYPE_IMPLEMENTATION
-#include "stb_truetype.h"
 
 char g_vbebuff[VBE_BUFF_SIZE];
 char *gfontfilebuff = NULL;
-stbtt_fontinfo *g_fontinfo = NULL;
 static char *g_DrawTextBuff = NULL;
 static Bitmap g_BitmapCache;
 static char* gConsoleFont32 = NULL;
@@ -25,6 +20,7 @@ static char* gConsoleFont32 = NULL;
 typedef int (*InterruptPrintfFun)(const char* fmt, ...);
 
 extern InterruptPrintfFun interrput;
+extern LockObj* lockBuff;
 #define DUMP_VBEINF
 typedef struct ConsoleInfo
 {
