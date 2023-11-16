@@ -573,6 +573,7 @@ void printText(const char* text, Rect* rect)
     {
         putCharPix(*pstr, rect->top, x);
         x += CONSOLE_PIX_W;
+        pstr++;
     }
 }
 void setConsoleTextColor(uint32_t color)

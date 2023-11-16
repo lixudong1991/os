@@ -4,6 +4,8 @@
 #include "apic.h"
 #include "memcachectl.h"
 #include "osdataPhyAddr.h"
+#include "string.h"
+#include "vbe.h"
 extern void x_apicwriteEOI();
 #define xapicwriteEOI x_apicwriteEOI
 extern KernelData kernelData;
@@ -57,6 +59,24 @@ static void x2ApicTimeOut()
 {
     x2apicwriteEOI();
 }
+/*
+void xApicTimeOut()
+{
+    static uint32_t countSecond[8] ={ 0 };
+    LOCAL_APIC* apic = (LOCAL_APIC*)getXapicAddr();
+    uint32_t apid = apic->ID[0] >> 24;
+    char buff[9] = { 0 };
+    hexstr32(buff, countSecond[apid]++);
+    buff[8] = 0;
+    Rect rect;
+    rect.top = 0;
+    rect.bottom = 40;
+    rect.left = apid * 100;
+    rect.right = rect.left + 100;
+    printText(buff, &rect);
+    xapicwriteEOI();
+}
+*/
 void xApicTimeOut()
 {
     LOCAL_APIC* apic = (LOCAL_APIC*)getXapicAddr();
@@ -114,7 +134,7 @@ void xApicTimeOut()
         cpuTaskTssdata[apid].pTssdata->esp = pTargetTask->processdata.threads->context.esp;
         cpuTaskTssdata[apid].pTssdata->eip = pTargetTask->processdata.threads->context.eip;
         xapicwriteEOI();
-        apic->InitialCount[0] = 0xfffff;
+        apic->InitialCount[0] = cpuTaskList[apid].baseSchedCount;
         if (isstart)
         {
         //    interrput("a cpu:%d pid:%d esp:0x%x\n", apid, pTargetTask->processdata.pid, esp_data());
@@ -130,7 +150,7 @@ void xApicTimeOut()
     {
         interrput("pCpuCurrentTask apid:%d pid%d cr3:0x%x\n", apid, pTargetTask->processdata.pid,cr3_data());
         xapicwriteEOI();
-        apic->InitialCount[0] = 0xfffff;
+        apic->InitialCount[0] = cpuTaskList[apid].baseSchedCount;;
     }
 
 }

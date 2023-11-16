@@ -37,5 +37,4 @@ void check_cpu_features();
 #define MSR_PPERF 0x64E// MSR_PPERF Productive Performance Count.
 void check_cpuHwp();
 
-void timerInit();
 #endif

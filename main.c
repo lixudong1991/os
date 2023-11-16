@@ -428,7 +428,7 @@ void runTask()
 	char tasktss[8] = { 0 };
 	*(uint32_t*)tasktss = 0;
 	*(uint32_t*)(tasktss + 4) = cpuTaskTssdata[apid].tsssel;
-	xapic_obj->InitialCount[0] = 0xfffff;
+	xapic_obj->InitialCount[0] = (processorinfo.processcontent[apid].cpuBusFrequencyLow);//每秒一次任务切换中断
 	callTss(tasktss);
 }
 void APproc(uint32 argv)
@@ -457,9 +457,7 @@ void APproc(uint32 argv)
 		unlock(lockBuff[KERNEL_LOCK].plock);
 		while (aparg->logcpucount < processorinfo.count)
 			;
-		LOCAL_APIC* xapic_obj = (LOCAL_APIC*)(processorinfo.processcontent[argv].apicAddr);
-		xapic_obj->LVT_Timer[0] = 0x82;
-		xapic_obj->DivideConfiguration[0] = 3;
+		timerInit();
 		//	xapic_obj->InitialCount[0] = 0xfffff;
 		runTask();
 		while (1)
@@ -849,6 +847,8 @@ void initTask()
 	for (int i = 0; i < processorinfo.count; i++)
 	{
 		pCpuCurrentTask[i] = cpuTaskList[i].tcb_Frist;
+		cpuTaskList[i].baseSchedCount = (processorinfo.processcontent[i].cpuBusFrequencyLow / 1000) * MINSCHEDTIME;
+		consolePrintf("cpu %d bus frequency high:0x%x  low:0x%x\n", i, processorinfo.processcontent[i].cpuBusFrequencyHigh, processorinfo.processcontent[i].cpuBusFrequencyLow);
 	}
 }
 
@@ -1003,6 +1003,7 @@ int _start(void *bargv,void *vbe)
 	//check_cpuHwp();
 	//testFATfs();
 	initTask();
+
 	runTask();
 	//xapic_obj->ICR1[0] = 0;
 	//xapic_obj->ICR0[0] = 0x84082;
@@ -1119,4 +1120,29 @@ void syncTask_KernelCr3(TaskCtrBlock* task)
 	*(uint32_t*)(KERNELPAGEDIR_PHYADDR + 0xff8) = 0;
 	*(uint32*)0xFFFFFFF8 = 0;
 	resetcr3();
+}
+
+extern uint32_t getCPUbusfrequencyLocalApicTimer(uint32_t apicaddr, uint32_t* datahigh, uint32_t* datalow);
+extern uint32_t getCPUbusfrequencyTscTimer(uint32_t apicaddr, uint32_t* datahigh, uint32_t* datalow);
+void timerInit()
+{
+	uint32_t eax = 0, ebx = 0, ecx = 0, edx = 0;
+	cpuidcall(6, &eax, &ebx, &ecx, &edx);
+//	consolePrintf("apictimer cpuid 6 eax:0x%x\n", eax);
+//	cpuidcall(1, &eax, &ebx, &ecx, &edx);
+//	consolePrintf("apictimer cpuid 1 ecx:0x%x edx:0x%x\n", ecx,edx);
+//	cpuidsubcall(7,0, &eax, &ebx, &ecx, &edx);
+//	consolePrintf("apictimer cpuid 7 edx:0x%x\n", edx);
+	LOCAL_APIC* xapic_obj = (LOCAL_APIC*)getXapicAddr();
+	uint32_t apid = xapic_obj->ID[0] >> 24;
+	xapic_obj->LVT_Timer[0] = 0x82;
+	xapic_obj->DivideConfiguration[0] = 0xb;//不分频率
+	//APIC不分频计算cpu bus frequency
+	getCPUbusfrequencyLocalApicTimer(xapic_obj, &edx, &eax);
+
+	processorinfo.processcontent[apid].cpuBusFrequencyLow = eax;
+	processorinfo.processcontent[apid].cpuBusFrequencyHigh = edx;
+	xapic_obj->LVT_Timer[0] = 0x82;//一次性模式
+	//xapic_obj->LVT_Timer[0]=0x20082; //周期模式
+	xapic_obj->DivideConfiguration[0] = 0xb;
 }

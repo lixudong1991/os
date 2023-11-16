@@ -60,6 +60,8 @@ typedef struct  ProcessorContent
 {
 	uint32 id;
 	uint32 apicAddr;	
+	uint32 cpuBusFrequencyLow;//cpu外频每秒计数低32位
+	uint32 cpuBusFrequencyHigh;//cpu外频每秒计数高32位
 }ProcessorContent;
 
 #define PROCESSOR_MAX_COUNT  8
@@ -182,11 +184,13 @@ typedef struct TaskCtrBlock
 	process_t processdata;
 } TaskCtrBlock;
 
+#define MINSCHEDTIME 20 //基础调度时间20ms(单位毫秒)
 typedef struct TcbList
 {
 	TaskCtrBlock *tcb_Frist;
 	TaskCtrBlock *tcb_Last;
 	uint32_t size;
+	uint32_t baseSchedCount;
 } TcbList;
 typedef struct ProgramaData
 {
@@ -422,7 +426,7 @@ typedef struct _SYSTEMTIME {
 } SYSTEMTIME;
 
 void getCmosDateTime(SYSTEMTIME *datetime);
-
+void timerInit();
 extern void switchStack(uint32_t* oldesp, uint32_t newesp,uint32_t cr3dat);
 extern void switchNewTask(uint32_t* oldesp, uint32_t newesp, TssHead *tssdat);
 #endif
