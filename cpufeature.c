@@ -118,3 +118,23 @@ void check_cpuHwp()
 		consolePrintf("IA32_HWP_REQUEST_PKG  eax:0x%x edx:0x%x\n", eax, edx);
 	}
 }
+
+extern uint32_t getCPUbusfrequencyWithAPICDiv16(uint32_t apicaddr, uint32_t *datahigh, uint32_t* datalow);
+void timerInit()
+{
+	uint32_t eax = 0, ebx = 0, ecx = 0, edx = 0;
+	cpuidcall(6, &eax, &ebx, &ecx, &edx);
+	consolePrintf("apictimer cpuid 6 eax:0x%x\n", eax);
+	cpuidcall(1, &eax, &ebx, &ecx, &edx);
+	consolePrintf("apictimer cpuid 1 ecx:0x%x edx:0x%x\n", ecx,edx);
+	cpuidsubcall(7,0, &eax, &ebx, &ecx, &edx);
+	consolePrintf("apictimer cpuid 7 edx:0x%x\n", edx);
+	LOCAL_APIC* xapic_obj = (LOCAL_APIC*)getXapicAddr();
+	xapic_obj->LVT_Timer[0] = 0x82;
+	xapic_obj->DivideConfiguration[0] = 3;
+	getCPUbusfrequencyWithAPICDiv16(xapic_obj,&edx,&eax);
+	consolePrintf("cpu bus frequency high:0x%x  low:0x%x\n", edx,eax);
+
+	xapic_obj->LVT_Timer[0] = 0x82;
+	xapic_obj->DivideConfiguration[0] = 3;
+}

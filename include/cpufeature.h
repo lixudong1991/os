@@ -36,4 +36,6 @@ void check_cpu_features();
 #define IA32_THERM_STATUS 0x19C// IA32_THERM_STATUS[bits 15:12] Conveys reasons for performance excursions.
 #define MSR_PPERF 0x64E// MSR_PPERF Productive Performance Count.
 void check_cpuHwp();
+
+void timerInit();
 #endif

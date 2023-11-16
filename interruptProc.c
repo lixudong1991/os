@@ -17,6 +17,8 @@ extern AParg *aparg;
 typedef int (*InterruptPrintfFun)(const char* fmt, ...);
 
 volatile InterruptPrintfFun interrput = interruptPrintf;
+
+
 int general_exeption_no_code(uint32 eno,uint32 addr)
 {
     interrput("********Exception in 0x%x %d encounted********\n",addr, eno);
@@ -55,46 +57,26 @@ static void x2ApicTimeOut()
 {
     x2apicwriteEOI();
 }
-static void xApicTimeOut()
+void xApicTimeOut()
 {
     LOCAL_APIC* apic = (LOCAL_APIC*)getXapicAddr();
     uint32_t apid = apic->ID[0] >> 24;
     TaskCtrBlock* pTargetTask = NULL;
-  //  interrput("C cpu:%d pid:%d esp:0x%x\n", apid, pCpuCurrentTask[apid]->processdata.pid, esp_data());
-
     uint32_t isstart = FALSE;
     if (pCpuCurrentTask[apid]->processdata.threads->status == RUNNING)
         pCpuCurrentTask[apid]->processdata.threads->status = READY;
 
-    if (pCpuCurrentTask[apid] == pEmptyTask[apid])
-    {
-        pTargetTask = cpuTaskList[apid].tcb_Frist;
-        while (pTargetTask)
-        {
-            if (pTargetTask->processdata.threads->status == READY)
-            {
-                pTargetTask->processdata.threads->status = RUNNING;
-                break;
-            }
-            if (pTargetTask->processdata.threads->status == START)
-            {
-                isstart = TRUE;
-                pTargetTask->processdata.threads->status = RUNNING;
-                break;
-            }
-            pTargetTask = pTargetTask->next;
-        }
-    }
-    else
-    {
+    do {
+
         pTargetTask = pCpuCurrentTask[apid]->next;
+
         while (1)
         {
             if (pTargetTask == NULL)
             {
                 pTargetTask = cpuTaskList[apid].tcb_Frist;
             }
-            
+          //  interrput("c cpu:%d pid:%d stat:%d\n", apid, pTargetTask->processdata.pid, pTargetTask->processdata.threads->status);
             if (pTargetTask->processdata.threads->status == READY)
             {
                 pTargetTask->processdata.threads->status = RUNNING;
@@ -113,82 +95,52 @@ static void xApicTimeOut()
             }
             pTargetTask = pTargetTask->next;
         }
-    }
-
-    if (pTargetTask)
-    { 
-        if (pCpuCurrentTask[apid] == pEmptyTask[apid])
+        if (pTargetTask == NULL)
         {
-            pCpuCurrentTask[apid] = pTargetTask;
-            cpuTaskTssdata[apid].pTssdata->cr3 = pTargetTask->processdata.context.cr3;
-            cpuTaskTssdata[apid].pTssdata->ioPermission = pTargetTask->processdata.context.ioPermission;
-            cpuTaskTssdata[apid].pTssdata->esp0 = pTargetTask->processdata.threads->context.esp0;
-            cpuTaskTssdata[apid].pTssdata->eflags = pTargetTask->processdata.threads->context.eflags;
-            cpuTaskTssdata[apid].pTssdata->esp = pTargetTask->processdata.threads->context.esp;
-            cpuTaskTssdata[apid].pTssdata->eip = pTargetTask->processdata.threads->context.eip;
-            char tasktss[8] = { 0 };
-         //   char gdtdata[8] = { 0 };
-      //      getgdtr(gdtdata);
-         //   interrput("cpu %d runEmptyTask ss:0x%x esp:0x%x cs:0x%x eip:0x%x gdtlimt:%d gdtaddr:0x%x 0x%x 0x%x tsssel:0x%x cr3:0x%x taskcount:%d\n", apid, cpuTaskTssdata[apid].pTssdata->ss, pCpuCurrentTask[apid]->processdata.threads->context.esp,
-          //      cpuTaskTssdata[apid].pTssdata->cs, pCpuCurrentTask[apid]->processdata.threads->context.eip, *(uint32_t*)gdtdata, *(uint32_t*)(gdtdata + 2), *(uint32_t*)(kernelData.gdtInfo.base + 136), *(uint32_t*)(kernelData.gdtInfo.base + 140), cpuTaskTssdata[apid].tsssel, cpuTaskTssdata[apid].pTssdata->cr3, cpuTaskList.size);
-            *(uint32_t*)tasktss = 0;
-            *(uint32_t*)(tasktss + 4) = cpuTaskTssdata[apid].tsssel;
-
-            xapicwriteEOI();
-            apic->InitialCount[0] = 0xfffff;
-            callTss(tasktss);
+            asm("sti");
+            asm("hlt");
+            asm("cli");
         }
-        else if (pCpuCurrentTask[apid] != pTargetTask)
+    } while (pTargetTask==NULL);
+
+    if (pCpuCurrentTask[apid] != pTargetTask)
+    {
+        TaskCtrBlock* oldtask = pCpuCurrentTask[apid];
+        pCpuCurrentTask[apid] = pTargetTask;
+        cpuTaskTssdata[apid].pTssdata->cr3 = pTargetTask->processdata.context.cr3;
+        cpuTaskTssdata[apid].pTssdata->ioPermission = pTargetTask->processdata.context.ioPermission;
+        cpuTaskTssdata[apid].pTssdata->esp0 = pTargetTask->processdata.threads->context.esp0;
+        cpuTaskTssdata[apid].pTssdata->eflags = pTargetTask->processdata.threads->context.eflags;
+        cpuTaskTssdata[apid].pTssdata->esp = pTargetTask->processdata.threads->context.esp;
+        cpuTaskTssdata[apid].pTssdata->eip = pTargetTask->processdata.threads->context.eip;
+        xapicwriteEOI();
+        apic->InitialCount[0] = 0xfffff;
+        if (isstart)
         {
-            TaskCtrBlock* oldtask = pCpuCurrentTask[apid];
-            pCpuCurrentTask[apid] = pTargetTask;
-            cpuTaskTssdata[apid].pTssdata->cr3 = pTargetTask->processdata.context.cr3;
-            cpuTaskTssdata[apid].pTssdata->ioPermission = pTargetTask->processdata.context.ioPermission;
-            cpuTaskTssdata[apid].pTssdata->esp0 = pTargetTask->processdata.threads->context.esp0;
-            cpuTaskTssdata[apid].pTssdata->eflags = pTargetTask->processdata.threads->context.eflags;
-            cpuTaskTssdata[apid].pTssdata->esp = pTargetTask->processdata.threads->context.esp;
-            cpuTaskTssdata[apid].pTssdata->eip = pTargetTask->processdata.threads->context.eip;
-            xapicwriteEOI();
-            apic->InitialCount[0] = 0xfffff;
-            if (isstart)
-            {
-        //       interrput("a cpu:%d pid:%d esp:0x%x\n", apid, pTargetTask->processdata.pid, esp_data());
-                switchNewTask(&(oldtask->processdata.threads->context.esp), pTargetTask->processdata.threads->context.esp,cpuTaskTssdata[apid].pTssdata);
-            }
-            else
-            {
-           //     interrput("b cpu:%d pid:%d esp:0x%x\n", apid, pTargetTask->processdata.pid, esp_data());
-                switchStack(&(oldtask->processdata.threads->context.esp), pTargetTask->processdata.threads->context.esp, pTargetTask->processdata.context.cr3);
-            }   
+        //    interrput("a cpu:%d pid:%d esp:0x%x\n", apid, pTargetTask->processdata.pid, esp_data());
+            switchNewTask(&(oldtask->processdata.threads->context.esp), pTargetTask->processdata.threads->context.esp, cpuTaskTssdata[apid].pTssdata);
         }
         else
         {
-           // interrput("pCpuCurrentTask apid:%d pid%d cr3:0x%x\n", apid, pTargetTask->processdata.pid,cr3_data());
-            xapicwriteEOI();
-            apic->InitialCount[0] = 0xfffff;
+        //    interrput("b cpu:%d pid:%d esp:0x%x\n", apid, pTargetTask->processdata.pid, esp_data());
+            switchStack(&(oldtask->processdata.threads->context.esp), pTargetTask->processdata.threads->context.esp, pTargetTask->processdata.context.cr3);
         }
     }
     else
     {
-        pEmptyTask[apid]->processdata.threads->status = RUNNING;
-        if (pCpuCurrentTask[apid] == pEmptyTask[apid])
-        {
-         //   interrput("pEmptyTask apid:%d pid%d cr3:0x%x\n", apid, pTargetTask->processdata.pid, cr3_data());
-            xapicwriteEOI();
-        }
-        else
-        {
-           // interrput("aaapEmptyTask apid:%d pid%d cr3:0x%x\n", apid, pTargetTask->processdata.pid, cr3_data());
-          //  char tasktss[8] = { 0 };
-        //    *(uint32_t*)tasktss = 0;
-         //   *(uint32_t*)(tasktss + 4) = cpuTssdata[apid].tsssel;
-        //    xapicwriteEOI();
-         //   callTss(tasktss);
-            xapicwriteEOI();
-        }
+        interrput("pCpuCurrentTask apid:%d pid%d cr3:0x%x\n", apid, pTargetTask->processdata.pid,cr3_data());
+        xapicwriteEOI();
+        apic->InitialCount[0] = 0xfffff;
     }
-}
 
+}
+void taskSleep()
+{
+    LOCAL_APIC* apic = (LOCAL_APIC*)getXapicAddr();
+    uint32_t apid = apic->ID[0] >> 24;
+    pCpuCurrentTask[apid]->processdata.threads->status = SLEEPING;
+    xApicTimeOut();
+}
 void apicError()
 {
 #if X2APIC_ENABLE
@@ -197,15 +149,6 @@ void apicError()
     local_xapic_error_handling();
 #endif
 }
-void apicTimeOut()
-{
-#if X2APIC_ENABLE
-    x2ApicTimeOut();
-#else
-    xApicTimeOut();
-#endif
-}
-
 void updataGdt()
 {
     uint32_t *pAtomicBuff = ATOMIC_BUFF_ADDR;

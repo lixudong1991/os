@@ -1,7 +1,7 @@
 
 global exceptionCalls,general_interrupt_handler,interrupt_27_handler,interrupt_28_handler,interrupt_8259a_handler,interrupt_70_handler,interrupt_80_handler,interrupt_81_handler,interrupt_82_handler,interrupt_83_handler,interrupt_84_handler
 global interrupt_78_handler,x_apicwriteEOI
-extern   kernelData,general_exeption_code,general_exeption_no_code,apicTimeOut,apicError,updataGdt,processorMtrrSync,sleepTimeOut,ps2KeyInterruptProc,interruptHandle_AHCI,sysCallAddr
+extern   kernelData,general_exeption_code,general_exeption_no_code,xApicTimeOut,apicError,updataGdt,processorMtrrSync,sleepTimeOut,ps2KeyInterruptProc,interruptHandle_AHCI,sysCallAddr
 IA32_X2APIC_EOI equ 0x80B
 IA32_X2APIC_ESR equ 0x828
 IA32_X2APIC_INIT_COUNT equ 0x838
@@ -215,7 +215,8 @@ ret70:
     iretd
 
 interrupt_80_handler:
-	push dword [esp]
+	push ebp
+	push dword [esp+4]
 	push edi
 	push esi
 	push edx
@@ -230,7 +231,7 @@ interrupt_80_handler:
 	pop esi
 	pop edi
 	add esp,4
-	call x_apicwriteEOI
+	pop ebp
 	iretd
 
 interrupt_81_handler:
@@ -243,7 +244,7 @@ interrupt_81_handler:
  interrupt_82_handler:
  	pushad
 	pushfd
- 	call apicTimeOut
+ 	call xApicTimeOut
 	popfd
 	popad
  	iretd

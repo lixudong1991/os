@@ -337,10 +337,12 @@ void appendNewTcb(TcbList* taskList, TaskCtrBlock* newTcb)
 	if (taskList->size == 0)
 	{
 		taskList->tcb_Frist = taskList->tcb_Last = newTcb;
+		newTcb->next = newTcb->prior = NULL;
 		taskList->size++;
 	}
 	else {
 		newTcb->prior = taskList->tcb_Last;
+		newTcb->next = NULL;
 		taskList->tcb_Last->next = newTcb;
 		taskList->tcb_Last = newTcb;
 		taskList->size++;
@@ -408,6 +410,27 @@ void releaseLock(LockObj *lobj)
 	unlock(&(lockblock->lockData[0]));
 	asm("sti");
 }
+
+void runTask()
+{
+	LOCAL_APIC* xapic_obj = (LOCAL_APIC*)getXapicAddr();
+	uint32_t apid = xapic_obj->ID[0] >> 24;
+	while (pCpuCurrentTask[apid] == pEmptyTask[apid]);
+
+	cpuTaskTssdata[apid].pTssdata->cr3 = pCpuCurrentTask[apid]->processdata.context.cr3;
+	cpuTaskTssdata[apid].pTssdata->ioPermission = pCpuCurrentTask[apid]->processdata.context.ioPermission;
+	cpuTaskTssdata[apid].pTssdata->esp0 = pCpuCurrentTask[apid]->processdata.threads->context.esp0;
+	cpuTaskTssdata[apid].pTssdata->eflags = pCpuCurrentTask[apid]->processdata.threads->context.eflags;
+	cpuTaskTssdata[apid].pTssdata->esp = pCpuCurrentTask[apid]->processdata.threads->context.esp;
+	cpuTaskTssdata[apid].pTssdata->eip = pCpuCurrentTask[apid]->processdata.threads->context.eip;
+	pCpuCurrentTask[apid]->processdata.threads->status = RUNNING;
+	
+	char tasktss[8] = { 0 };
+	*(uint32_t*)tasktss = 0;
+	*(uint32_t*)(tasktss + 4) = cpuTaskTssdata[apid].tsssel;
+	xapic_obj->InitialCount[0] = 0xfffff;
+	callTss(tasktss);
+}
 void APproc(uint32 argv)
 {
 	setCpuHwp();
@@ -438,7 +461,7 @@ void APproc(uint32 argv)
 		xapic_obj->LVT_Timer[0] = 0x82;
 		xapic_obj->DivideConfiguration[0] = 3;
 		//	xapic_obj->InitialCount[0] = 0xfffff;
-	//	runTask();
+		runTask();
 		while (1)
 		{
 			// asm("cli");
@@ -822,6 +845,11 @@ void initTask()
 
 	uint32 waitap = 0xfffffff;
 	while (waitap--);
+
+	for (int i = 0; i < processorinfo.count; i++)
+	{
+		pCpuCurrentTask[i] = cpuTaskList[i].tcb_Frist;
+	}
 }
 
 int _start(void *bargv,void *vbe)
@@ -964,21 +992,20 @@ int _start(void *bargv,void *vbe)
 	fillRect(&rect, 0x707070);
 	initConsole();
 
+
 	g_pidIndex = (uint32*)allocUnCacheMem(sizeof(uint32));
 	*g_pidIndex = 0;
 
+	timerInit();
 
-	LOCAL_APIC* xapic_obj = (LOCAL_APIC*)getXapicAddr();
-	xapic_obj->LVT_Timer[0] = 0x82;
-	xapic_obj->DivideConfiguration[0] = 3;
 
 	initSysCall();
 	//check_cpuHwp();
 	//testFATfs();
 	initTask();
-	//runTask();
-	xapic_obj->ICR1[0] = 0;
-	xapic_obj->ICR0[0] = 0x84082;
+	runTask();
+	//xapic_obj->ICR1[0] = 0;
+	//xapic_obj->ICR0[0] = 0x84082;
 	/*
 	Bitmap* bitmap = createBitmap32FromBMP24("/img/bg.bmp");
 	rect.left = 400;

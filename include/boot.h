@@ -290,6 +290,7 @@ extern void set_cr4data(uint32 data);
 extern void set_cr3data(uint32 data);
 
 extern int cpuidcall(uint32 callnum, uint32 *eax, uint32 *ebx, uint32 *ecx, uint32 *edx);
+extern int cpuidsubcall(uint32 callnum, uint32 subnum ,uint32* eax, uint32* ebx, uint32* ecx, uint32* edx);
 extern int rdmsrcall(uint32 msrid, uint32 *eax, uint32 *edx);
 extern int wrmsrcall(uint32 msrid, uint32 eax, uint32 edx);
 extern int rdmsr_fence(uint32 msrid, uint32 *eax, uint32 *edx);

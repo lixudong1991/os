@@ -1,6 +1,6 @@
 
 global setgdtr,getgdtr,setldtr,settr,cs_data,ds_data,ss_data,fs_data,gs_data,cpuidcall,rdmsrcall,wrmsrcall,wrmsr_fence,rdmsr_fence,setds,setgs,setfs,setes,esp_data,cr3_data,flags_data,setBit,resetBit,testBit,allocatePhy4kPage,freePhy4kPage,allocateTargetPhy4kPage,sysInLong,sysOutLong,callTss,setidtr,cli_s,sti_s,invlpg_s,intcall,resetcr3,rtc_8259a_enable,interrupt8259a_disable
-global _monitor,_mwait,cr0_data,set_cr0data,cr4_data,set_cr4data,set_cr3data,pre_mtrr_change,post_mtrr_change,spinlock,unlock,sysInChar,sysOutChar,switchStack,switchNewTask
+global _monitor,_mwait,cr0_data,set_cr0data,cr4_data,set_cr4data,set_cr3data,pre_mtrr_change,post_mtrr_change,spinlock,unlock,sysInChar,sysOutChar,switchStack,switchNewTask,cpuidsubcall,getCPUbusfrequencyWithAPICDiv16
 pageStatusOffset equ 28
 IA32_MTRR_DEF_TYPE_MSR equ 0x2FF
 extern bootparam
@@ -458,6 +458,33 @@ cpuidcall:
 
 
 
+cpuidsubcall:
+	push ebp
+	mov ebp,esp
+	push ebx
+	push ecx
+	push edx
+	xor ebx,ebx
+	xor edx,edx
+	mov eax,[ebp+8]
+	mov ecx,[ebp+12]
+	cpuid
+	push ebx
+	mov ebx,[ebp+0x10]
+	mov [ebx],eax
+	pop ebx
+	mov eax,[ebp+0x14]
+	mov [eax],ebx
+	mov eax,[ebp+0x18]
+	mov [eax],ecx
+	mov eax,[ebp+0x1c]
+	mov [eax],edx
+	pop edx
+	pop ecx
+	pop ebx
+	pop ebp
+	ret
+
 rdmsrcall:
 	push ebp
 	mov ebp,esp
@@ -729,3 +756,74 @@ switchNewTask:
 	push dword [eax+32]
 	iretd
 	
+
+APIC_LVT_TMR	equ 320h
+APIC_TMRINITCNT	equ 380h
+APIC_TMRCURRCNT	equ 390h
+APIC_DISABLE	equ 10000h
+getCPUbusfrequencyWithAPICDiv16:
+		push ebp
+		mov ebp,esp
+		push ebx
+		push ecx
+		push edx
+		mov ecx,[ebp+8]
+		;ebx=0xFFFFFFFF;
+		xor			ebx, ebx
+		dec			ebx
+ 
+		;initialize PIT Ch 2 in one-shot mode
+		;waiting 1 sec could slow down boot time considerably,
+		;so we'll wait 1/100 sec, and multiply the counted ticks
+		mov			dx, 61h
+		in			al, dx
+		and			al, 0fdh
+		or			al, 1
+		out			dx, al
+		mov			al, 10110010b
+		out			43h, al
+		;1193180/100 Hz = 11931 = 2e9bh
+		mov			al, 9bh		;LSB
+		out			42h, al
+		in			al, 60h		;short delay
+		mov			al, 2eh		;MSB
+		out			42h, al
+		;reset PIT one-shot counter (start counting)
+		in			al, dx
+		and			al, 0feh
+		out			dx, al		;gate low
+		or			al, 1
+		out			dx, al		;gate high
+		;reset APIC timer (set counter to -1)
+		mov			dword [ecx+APIC_TMRINITCNT], ebx
+		;now wait until PIT counter reaches zero
+@b:		in			al, dx
+		and			al, 20h
+		jz			@b
+		;stop APIC timer
+		mov			dword [ecx+APIC_LVT_TMR], APIC_DISABLE
+		;now do the math...
+		xor			eax, eax
+		xor			ebx, ebx
+		dec			eax
+		;get current counter value
+		mov			ebx, dword [ecx+APIC_TMRCURRCNT]
+		;it is counted down from -1, make it positive
+		sub			eax, ebx
+		inc			eax
+		;we used divide value different than 1, so now we have to multiply the result by 16
+		shl			eax, 4		;*16
+		xor			edx, edx
+		;moreover, PIT did not wait a whole sec, only a fraction, so multiply by that too
+		mov			ebx, 100	;*PITHz
+		mul			ebx
+	   ;-----edx:eax now holds the CPU bus frequency-----
+	    mov ecx,[ebp+12]
+		mov [ecx],edx
+		mov ecx,[ebp+16]
+		mov [ecx],eax
+		pop edx
+		pop ecx
+		pop ebx
+		pop ebp
+		ret
