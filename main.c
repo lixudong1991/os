@@ -18,6 +18,7 @@
 #include "fat32.h"
 #include "ff.h"
 #include "vbe.h"
+#include "math.h"
 
 #define STACKLIMIT_G1(a) ((((uint32)(a)) - 1) >> 12) // gdt 表项粒度为1的段界限
 
@@ -848,7 +849,7 @@ void initTask()
 	{
 		pCpuCurrentTask[i] = cpuTaskList[i].tcb_Frist;
 		cpuTaskList[i].baseSchedCount = (processorinfo.processcontent[i].cpuBusFrequencyLow / 1000) * MINSCHEDTIME;
-		consolePrintf("cpu %d bus frequency high:0x%x  low:0x%x\n", i, processorinfo.processcontent[i].cpuBusFrequencyHigh, processorinfo.processcontent[i].cpuBusFrequencyLow);
+		consolePrintf("cpu %d bus frequency high:0x%x  low:0x%x nsPerCycle:%d\n", i, processorinfo.processcontent[i].cpuBusFrequencyHigh, processorinfo.processcontent[i].cpuBusFrequencyLow, processorinfo.processcontent[i].nsCountPerCycle);
 	}
 }
 
@@ -1123,7 +1124,6 @@ void syncTask_KernelCr3(TaskCtrBlock* task)
 }
 
 extern uint32_t getCPUbusfrequencyLocalApicTimer(uint32_t apicaddr, uint32_t* datahigh, uint32_t* datalow);
-extern uint32_t getCPUbusfrequencyTscTimer(uint32_t apicaddr, uint32_t* datahigh, uint32_t* datalow);
 void timerInit()
 {
 	uint32_t eax = 0, ebx = 0, ecx = 0, edx = 0;
@@ -1142,6 +1142,7 @@ void timerInit()
 
 	processorinfo.processcontent[apid].cpuBusFrequencyLow = eax;
 	processorinfo.processcontent[apid].cpuBusFrequencyHigh = edx;
+	processorinfo.processcontent[apid].nsCountPerCycle = (((uint32_t)1000000000 / eax));
 	xapic_obj->LVT_Timer[0] = 0x82;//一次性模式
 	//xapic_obj->LVT_Timer[0]=0x20082; //周期模式
 	xapic_obj->DivideConfiguration[0] = 0xb;

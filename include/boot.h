@@ -58,10 +58,11 @@ typedef struct AParg
 
 typedef struct  ProcessorContent
 {
-	uint32 id;
-	uint32 apicAddr;	
-	uint32 cpuBusFrequencyLow;//cpu外频每秒计数低32位
-	uint32 cpuBusFrequencyHigh;//cpu外频每秒计数高32位
+	uint32_t id;
+	uint32_t apicAddr;
+	uint32_t cpuBusFrequencyLow;//cpu外频每秒计数低32位
+	uint32_t cpuBusFrequencyHigh;//cpu外频每秒计数高32位
+	uint32_t nsCountPerCycle;//每次计数代表的纳秒数
 }ProcessorContent;
 
 #define PROCESSOR_MAX_COUNT  8
@@ -184,6 +185,11 @@ typedef struct TaskCtrBlock
 	process_t processdata;
 } TaskCtrBlock;
 
+typedef struct SleepTaskNode {
+	struct SleepTaskNode* next;
+	struct SleepTaskNode* prior;
+	TaskCtrBlock* pTask;
+}SleepTaskNode;
 #define MINSCHEDTIME 20 //基础调度时间20ms(单位毫秒)
 typedef struct TcbList
 {

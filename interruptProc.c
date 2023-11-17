@@ -20,7 +20,7 @@ typedef int (*InterruptPrintfFun)(const char* fmt, ...);
 
 volatile InterruptPrintfFun interrput = interruptPrintf;
 
-
+static SleepTaskNode* pSleepList = NULL;
 int general_exeption_no_code(uint32 eno,uint32 addr)
 {
     interrput("********Exception in 0x%x %d encounted********\n",addr, eno);
@@ -154,11 +154,15 @@ void xApicTimeOut()
     }
 
 }
-void taskSleep()
+void taskSleep(uint32_t tv_sec, uint32_t tv_nsec)
 {
     LOCAL_APIC* apic = (LOCAL_APIC*)getXapicAddr();
     uint32_t apid = apic->ID[0] >> 24;
     pCpuCurrentTask[apid]->processdata.threads->status = SLEEPING;
+    pCpuCurrentTask[apid]->processdata.threads->wake_time = tv_sec;
+    pCpuCurrentTask[apid]->processdata.threads->wake_time *= processorinfo.processcontent[apid].cpuBusFrequencyLow;
+    pCpuCurrentTask[apid]->processdata.threads->wake_time += (tv_nsec / processorinfo.processcontent[apid].nsCountPerCycle);
+    interrput("pCpuCurrentTask apid:%d pid%d sleepcount:0x%llx\n", apid, pCpuCurrentTask[apid]->processdata.pid, pCpuCurrentTask[apid]->processdata.threads->wake_time);
     xApicTimeOut();
 }
 void apicError()

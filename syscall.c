@@ -8,7 +8,7 @@ uint32_t sysCallAddr[SYSCALL_COUNT] = { 0 };
 typedef int (*InterruptPrintfFun)(const char* fmt, ...);
 extern InterruptPrintfFun interrput;
 extern void x_apicwriteEOI();
-extern void taskSleep();
+extern void taskSleep(uint32_t tv_sec, uint32_t tv_nsec);
 uint32_t sysRead(uint32_t callnum,uint32_t arg1, uint32_t arg2, uint32_t arg3, uint32_t arg4, uint32_t arg5, uint32_t arg6)
 {
 	interrput("callnum: %d sysRead(%d, 0x%x, %d)\n", callnum, arg1, arg2, arg3);
@@ -85,7 +85,7 @@ uint32_t sysNanoSleep(uint32_t callnum, uint32_t arg1, uint32_t arg2, uint32_t a
 	timespec32* req = (timespec32*)arg1;
 	timespec32* rem = (timespec32*)arg2;
 	interrput("callnum: %d sysNanoSleep(0x%x, 0x%x) calladdr:0x%x  req(0x%x:0x%x) rem(0x%x:0x%x)\n", callnum, arg1, arg2, arg6, req->tv_sec, req->tv_nsec, rem->tv_sec, rem->tv_nsec);
-	taskSleep();
+	taskSleep(req->tv_sec, req->tv_nsec);
 	return 0;
 }
 uint32_t sysClockNanoSleep(uint32_t callnum, uint32_t arg1, uint32_t arg2, uint32_t arg3, uint32_t arg4, uint32_t arg5, uint32_t arg6)
@@ -93,7 +93,7 @@ uint32_t sysClockNanoSleep(uint32_t callnum, uint32_t arg1, uint32_t arg2, uint3
 	timespec32* req = (timespec32*)arg1;
 	timespec32* rem = (timespec32*)arg2;
 	interrput("callnum: %d sysClockNanoSleep(0x%x, 0x%x,0x%x, 0x%x) calladdr:0x%x   req(0x%x:0x%x) rem(0x%x:0x%x)\n", callnum, arg1, arg2, arg3, arg4, arg6, req->tv_sec, req->tv_nsec, rem->tv_sec, rem->tv_nsec);
-	taskSleep();
+	taskSleep(req->tv_sec, req->tv_nsec);
 	return 0;
 }
 
