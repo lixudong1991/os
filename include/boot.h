@@ -191,12 +191,15 @@ typedef struct SleepTaskNode {
 	TaskCtrBlock* pTask;
 }SleepTaskNode;
 #define MINSCHEDTIME 20 //基础调度时间20ms(单位毫秒)
+#define MAXTASKCOUNT 4096  //最多任务数目
 typedef struct TcbList
 {
 	TaskCtrBlock *tcb_Frist;
 	TaskCtrBlock *tcb_Last;
 	uint32_t size;
 	uint32_t baseSchedCount;
+	SleepTaskNode* pSleepBuff;
+    SleepTaskNode* pSleepTaskHead;
 } TcbList;
 typedef struct ProgramaData
 {

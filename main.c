@@ -678,6 +678,9 @@ void createUserSegmentDesc()
 		tempSeg.S = 0;
 		tempSeg.Type = TSSSEGTYPE;
 		cpuTaskTssdata[i].tsssel = appendTableSegItem(&(kernelData.gdtInfo), &tempSeg);
+		cpuTaskList[i].pSleepBuff = allocate_memory(pEmptyTask[0], MAXTASKCOUNT * sizeof(SleepTaskNode), PAGE_G | PAGE_RW);
+		memset_s((char*)(cpuTaskList[i].pSleepBuff), 0, MAXTASKCOUNT * sizeof(SleepTaskNode));
+		cpuTaskList[i].pSleepTaskHead = &(cpuTaskList[i].pSleepBuff[0]);
 	}
 	setgdtr(&(kernelData.gdtInfo));
 
@@ -835,7 +838,7 @@ void initTask()
 		kernel_free(filedata);
 		return;
 	}
-	for (int i=0;i< 8; i++)
+	for (int i=0;i< 2; i++)
 	{
 		createProcess(filedata,1,i,NULL);
 	}

@@ -20,7 +20,6 @@ typedef int (*InterruptPrintfFun)(const char* fmt, ...);
 
 volatile InterruptPrintfFun interrput = interruptPrintf;
 
-static SleepTaskNode* pSleepList = NULL;
 int general_exeption_no_code(uint32 eno,uint32 addr)
 {
     interrput("********Exception in 0x%x %d encounted********\n",addr, eno);
@@ -87,6 +86,31 @@ void xApicTimeOut()
         pCpuCurrentTask[apid]->processdata.threads->status = READY;
 
     do {
+        if (cpuTaskList[apid].pSleepTaskHead!= &(cpuTaskList[apid].pSleepBuff[0]))
+        {
+            if (cpuTaskList[apid].pSleepTaskHead->pTask->processdata.threads->wake_time <= cpuTaskList[apid].baseSchedCount)
+            {
+                cpuTaskList[apid].pSleepTaskHead->pTask->processdata.threads->wake_time = 0;
+                while (cpuTaskList[apid].pSleepTaskHead != &(cpuTaskList[apid].pSleepBuff[0]))
+                {
+                    cpuTaskList[apid].pSleepTaskHead->pTask->processdata.threads->status = READY;
+                    SleepTaskNode* temp = cpuTaskList[apid].pSleepTaskHead;
+                    cpuTaskList[apid].pSleepTaskHead = (cpuTaskList[apid].pSleepTaskHead->next);
+                    memset(temp,0,sizeof(SleepTaskNode));
+                    if (cpuTaskList[apid].pSleepTaskHead->pTask->processdata.threads->wake_time != 0)
+                        break;
+                }
+                if (cpuTaskList[apid].pSleepTaskHead == &(cpuTaskList[apid].pSleepBuff[0]))
+                {
+                    cpuTaskList[apid].pSleepTaskHead->next = cpuTaskList[apid].pSleepTaskHead->prior =NULL;
+                }
+            }
+            else
+            {
+                cpuTaskList[apid].pSleepTaskHead->pTask->processdata.threads->wake_time -= cpuTaskList[apid].baseSchedCount;
+            }
+            
+        }
 
         pTargetTask = pCpuCurrentTask[apid]->next;
 
@@ -117,9 +141,16 @@ void xApicTimeOut()
         }
         if (pTargetTask == NULL)
         {
+            apic->LVT_Timer[0] = 0x6f;//一次性模式
+            apic->DivideConfiguration[0] = 0xb;
+            apic->InitialCount[0] = cpuTaskList[apid].baseSchedCount;
             asm("sti");
             asm("hlt");
             asm("cli");
+            apic->LVT_Timer[0] = 0x82;//一次性模式
+//xapic_obj->LVT_Timer[0]=0x20082; //周期模式
+            apic->DivideConfiguration[0] = 0xb;
+            apic->InitialCount[0] = 0;
         }
     } while (pTargetTask==NULL);
 
@@ -148,7 +179,7 @@ void xApicTimeOut()
     }
     else
     {
-        interrput("pCpuCurrentTask apid:%d pid%d cr3:0x%x\n", apid, pTargetTask->processdata.pid,cr3_data());
+        //interrput("pCpuCurrentTask apid:%d pid%d cr3:0x%x\n", apid, pTargetTask->processdata.pid,cr3_data());
         xapicwriteEOI();
         apic->InitialCount[0] = cpuTaskList[apid].baseSchedCount;;
     }
@@ -158,11 +189,79 @@ void taskSleep(uint32_t tv_sec, uint32_t tv_nsec)
 {
     LOCAL_APIC* apic = (LOCAL_APIC*)getXapicAddr();
     uint32_t apid = apic->ID[0] >> 24;
+    apic->InitialCount[0] = 0;
     pCpuCurrentTask[apid]->processdata.threads->status = SLEEPING;
     pCpuCurrentTask[apid]->processdata.threads->wake_time = tv_sec;
     pCpuCurrentTask[apid]->processdata.threads->wake_time *= processorinfo.processcontent[apid].cpuBusFrequencyLow;
     pCpuCurrentTask[apid]->processdata.threads->wake_time += (tv_nsec / processorinfo.processcontent[apid].nsCountPerCycle);
-    interrput("pCpuCurrentTask apid:%d pid%d sleepcount:0x%llx\n", apid, pCpuCurrentTask[apid]->processdata.pid, pCpuCurrentTask[apid]->processdata.threads->wake_time);
+
+   // interrput("pCpuCurrentTask apid:%d pid%d sleepcount:0x%llx\n", apid, pCpuCurrentTask[apid]->processdata.pid, pCpuCurrentTask[apid]->processdata.threads->wake_time);
+    SleepTaskNode* sleepNode = NULL;
+    for (int i=1;i< MAXTASKCOUNT;i++)
+    {
+        if (cpuTaskList[apid].pSleepBuff[i].pTask == NULL)
+        {
+            sleepNode = &(cpuTaskList[apid].pSleepBuff[i]);
+            break;
+        }
+    }
+    if (sleepNode)
+    {
+      //  interrput("cpuid :%d sleepNode 0x%x pSleepTaskHead:0x%x  pSleepBuff[0]:0x%x\n", apid, sleepNode, cpuTaskList[apid].pSleepTaskHead, &(cpuTaskList[apid].pSleepBuff[0]));
+        sleepNode->pTask = pCpuCurrentTask[apid];
+        sleepNode->next = sleepNode->prior = NULL;
+        SleepTaskNode* pTargetNode = cpuTaskList[apid].pSleepTaskHead;
+        uint64_t sleepCount = 0;
+        while ( pTargetNode && (pTargetNode!= &(cpuTaskList[apid].pSleepBuff[0])))
+        {
+            sleepCount += (pTargetNode->pTask->processdata.threads->wake_time);
+            if (sleepNode->pTask->processdata.threads->wake_time<= sleepCount)
+            {
+                break;
+            }
+            pTargetNode = pTargetNode->next;
+        }
+        if (pTargetNode == &(cpuTaskList[apid].pSleepBuff[0]))
+        {
+
+            if (pTargetNode->prior==NULL)
+            {
+                cpuTaskList[apid].pSleepTaskHead = sleepNode;
+                sleepNode->next = pTargetNode;
+                pTargetNode->prior = sleepNode;
+            }
+            else
+            {
+                sleepNode->pTask->processdata.threads->wake_time -= sleepCount;
+                pTargetNode->prior->next = sleepNode;
+                sleepNode->prior = pTargetNode->prior;
+                sleepNode->next = pTargetNode;
+                pTargetNode->prior = sleepNode;
+            }
+        }
+        else
+        {
+            uint64_t tempcount = sleepCount - pTargetNode->pTask->processdata.threads->wake_time;
+            pTargetNode->pTask->processdata.threads->wake_time =(sleepCount- sleepNode->pTask->processdata.threads->wake_time);
+            sleepNode->pTask->processdata.threads->wake_time -= tempcount;
+
+            if (pTargetNode->prior == NULL)
+            {
+                cpuTaskList[apid].pSleepTaskHead = sleepNode;
+                sleepNode->next = pTargetNode;
+                pTargetNode->prior = sleepNode;
+            }
+            else
+            {
+                sleepNode->pTask->processdata.threads->wake_time -= sleepCount;
+                pTargetNode->prior->next = sleepNode;
+                sleepNode->prior = pTargetNode->prior;
+                sleepNode->next = pTargetNode;
+                pTargetNode->prior = sleepNode;
+            }
+        }
+    //    interrput("cpuid :%d sleepNode 0x%x pSleepTaskHead:0x%x  pSleepBuff[0]:0x%x\n", apid, sleepNode, cpuTaskList[apid].pSleepTaskHead, &(cpuTaskList[apid].pSleepBuff[0]));
+    }
     xApicTimeOut();
 }
 void apicError()
