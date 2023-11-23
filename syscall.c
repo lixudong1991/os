@@ -84,7 +84,7 @@ uint32_t sysNanoSleep(uint32_t callnum, uint32_t arg1, uint32_t arg2, uint32_t a
 {
 	timespec32* req = (timespec32*)arg1;
 	timespec32* rem = (timespec32*)arg2;
-	// interrput("callnum: %d sysNanoSleep(0x%x, 0x%x) calladdr:0x%x  req(0x%x:0x%x) rem(0x%x:0x%x)\n", callnum, arg1, arg2, arg6, req->tv_sec, req->tv_nsec, rem->tv_sec, rem->tv_nsec);
+	//interrput("callnum: %d sysNanoSleep(0x%x, 0x%x) calladdr:0x%x  req(0x%x:0x%x) rem(0x%x:0x%x)\n", callnum, arg1, arg2, arg6, req->tv_sec, req->tv_nsec, rem->tv_sec, rem->tv_nsec);
 	taskSleep(req->tv_sec, req->tv_nsec);
 	return 0;
 }

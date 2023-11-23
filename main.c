@@ -8,7 +8,6 @@
 #include "apic.h"
 #include "cpufeature.h"
 #include "memcachectl.h"
-#include "screen.h"
 #include "acpi.h"
 #include "ioapic.h"
 #include "ps2device.h"
@@ -18,7 +17,6 @@
 #include "fat32.h"
 #include "ff.h"
 #include "vbe.h"
-#include "math.h"
 
 #define STACKLIMIT_G1(a) ((((uint32)(a)) - 1) >> 12) // gdt 表项粒度为1的段界限
 
@@ -838,7 +836,7 @@ void initTask()
 		kernel_free(filedata);
 		return;
 	}
-	for (int i=0;i< 2; i++)
+	for (int i=0;i< 8; i++)
 	{
 		createProcess(filedata,1,i,NULL);
 	}
