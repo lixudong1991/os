@@ -836,7 +836,7 @@ void initTask()
 		kernel_free(filedata);
 		return;
 	}
-	for (int i=0;i< 8; i++)
+	for (int i=0;i< processorinfo.count; i++)
 	{
 		createProcess(filedata,1,i,NULL);
 	}
