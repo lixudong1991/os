@@ -215,7 +215,6 @@ ret70:
     iretd
 
 interrupt_80_handler:	
-	push dword [esp+4]
 	push ebp
 	push edi
 	push esi
@@ -231,7 +230,6 @@ interrupt_80_handler:
 	pop esi
 	pop edi
 	pop ebp
-	add esp,4
 	iretd
 
 interrupt_81_handler:
